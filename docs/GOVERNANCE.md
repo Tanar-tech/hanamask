@@ -1,6 +1,8 @@
-# work-manager リポジトリ管理規約
+# hanamask リポジトリ管理規約
 
-本規約は work-manager（Windowsアプリケーション）開発における体制・役割・作業ルールを定める。
+本規約は hanamask（ローカルElectronデスクトップアプリ、詳細は [docs/REQUIREMENTS.md](REQUIREMENTS.md)）開発における体制・役割・作業ルールを定める。
+
+> 2026-08-03: アーキテクチャをNext.js/PostgreSQL/AWSサーバーレス構成からElectron+MCPサーバー+SQLiteのローカル完結型デスクトップアプリへ全面転換（docs/REQUIREMENTS.md確定）。本規約中、旧構成に依存していた記載（§3.1 PRプレビュー環境、§8のマルチテナント認可ルール等）は本改訂で削除・更新した。
 
 ## 1. 目的
 
@@ -33,15 +35,9 @@
   - 単一の会話内で完結する小規模なタスクは、従来どおり Agent tool の `isolation: "worktree"` や Cursorサブエージェント（`.cursor/agents/`）を用いてもよい。
 - 作業ブランチから `main` へのマージは、開発管理者によるレビュー完了後に行う。マージ方法（マージコミット/squash等）は当面 squash merge を基本とし、履歴を単純に保つ。
 
-### 3.1 PRプレビュー環境（2026-07-27 /goal指示）
+### 3.1 デプロイ・配布（2026-08-03改訂）
 
-作業ブランチからPRを発行すると、そのPRのコードが動作する独立した検証環境が自動で立ち上がる（`.github/workflows/pr-preview.yml`）。開発者・レビュアーはPRに投稿されるURLにアクセスして、マージ前に実機で確認できる。
-
-- **URL**: `https://pr-<PR番号>.preview.dev.takudon3.com`（PRを開くとBotがコメントする）。
-- **ライフサイクル**: PRの `opened`/`synchronize`/`reopened` でデプロイ・更新、`closed`（マージ含む）で自動破棄。
-- **DB分離**: DBは単一のAurora（本番と同じクラスタ）を共有し、PRごとにPostgreSQLスキーマ `pr_<PR番号>` を作成してデータを分離する。プレビュー環境のアプリはそのスキーマのみにアクセスする。スキーマはPRクローズ時に破棄される。
-- **構成・仕組みの詳細**は [docs/AWS.md](AWS.md) の「PRプレビュー環境」を正とする。
-- プレビュー環境は検証用であり本番データを持たない。本番（`main` マージ後の [docs/CICD.md](CICD.md) §5 Deploy）とはドメイン・スキーマ・セッション鍵が分離されている。
+hanamaskはローカル完結のElectronデスクトップアプリであり、AWSサーバーレス構成・PRプレビュー環境は廃止した。配布はインストーラー（`electron-builder`等）の再配布によるため、クラウド上のデプロイパイプラインは不要（docs/REQUIREMENTS.md §5）。
 
 ## 4. コミットルール
 
@@ -109,11 +105,9 @@ herdr（7.1）が複数の独立したタスクをworktree単位で並列化す�
 
 一般的なコーディングスタイル・コメント方針（YAGNI、コメントは「なぜ」のみ等）は `~/.claude/CLAUDE.md`（グローバル規約）の Coding Style / Comments 節に従う。本プロジェクト固有の規約のみ以下に記す。
 
-- 技術スタック（Webアプリ化に伴い変更。旧: .NET/WPF・WinUI3）: Next.js（App Router, TypeScript）+ PostgreSQL + Prisma ORM + Auth.js（認証）+ Stripe（課金）+ Tailwind CSS。詳細は [docs/REQUIREMENTS.md](REQUIREMENTS.md) §5参照。
-- テスト: 単体テストは Vitest（既存採用ランナー、グローバル規約の「既存ランナーがあれば従う」に該当）、E2Eは Playwright（暫定・要否含め [docs/REQUIREMENTS.md](REQUIREMENTS.md) §7で確認）。
-- サーバー側で完結できるロジック（DB操作、決済処理、認可判定）はAPI Route/Server Componentに置き、クライアントに秘密情報・機密ロジックを持ち出さない。
-- **組織（テナント）をまたぐデータアクセスは必ずサーバー側で `organization_id` によるフィルタを通す。認可漏れは重大インシデントとして扱う**（マルチテナントSaaS固有のルールで、グローバル規約には対応する記載がないため必須で残す）。
-- CI/CDの構成は [docs/CICD.md](CICD.md) を参照。
+- 技術スタック（2026-08-03改訂。旧: Next.js/PostgreSQL/AWSサーバーレス構成）: Electron（デスクトップアプリ本体）+ Node.js製MCP SDK（mainプロセス内蔵のMCPサーバー）+ SQLite（ローカルDB）。UI（レンダラープロセス）の詳細実装は基盤実装時に確定する。詳細は [docs/REQUIREMENTS.md](REQUIREMENTS.md) 参照。
+- テスト: 単体テストは Vitest（既存採用ランナー、グローバル規約の「既存ランナーがあれば従う」に該当）。
+- Anthropic APIキー等の秘密情報はElectronの `safeStorage`（OSセキュアストレージ）で暗号化して保存する。環境変数(.env)やサードパーティの汎用キーストアは使わない（docs/REQUIREMENTS.md §4.6）。
 
 ## 9. セキュリティ・シークレット管理
 
