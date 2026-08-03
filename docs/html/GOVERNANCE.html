@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hanamask リポジトリ管理規約</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../GOVERNANCE.md">docs/GOVERNANCE.md</a></p>
+
+<h1>hanamask リポジトリ管理規約</h1>
+
+<p>本規約は hanamask（ローカルElectronデスクトップアプリ、詳細は <a href="REQUIREMENTS.html">docs/REQUIREMENTS.md</a>）開発における体制・役割・作業ルールを定める。</p>
+
+<blockquote><p>2026-08-03: アーキテクチャをNext.js/PostgreSQL/AWSサーバーレス構成からElectron+MCPサーバー+SQLiteのローカル完結型デスクトップアプリへ全面転換（docs/REQUIREMENTS.md確定）。本規約中、旧構成に依存していた記載（§3.1 PRプレビュー環境、§8のマルチテナント認可ルール等）は本改訂で削除・更新した。</p></blockquote>
+
+<h2 id="1">1. 目的</h2>
+<ul>
+<li>管理者・開発管理者・開発要員（サブエージェント）が異なる粒度で並行して作業することを前提に、
+権限の所在と作業の入出力ルールを明確にし、意図しない破壊的変更や品質低下を防ぐ。</li>
+<li>本規約は開発の進行に伴って改訂される。改訂ルールは <a href="#11">11. 規約自体の改訂</a> を参照。</li>
+</ul>
+
+<h2 id="2">2. 体制と役割</h2>
+<table>
+<thead><tr><th>役割</th><th>担当</th><th>責務</th></tr></thead>
+<tbody>
+<tr><td>管理者</td><td>ユーザー本人</td><td>要件定義、優先順位決定、リリース可否・破壊的操作の最終承認</td></tr>
+<tr><td>開発管理者</td><td>このチャット（Claude Code、通常Fableモデル）</td><td>タスク分解、開発要員への指示、成果物レビュー、ブランチ/PR管理、品質保証、進捗報告</td></tr>
+<tr><td>開発要員</td><td>主に OpenAI Codex CLI（herdr経由でworktreeごとに並列起動）。小規模タスクは会話内Agent toolやCursorサブエージェントも利用可</td><td>個別タスクの実装・テスト・調査、開発管理者への報告</td></tr>
+</tbody>
+</table>
+<ul>
+<li>開発管理者は管理者の代理として意思決定を行わない。<a href="#6">6. 管理者の承認が必要な操作</a>に該当する事項は、必ず事前に管理者へ確認する。</li>
+<li>開発要員は開発管理者からの委任範囲内でのみ作業する。委任範囲外の判断が必要になった場合は作業を中断し、開発管理者に差し戻す。</li>
+<li>並列実行は <a href="https://herdr.dev">herdr</a>（複数AIエージェントセッションをターミナル上で並行管理するツール。VSCodeの統合ターミナル内で動作する）を主手段とする。開発管理者（Claude Code）がherdr上で各セッションを統括し、実装は主にCodexセッションが担う。セットアップ・運用方法は <a href="HERDR.html">docs/HERDR.md</a>・<a href="CODEX.html">docs/CODEX.md</a> を参照。</li>
+</ul>
+
+<h2 id="3">3. ブランチ戦略</h2>
+<ul>
+<li><code>main</code>: 保護ブランチ。常にビルド可能・動作する状態を維持する。直接コミットは行わない。</li>
+<li>作業ブランチは用途別プレフィックスを付ける。
+<ul>
+<li><code>feature/xxx</code>: 新機能</li>
+<li><code>fix/xxx</code>: バグ修正</li>
+<li><code>chore/xxx</code>: 雑務・設定変更</li>
+<li><code>refactor/xxx</code>: リファクタリング</li>
+</ul>
+</li>
+<li>開発要員にタスクを委任する際は、原則として独立した worktree で作業させ、<code>main</code> を含む他ブランチに影響を与えないようにする。
+<ul>
+<li>並列実行するタスクは、タスクごとに <code>git worktree</code> を作成し、herdr でそれぞれ独立したCodex CLIセッションとして起動する（<a href="HERDR.html">docs/HERDR.md</a>・<a href="CODEX.html">docs/CODEX.md</a> 参照）。</li>
+<li>単一の会話内で完結する小規模なタスクは、従来どおり Agent tool の <code>isolation: "worktree"</code> や Cursorサブエージェント（<code>.cursor/agents/</code>）を用いてもよい。</li>
+</ul>
+</li>
+<li>作業ブランチから <code>main</code> へのマージは、開発管理者によるレビュー完了後に行う。マージ方法（マージコミット/squash等）は当面 squash merge を基本とし、履歴を単純に保つ。</li>
+</ul>
+
+<h3 id="3-1">3.1 デプロイ・配布（2026-08-03改訂）</h3>
+<p>hanamaskはローカル完結のElectronデスクトップアプリであり、AWSサーバーレス構成・PRプレビュー環境は廃止した。配布はインストーラー（<code>electron-builder</code>等）の再配布によるため、クラウド上のデプロイパイプラインは不要（docs/REQUIREMENTS.md §5）。</p>
+
+<h2 id="4">4. コミットルール</h2>
+<p>コミットメッセージの基本形式（Conventional Commits）・粒度・Git操作の可否は <code>~/.claude/CLAUDE.md</code>（グローバル規約）の Git Operations 節に従う。本プロジェクト固有の差分のみ以下に記す。</p>
+<ul>
+<li>プレフィックスはグローバル規約の <code>feat:</code>/<code>fix:</code>/<code>refactor:</code>/<code>docs:</code>/<code>chore:</code> に加え、テスト専用コミットには <code>test:</code> も使用してよい。</li>
+<li>コミットメッセージの言語は日本語・英語どちらでも可（1コミット内で混在させない）。</li>
+<li>PRマージ方式（squash merge）・日常的なGit操作（commit/push/PR作成）の自律実行は、2026-07-29の管理者判断によりグローバル規約側を本プロジェクトの運用に合わせて更新済みのため、両者は一致している（<a href="#11-1">11.1</a> 参照）。</li>
+</ul>
+
+<h2 id="5">5. レビュー運用</h2>
+<ul>
+<li>開発要員が作成したコード・成果物は、<code>main</code> へ反映する前に必ず開発管理者がレビューする。
+<ul>
+<li>差分の意図を理解しているか（レビューの丸投げをしない）</li>
+<li>過剰な実装・不要な抽象化がないか</li>
+<li>セキュリティ上の懸念（OWASP Top 10等）がないか</li>
+<li>既存のコーディング規約・アーキテクチャとの整合性</li>
+</ul>
+</li>
+<li>動作確認が可能な変更（UI変更・実行可能なロジック）は、レビュー時に実際に動作させて確認する（<code>/verify</code> 相当のプロセス）。テストが通ることと機能が正しいことは別であることに留意する。</li>
+<li>レビューで問題が見つかった場合は開発要員（サブエージェント）に差し戻す。開発管理者が直接修正するのは軽微な修正に留める。</li>
+</ul>
+
+<h2 id="6">6. 管理者の承認が必要な操作</h2>
+<p>以下は開発管理者が単独で実行せず、事前に管理者へ確認・承認を得る。</p>
+<ul>
+<li><code>main</code> ブランチへの破壊的操作（force push, <code>reset --hard</code>, ブランチ削除）</li>
+<li>リリース・タグ付け、公開リポジトリへの push</li>
+<li>依存関係の大幅な追加・削除・メジャーバージョンアップ</li>
+<li>CI/CD・ビルドパイプラインの設定変更</li>
+<li>アーキテクチャ上の不可逆な決定（採用フレームワーク、DB選定、配布方式など）</li>
+<li>外部サービス・APIキー・シークレットに関わる設定</li>
+<li>本規約自体の改訂</li>
+</ul>
+<p>上記に該当しない日常的な開発作業（ブランチ作成、実装、テスト、ドキュメント更新、<code>main</code> への通常マージ）は開発管理者の裁量で進めてよい。</p>
+
+<h2 id="7">7. 開発要員（サブエージェント）運用ルール</h2>
+<ul>
+<li>タスクは独立して検証可能な単位に分解してから委任する。委任時には目的・背景・完了条件を明示する（詳細はAgent運用の指針に準ずる）。</li>
+<li>サブエージェントの成果は「実施したと申告した内容」ではなく、実際の差分・出力を開発管理者が確認してから採用する。</li>
+<li>複数のサブエージェントに並行してタスクを委任する場合、担当領域（ファイル・機能範囲）が重複・競合しないよう開発管理者が事前にタスクとworktreeを分割する。</li>
+<li>機密情報（APIキー、個人情報、認証情報）をタスク指示やコード中に含めない。</li>
+</ul>
+
+<h3 id="7-1">7.1 herdr を用いた並列実行フロー</h3>
+<p>開発管理者（Claude Code）が統括役、Codex CLIセッションが実装役という分担を基本とする。</p>
+<ol>
+<li>開発管理者がタスクを独立した単位に分解し、タスクごとに <code>git worktree add</code> で作業ツリーを作成する。</li>
+<li><code>herdr agent start &lt;task-name&gt; --cwd &lt;worktree-path&gt; -- codex</code> で各worktreeに対応するCodex CLIセッションを起動する（詳細は <a href="CODEX.html">docs/CODEX.md</a>）。Claude Code CLIセッションを直接使いたい場合は <code>-- claude</code> でも起動できる。</li>
+<li>herdrのダッシュボードで各セッションの状態（idle/working/blocked）を監視し、対応が必要なセッションを把握する。</li>
+<li>セッションが完了（idle）になったら、開発管理者が差分を確認する（<a href="#5">5. レビュー運用</a>に従う）。Codexの成果物も、開発要員（サブエージェント）の成果物と同様に扱い、申告内容を鵜呑みにしない。</li>
+<li>レビュー完了後、作業ブランチをPR経由で <code>main</code> にマージし、対応するworktreeを削除する。</li>
+<li>herdr・Codex自体の設定（<code>~/.claude/settings.json</code>・<code>~/.codex/config.toml</code> 等へのフック追加等）を変更する操作は、<a href="#6">6. 管理者の承認が必要な操作</a>には該当しないが、各ツールの権限・監督面に関わるため、変更前に管理者へ確認する。</li>
+</ol>
+
+<h3 id="7-2">7.2 Parallel Subagent Framework（1機能内の並列実行フロー）</h3>
+<p>herdr（7.1）が複数の独立したタスクをworktree単位で並列化する仕組みであるのに対し、こちらは<strong>1つの機能の実装</strong>を、単一のClaude Codeセッション内でフェーズ単位・サブエージェント単位に並列化する仕組みである。Docker・追加worktreeを必要とせず、開発管理者のセッション内で完結する。両者は併用可能（例: herdrで複数機能を並行させつつ、各worktree内で本フローを使う）。</p>
+<p>骨格・フェーズ定義・呼び出すスキル・停止ポイントの詳細は <code>../CLAUDE.md</code> の「Parallel Subagent Framework」節を正とする（本規約とCLAUDE.mdの記載が食い違った場合はCLAUDE.mdを都度更新し一致させる）。要点のみ以下に記す。</p>
+<ol>
+<li>Phase 1（調査・並列・読取専用）→ Phase 2（仕様書生成、skill「feature-spec」）→ <strong>停止①: 仕様書Part 1を管理者がレビュー・承認</strong> → Phase 3（実装・並列・TDD、<code>.claude/agents/implementer.md</code>）→ Phase 4（統合ゲート・逐次）→ Phase 5（検証・並列、<code>.claude/agents/reviewer.md</code>）→ <strong>停止②: <code>/structured-review</code>（skill「structured-review」）で管理者が起動する構造化レビュー</strong>。</li>
+<li>停止①・停止②以外では確認を挟まず自律的に進める。ただし <a href="#6">6. 管理者の承認が必要な操作</a>に該当する事態が判明した場合はその場で止まり管理者に確認する（本節の「自律的に進める」より優先する）。</li>
+<li>Phase 3の並列実装は、Phase 2で宣言した「並列グループ」（ファイルが重複しないセット）単位でのみ行う。共有ファイルの編集はPhase 4に限定する。</li>
+<li>テストの削除・無効化やアサーションを緩めることで「グリーンにする」ことは、開発管理者・開発要員のいずれであっても禁止する（<a href="#5">5. レビュー運用</a>の趣旨を機械的なごまかしから守るための明文化）。</li>
+<li>フロー起動時は完了条件と上限ターン数を明示し、無条件に自走させない（セーフティ機構の詳細はCLAUDE.md参照）。</li>
+</ol>
+
+<h2 id="8">8. コーディング規約</h2>
+<p>一般的なコーディングスタイル・コメント方針（YAGNI、コメントは「なぜ」のみ等）は <code>~/.claude/CLAUDE.md</code>（グローバル規約）の Coding Style / Comments 節に従う。本プロジェクト固有の規約のみ以下に記す。</p>
+<ul>
+<li>技術スタック（2026-08-03改訂。旧: Next.js/PostgreSQL/AWSサーバーレス構成）: Electron（デスクトップアプリ本体）+ Node.js製MCP SDK（mainプロセス内蔵のMCPサーバー）+ SQLite（ローカルDB）。UI（レンダラープロセス）の詳細実装は基盤実装時に確定する。詳細は <a href="REQUIREMENTS.html">docs/REQUIREMENTS.md</a> 参照。</li>
+<li>テスト: 単体テストは Vitest（既存採用ランナー、グローバル規約の「既存ランナーがあれば従う」に該当）。</li>
+<li>Anthropic APIキー等の秘密情報はElectronの <code>safeStorage</code>（OSセキュアストレージ）で暗号化して保存する。環境変数(.env)やサードパーティの汎用キーストアは使わない（docs/REQUIREMENTS.md §4.6）。</li>
+</ul>
+
+<h2 id="9">9. セキュリティ・シークレット管理</h2>
+<ul>
+<li>APIキー・パスワード等の秘密情報はリポジトリにコミットしない。<code>.gitignore</code> に環境変数ファイル等を追加する。</li>
+<li>誤って機密情報を含むファイルをステージした場合、コミット前に必ず内容を確認する。</li>
+<li>脆弱性（インジェクション、XSS等）につながる実装に気づいた場合は直ちに修正する。</li>
+</ul>
+
+<h2 id="10">10. ドキュメント管理</h2>
+<ul>
+<li><code>README.md</code>: プロジェクト概要、セットアップ手順（利用者・開発者向け）</li>
+<li><code>GOVERNANCE.md</code>（本ファイル）: 体制・運用ルール</li>
+<li><code>CLAUDE.md</code>: Claude Code セッション向けのプロジェクト固有指示（本規約の要点を参照する形で維持）</li>
+<li><code>docs/HERDR.md</code>: herdrによる並列サブエージェント運用のセットアップ・使い方</li>
+<li><code>docs/CODEX.md</code>: OpenAI Codex CLIのセットアップ・herdr連携・開発要員としての運用方法</li>
+<li><code>.claude/agents/</code>: Claude Codeサブエージェント定義（<code>implementer</code>/<code>reviewer</code>/<code>verifier</code>）。7.2のフローで使用する。</li>
+<li><code>.claude/skills/</code>: Claude Codeスキル定義（<code>feature-spec</code>/<code>structured-review</code>/<code>e2e-runner</code>）。7.2のフローで使用する。</li>
+<li>変更履歴が必要になった場合は <code>CHANGELOG.md</code> を別途導入する。</li>
+</ul>
+
+<h2 id="11">11. 規約自体の改訂</h2>
+<ul>
+<li>本規約の変更は管理者の承認を得て行う。</li>
+<li>改訂時はコミットメッセージに変更理由（Why）を明記する。</li>
+</ul>
+
+<h3 id="11-1">11.1 グローバル規約との重複整理（2026-07-29対応）</h3>
+<p><code>~/.claude/CLAUDE.md</code>・<code>~/.claude/skills/</code>・<code>~/.claude/docs/</code> にグローバル規約一式が整備されたことを受け、本ファイルおよび <code>../CLAUDE.md</code> からグローバル規約と純粋に重複する記載（Conventional Commitsの基本形式、コメント方針、YAGNI等の一般的コーディングスタイル）を削除し、プロジェクト固有の内容（体制・herdr/Codex運用・Parallel Subagent Framework・マルチテナント認可ルール等）のみを残す整理を実施した。矛盾する場合は本ファイル側を優先する運用（グローバル規約冒頭の取り決め通り）は維持している。</p>
+<p>整理の過程で、グローバル規約とのアーキテクチャ上の相違点が2件見つかった（PRマージ方式＝merge commit必須/squash禁止 vs 本規約のsquash merge基本、Git操作の確認要否＝都度確認必須 vs 本プロジェクトの自律実行）。管理者に確認したところ、本プロジェクトの運用（squash merge・commit/push等の自律実行）に合わせてグローバル規約側を更新する判断となり、2026-07-29付けで <code>~/.claude/CLAUDE.md</code> を改訂済み。したがって現在は両者に相違はない。</p>
+
+<h3 id="11-2">11.2 テスト規約の適合確認（2026-07-30対応）</h3>
+<p><code>~/.claude/docs/testing.md</code>（グローバル規約）と本プロジェクトのテスト実装を突き合わせ、以下を確認した。</p>
+<ul>
+<li><strong>テストランナー</strong>: グローバル規約は <code>node:test</code> をデフォルトとしつつ「既存プロジェクトが別ランナー（例: Vitest）を使っていればそれに従う」としており、本プロジェクトは元々Vitestを採用済みのため準拠（docs/GOVERNANCE.md §8）。</li>
+<li><strong>既知の相違（意図的・許容）</strong>: グローバル規約はテストを <code>test/</code> ディレクトリ・<code>test_xxx.ts</code> 命名で置くことをMUSTとしているが、本プロジェクトは <code>tests/</code> ディレクトリ・Vitest標準の <code>*.test.ts</code> 命名を採用済み（10ファイル以上の既存資産があり、Vitestの規定動作・<code>vitest.config.ts</code> の <code>include</code> 設定とも整合するため）。移行コストに見合わないと判断し、現状維持とする。矛盾時は本ファイル側を優先する運用（§11.1）に従う。</li>
+<li><strong>カバレッジの不足を発見・解消</strong>: <code>src/server/handlers/</code> のハンドラ層に複数の欠落があった。
+<ul>
+<li><code>auth.ts</code>（register/login/logout/session/requestPasswordReset/resetPassword）: テストが一切無かった。特にパスワードリセット機能はメール列挙攻撃対策（存在有無で応答を変えない）を含め無テストだったため、<code>tests/auth.test.ts</code>（30ケース）を新規追加。</li>
+<li><code>projects.ts</code>: <code>createProject</code> のみテスト済みで <code>listProjects</code>（<code>?all=1</code> を含む）・<code>updateProject</code>・<code>deleteProject</code> が未テストだったため <code>tests/projects.test.ts</code> に追加。</li>
+<li><code>stats.ts</code>: <code>getStatsSummary</code> のみテスト済みで <code>exportStatsSummary</code>（CSVエクスポート）が未テストだったため <code>tests/stats.test.ts</code> に追加（CSVエスケープ・BOM付与等を含む）。</li>
+<li><code>tasks.ts</code>: ハンドラ層（<code>getOpenTask</code>/<code>postTaskAction</code>/<code>getTasksInRange</code>/<code>patchTask</code>/<code>deleteTask</code>）が丸ごと無テストだった（内部の <code>task-timer.ts</code>/<code>task-patch.ts</code> は別途テスト済み）。<code>tests/tasks-handlers.test.ts</code> を新規追加。</li>
+<li>追加したテストは全て、対応するコードを一時的に壊して赤くなることを確認済み（<code>~/.claude/docs/testing.md</code> の「新しいテストは対象コードが壊れたら失敗することを確認する」に従う）。</li>
+</ul>
+</li>
+<li>対応後、<code>npm test</code>（181テスト）・<code>npm run lint</code>・<code>tsc --noEmit</code>・<code>npm run build</code> は全て成功。</li>
+</ul>
+
+</main>
+</body>
+</html>

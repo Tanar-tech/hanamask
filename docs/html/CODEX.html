@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codex CLI（開発要員）のセットアップと運用</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../CODEX.md">docs/CODEX.md</a></p>
+
+<h1>Codex CLI（開発要員）のセットアップと運用</h1>
+
+<p><a href="https://github.com/openai/codex">OpenAI Codex CLI</a> をターミナル上で動作する開発要員（実装担当）として使う。<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §2 の体制における「開発管理者（Claude Code） が統括し、Codexが実装する」役割分担の実体。</p>
+
+<h2 id="pre">前提</h2>
+<ul>
+<li>ChatGPT Plus / Pro / Business / Edu / Enterprise のいずれかのプランが必要（Codex CLI自体は追加課金なしで含まれる）。</li>
+<li>Windows対応は現時点で実験的（experimental）扱い。</li>
+<li>herdr（<a href="HERDR.html">docs/HERDR.md</a>）と組み合わせて、worktreeごとに独立したCodexセッションを並列起動する運用を基本とする。</li>
+</ul>
+
+<h2 id="install">インストール</h2>
+<p>npm経由でインストールする（Node.js 22+ が必要）。</p>
+<pre><code>npm install -g @openai/codex
+codex --version
+</code></pre>
+
+<h2 id="login">ログイン（管理者が個別に実施）</h2>
+<p>Codexの認証は対話型のため、各自の環境で実行する。</p>
+<pre><code>codex login
+</code></pre>
+<p>ChatGPTアカウントでのブラウザ認証フローが起動する。</p>
+
+<h2 id="herdr-setup">herdr連携のセットアップ</h2>
+<pre><code>herdr integration install codex
+</code></pre>
+<p>これは以下を行う（<code>~/.codex</code> 配下、Claude Codeの設定には触れない）:</p>
+<ul>
+<li><code>~/.codex/herdr-agent-state.ps1</code> の書き込み</li>
+<li><code>~/.codex/hooks.json</code> の更新</li>
+<li><code>~/.codex/config.toml</code> の <code>[features] hooks = true</code> 設定</li>
+</ul>
+<p>不要になった場合は <code>herdr integration uninstall codex</code> で削除できる。</p>
+
+<h2 id="roles">開発管理者（Claude Code）とCodexの役割分担</h2>
+<ul>
+<li><strong>開発管理者（Claude Code、通常Fableモデル）</strong>: タスクの分解、Codexセッションへの指示、成果物のレビュー、<code>main</code> へのマージ判断、管理者への確認・報告。</li>
+<li><strong>開発要員（Codex）</strong>: 割り当てられたタスクの実装・テスト。委任範囲を超える判断が必要な場合は作業を止めて報告する（<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §7）。</li>
+</ul>
+<p>Codexへの指示は、<code>../.cursor/agents/implementer.md</code> と同等の方針（タスクの範囲厳守、YAGN、コメント最小限、<code>main</code>への破壊的操作をしない等）を踏まえて行う。ツールが異なるだけで、開発要員として遵守すべきルールはGOVERNANCE.md §7に準ずる。</p>
+
+<h2 id="herdr-launch">herdr経由での起動</h2>
+<pre><code>git worktree add ../work-manager-&lt;task-name&gt; -b feature/&lt;task-name&gt;
+herdr agent start &lt;task-name&gt; --cwd ..\work-manager-&lt;task-name&gt; --split right -- codex
+</code></pre>
+<p>herdrのダッシュボードでCodexセッションの状態（idle/working/blocked）を確認し、完了したセッションから開発管理者がレビューする（<a href="HERDR.html">docs/HERDR.md</a> の基本ワークフローに準ずる）。</p>
+
+<h2 id="review">レビュー</h2>
+<p>Codexが「完了した」と報告した内容は、<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §5 のレビュー運用に従い、開発管理者が実際の差分・動作を確認してから採用する。申告を鵜呑みにしない。</p>
+
+<h2 id="notes">注意事項</h2>
+<ul>
+<li>機密情報をタスク指示に含めない。</li>
+<li>同時に走らせるCodexセッション数は、担当領域が重複しない範囲に収める（<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §7）。</li>
+<li><code>~/.codex</code> の設定変更は開発管理者が自動で行わない。変更が必要な場合は管理者に確認する（<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §7.1）。</li>
+</ul>
+
+</main>
+</body>
+</html>

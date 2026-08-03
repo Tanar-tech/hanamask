@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>herdr によるサブエージェント並列運用</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../HERDR.md">docs/HERDR.md</a></p>
+
+<h1>herdr によるサブエージェント並列運用</h1>
+
+<p><a href="https://herdr.dev">herdr</a> は、複数のAIコーディングエージェントCLIセッションをターミナル上のペイン/タブ/ワークスペースで並行管理するツール。各セッションの状態（idle / working / blocked）を追跡し、対応が必要なセッションをダッシュボードで可視化する。</p>
+
+<p>本リポジトリでは、<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §7.1 で定義した開発要員の並列実行の主手段として採用する。開発管理者（Claude Code）が統括し、実装は主にCodex CLIセッション（<a href="CODEX.html">docs/CODEX.md</a>）が担う。</p>
+
+<h2 id="pre">前提</h2>
+<ul>
+<li>Windows版は現時点で <strong>beta/プレビュー版のみ</strong>（安定版はLinux/macOS向け）。挙動が変わる可能性がある。</li>
+<li>設定は user-level のみ（プロジェクトにコミットする設定ファイルは無い）。<code>%APPDATA%\herdr\config.toml</code>。</li>
+<li>herdrはVSCode拡張ではなく、ターミナル上で動作するTUIツール。VSCode上で使う場合は、VSCodeの統合ターミナル（Terminal）内で <code>herdr</code> を実行すればよい（マウス操作にも対応している）。</li>
+</ul>
+
+<h2 id="install">インストール</h2>
+<pre><code>powershell -ExecutionPolicy Bypass -c "irm https://herdr.dev/install.ps1 | iex"
+</code></pre>
+<p>インストール後は新しいPowerShellウィンドウで <code>herdr</code> コマンドが使用可能になる（PATHは今後のセッション向けに更新される）。</p>
+<p>バージョン確認:</p>
+<pre><code>herdr --version
+</code></pre>
+
+<h2 id="integration">エージェント連携のセットアップ（各開発者が個別に実施）</h2>
+<p>herdrはスクリーン内容の推定でもエージェント状態を検出できるが、正確なセッション状態を報告させるには連携フックを入れる。</p>
+<pre><code>herdr integration install codex   # 開発要員として使うCodex CLI（docs/CODEX.md）
+herdr integration install claude  # Claude Code CLIセッションを直接使う場合
+</code></pre>
+<p><code>codex</code> 連携は <code>~/.codex/config.toml</code>・<code>~/.codex/hooks.json</code> を、<code>claude</code> 連携は <code>~/.claude/settings.json</code>・<code>~/.claude/hooks/</code> を変更する。<strong>特にClaude Code自身の権限・監督面に関わる変更のため、各自の判断で実行すること</strong>（開発管理者が自動実行することはない。<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §7.1参照）。</p>
+<p>不要になった場合はそれぞれ <code>herdr integration uninstall codex</code> / <code>herdr integration uninstall claude</code> で削除できる。</p>
+
+<h2 id="flow">基本ワークフロー</h2>
+<ol>
+<li>
+<p>タスクごとに独立した worktree を作成する。</p>
+<pre><code>git worktree add ../work-manager-&lt;task-name&gt; -b feature/&lt;task-name&gt;
+</code></pre>
+</li>
+<li>
+<p>herdrでそのworktreeに対応するCodex CLIセッションを起動する（実装は主にCodexが担当。<a href="CODEX.html">docs/CODEX.md</a>）。</p>
+<pre><code>herdr agent start &lt;task-name&gt; --cwd ..\work-manager-&lt;task-name&gt; --split right -- codex
+</code></pre>
+<p>Claude Code CLIセッションを使いたい場合は末尾を <code>-- claude</code> に変える。</p>
+</li>
+<li>herdrのダッシュボードで各セッションの状態を確認する。<code>working</code> 中は待ち、<code>blocked</code>（確認待ち等）や <code>idle</code>（完了）になったセッションから順に対応する。</li>
+<li>セッションが完了したら、開発管理者が差分をレビューする（<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §5）。</li>
+<li>
+<p>レビュー後、PR経由で <code>main</code> にマージし、worktreeを削除する。</p>
+<pre><code>git worktree remove ../work-manager-&lt;task-name&gt;
+</code></pre>
+</li>
+</ol>
+
+<h2 id="notes">注意事項</h2>
+<ul>
+<li>同時に走らせるセッション数は、担当領域が重複しない範囲に収める（<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §7）。</li>
+<li>各セッションへの指示は、タスクの目的・背景・完了条件を明示する。委任範囲外の判断が必要になった場合はセッション側で作業を止めて報告させる。</li>
+<li>機密情報をタスク指示に含めない。</li>
+</ul>
+
+</main>
+</body>
+</html>

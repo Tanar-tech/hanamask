@@ -12,10 +12,9 @@
 - 複数タスクの並列実行は herdr（worktree単位の独立Codex/Claude Code CLIセッション、VSCode統合ターミナル内で動作）を主手段とする。セットアップ・使い方は docs/HERDR.md・docs/CODEX.md（docs/GOVERNANCE.md §7.1）を参照。herdr/Codex/Claude Code自体の設定変更（~/.codex, ~/.claude/settings.json等）は自動実行せず、必ず管理者に確認する。
 - 1機能内での並列化（調査・実装・検証をこのセッション内でサブエージェント並列実行する）は下記「Parallel Subagent Framework」に従う。herdrがタスク単位（複数の独立した機能・修正を並列に進める）の並列化であるのに対し、こちらは1つの機能実装をフェーズ単位で並列化するもの。両者は排他ではなく併用できる（docs/GOVERNANCE.md §7.2）。
 - コミットメッセージ規約・PRマージ方式（squash merge）・Git操作の自律実行は、いずれもグローバル規約（2026-07-29改訂）と一致している（差分のみdocs/GOVERNANCE.md §4、経緯は §11.1参照）。
-- アプリはWebアプリケーション（SaaS）として構築する（2026-07-23、/goal指示によりWindowsデスクトップアプリ方針から転換）。技術スタック: Next.js(App Router/TypeScript) + PostgreSQL + Prisma + Auth.js + Stripe + Tailwind CSS（docs/GOVERNANCE.md §8、docs/REQUIREMENTS.md §5）。
-- アプリの機能要件・未決定事項は docs/REQUIREMENTS.md を参照。特に §7 の未決定事項（プラン価格、ホスティング最終選定等）は商用リリース前に管理者へ確認する。
-- ホスティングはAWSサーバーレス構成（CloudFront+S3 / API Gateway+Lambda / Aurora Serverless v2。2026-07-24 /goal指示で決定、docs/AWS.md参照）。本番URLは https://work-manager.dev.takudon3.com 。IaCは infra/lib/web-app-stack.ts。デプロイはGitHub Actions（release.yml、OIDC）。実デプロイ・課金関連の外部サービス契約は docs/GOVERNANCE.md §6 に該当し管理者が実施する。旧infra/（S3リリースバケット、ローカルexe配布用）は要否を含め管理者判断待ち（docs/CICD.md §9参照）。
-- PRを発行するとPRごとの検証環境が自動で立ち上がる（`pr-<番号>.preview.dev.takudon3.com`）。単一Auroraをスキーマ `pr_<番号>` で分離。仕組みは docs/AWS.md「PRプレビュー環境」・docs/GOVERNANCE.md §3.1（2026-07-27 /goal指示）。
+- アプリはローカル完結のElectronデスクトップアプリとして構築する（2026-08-03、要求定義確定によりWebアプリ(SaaS)方針から転換。docs/GOVERNANCE.md §8、docs/REQUIREMENTS.md参照）。技術スタック: Electron + Node.js製MCP SDK（mainプロセス内蔵MCPサーバー）+ SQLite。UI（レンダラープロセス）詳細は基盤実装時に確定する。
+- アプリの機能要件・未決定事項は docs/REQUIREMENTS.md を参照。
+- AWSサーバーレス構成・PRプレビュー環境・クラウドデプロイパイプラインは廃止した（ローカル完結アプリのため不要）。配布はインストーラーの再配布による（docs/GOVERNANCE.md §3.1）。
 
 ## エージェントチーム
 
@@ -32,7 +31,7 @@
 ## 実施時のカスタマイズ
 - テストコマンド: `npm test`（Vitest）
 - Lintコマンド: `npm run lint`（ESLint）
-- UIディレクトリ: `src/app/`（画面配下にコンポーネントを同居、`src/components/`は無し）/ API: `src/server/`（Lambda/ローカル共通ハンドラ。Next.jsの`app/api/`ルートは未使用）/ 共通ロジック: `src/lib/` / DB: `prisma/schema.prisma`
+- ディレクトリ構成（Electron main/renderer/MCPサーバー/DBスキーマの配置）は基盤実装のPhase 2仕様書で確定する。
 
 ## フロー（骨格）
 Phase 1 調査(並列) → Phase 2 仕様書(並列グループ宣言) → [停止① 人間レビュー] → Phase 3 実装(TDD・並列) → Phase 4 統合ゲート → Phase 5 検証(並列) → [停止② 構造化レビュー]

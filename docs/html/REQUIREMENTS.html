@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hanamask 要求定義書（ドラフト）</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../REQUIREMENTS.md">docs/REQUIREMENTS.md</a></p>
+
+<h1>hanamask 要求定義書（ドラフト）</h1>
+
+<blockquote><p>本書は初稿。管理者のレビュー・確認前提でドラフトとして起票する。承認後、本文の「ドラフト」表記を外す。</p></blockquote>
+
+<h2 id="0">0. 位置づけ</h2>
+<p>hanamask は work-manager とは別プロダクトである。本リポジトリは work-manager テンプレートから bootstrap されたが、以降は hanamask 専用のリポジトリとして運用する。README.md 等の旧 work-manager 向け記述は本要件確定後に順次書き換える。</p>
+
+<h2 id="1">1. 概要</h2>
+
+<h3>コンセプト</h3>
+<p>AI開発（AIエージェントとの協働）に最適化されたノートアプリケーション。<strong>MCPサーバーとして自身のツール群を公開し、利用者が普段使っているAIエージェント（Claude Code等のCLIエージェント）が直接ノート・タスクを読み書きする</strong>ことを主要な操作経路とする。アプリ本体はローカルで動作する<strong>ネイティブデスクトップアプリ</strong>（Electron採用、詳細は§5）とし、AIチャットも搭載するが、そこで動くAIはhanamaskが自前で提供・管理するものではなく、<strong>利用者自身が管理するAIエージェント（Claude等、BYO Agent）</strong>であり、内部的にはCLIエージェントと同じMCPツール群を呼び出す薄いフロントエンドとして位置づける。加えて、図（Mermaid記法）の作成と画像の取り込みに対応する。</p>
+
+<h3>Notionとの差分（なぜ作るか）</h3>
+<p>Notionはページ/ブロック型ノートとNotion AI（既存ページへの補助的なAI機能）を持つ、クラウド前提の汎用ワークスペースであり、外部AIエージェントからネイティブにツール呼び出しされる設計にはなっていない。hanamaskは以下の点で差別化する。</p>
+<ul>
+<li><strong>MCPネイティブ</strong>: ノート作成・タスク登録・検索・図生成などをMCPツールとして公開し、開発中のAIエージェントがその場でメモ・タスク化できる。デスクトップUIを介した人間の操作を待たない。デスクトップUI上のAIチャットも同じMCPツール群を叩くだけで、hanamask固有のAIロジックを持たない。</li>
+<li><strong>BYO Agent（AI部分を自前で持たない）</strong>: Notion AIのようにベンダーが提供するAIモデルに縛られず、利用者が契約・管理しているAIエージェント（Claude Code、あるいはAPIキーを設定したClaude等）をそのままチャットの実行主体として使う。hanamask側はAIモデルの費用・品質を負わない。</li>
+<li><strong>ローカル完結・開発ワークフローに閉じた軽量設計</strong>: クラウド同期やマルチユーザー権限、汎用データベース的プロパティ体系など、個人のAI開発ワークフローに不要な複雑さを持たない。データはローカルに閉じる。</li>
+<li><strong>図はコードとして生成・編集可能</strong>: Mermaidのようなテキスト記法を中心に据え、AIエージェントが差分単位で図を生成・修正できる。</li>
+</ul>
+
+<h3>想定ユーザー</h3>
+<p>管理者本人による個人利用のみ。マルチテナント・厳密な認証・課金機能は想定しない（詳細は §5, §8）。</p>
+
+<h2 id="2">2. 用語定義</h2>
+<table>
+<thead><tr><th>用語</th><th>定義</th></tr></thead>
+<tbody>
+<tr><td>ノート</td><td>ナレッジを記録する基本単位。タイトル・本文（Markdown、図・画像埋め込みを含む）・タグを持つ。</td></tr>
+<tr><td>タスク</td><td>やるべき作業を表す単位。ステータス（未着手/進行中/完了）・期限を持つ。ノートとは別エンティティ。</td></tr>
+<tr><td>リンク</td><td>ノートとタスクの間、またはノート同士・タスク同士の相互参照関係。</td></tr>
+<tr><td>MCPツール</td><td>hanamaskが公開するMCPサーバーの操作単位（例: <code>create_note</code>, <code>search_notes</code>, <code>update_task</code>, <code>link_entities</code>, <code>open_note</code> 等。一覧は§7）。外部のAIエージェントから呼び出される。</td></tr>
+<tr><td>図（Mermaid図）</td><td>Mermaid記法のテキストから自動生成される構造化図（フローチャート・シーケンス図・ER図等）。</td></tr>
+<tr><td>デスクトップUI</td><td>ノート・タスクの閲覧・手動編集およびAIチャットのための、ローカルで動作するネイティブアプリ画面。チャットのAIモデル自体はhanamaskが提供せず、利用者自身が管理するAIエージェント（BYO Agent）を接続して使う。</td></tr>
+</tbody>
+</table>
+
+<h2 id="3">3. 利用シーン・フロー（想定）</h2>
+<ol>
+<li><strong>CLIエージェントとの作業中に記録</strong>: 利用者がClaude Code等のCLIエージェントと開発作業をしている最中に、エージェントがMCPツール経由でノート作成・タスク登録を行う（例: 調査結果の要約をノート化、TODOをタスク化）。</li>
+<li><strong>デスクトップUIのAIチャットから記録</strong>: 利用者がデスクトップUIのチャットパネルで自身のAIエージェントと会話し、「〇〇についてメモして」「△△のタスクを追加して」のように依頼する。チャット側のAIエージェントもMCPツール経由でノート作成・タスク登録を行う。</li>
+<li><strong>AIエージェントによる検索・参照</strong>: エージェント（CLI/デスクトップUIチャットいずれも）が作業前にMCPツール経由で関連ノート・タスクを検索し、文脈として利用する。</li>
+<li><strong>AIエージェントによる図生成</strong>: エージェントが調査・設計結果をMermaid記法の図としてノートに挿入する。</li>
+<li><strong>デスクトップUIを開きながらのAI開発</strong>: 利用者がデスクトップUIのノート閲覧画面を開いたまま、別ウィンドウ/ターミナルでCLIエージェントによる開発を進める。エージェントがMCPツール経由でノート・タスクを更新すると、開いているデスクトップUI側にリアルタイムで反映され、手動リロードなしに最新の記録を眺められる。</li>
+<li><strong>デスクトップUIでの閲覧・棚卸し</strong>: 利用者がアプリを開いてノート一覧・タスク一覧を確認する。誤りがあれば手動で編集・削除する。</li>
+<li><strong>デスクトップUIでの画像取り込み</strong>: ノート編集画面でファイル選択/クリップボード貼り付けにより画像を添付する。</li>
+<li><strong>相互リンクの探索</strong>: デスクトップUI上でノートに紐づくタスク、タスクに紐づくノートをたどりながら文脈を把握する。</li>
+</ol>
+
+<h2 id="4">4. 機能要件</h2>
+
+<h3>4.1 MCPサーバー（コア機能）</h3>
+<ul>
+<li>ノートの作成・更新・削除・検索（全文検索・タグ検索）をMCPツールとして公開する。</li>
+<li>タスクの作成・更新（ステータス変更含む）・削除・一覧取得をMCPツールとして公開する。</li>
+<li>ノート-タスク間、ノート-ノート間、タスク-タスク間のリンク作成・取得をMCPツールとして公開する。Mermaid図はノート本文へのインライン記述として扱うため、<code>update_note</code>が図の追加・更新を兼ねる（専用ツールは持たない）。</li>
+<li>デスクトップUIの起動・画面遷移（ノート/タスク詳細表示、検索結果表示）をMCPツールとして公開する。AIエージェントは自身の判断で自由に呼び出してよい（例: ノート作成直後に該当ページを開いて内容を提示する、といった自発的な使い方を想定）。</li>
+<li>削除・上書き等の破壊的操作にはガードレールを設ける（ソフトデリート、編集履歴、確認フラグ必須化。詳細は §4.7）。</li>
+<li>ツール一覧・入出力概要は §7 を参照。</li>
+<li>Electronのmainプロセスに内蔵し、localhost向けHTTPトランスポートで待ち受ける（§5参照）。</li>
+</ul>
+
+<h3>4.2 ノート（ナレッジ管理）</h3>
+<ul>
+<li>タイトル・本文（Markdown）・タグの作成/編集/削除。</li>
+<li>全文検索・タグ検索。</li>
+<li>Mermaid図の埋め込み・レンダリング表示。</li>
+<li>画像の埋め込み。</li>
+<li>タスクとの相互リンク作成・一覧表示。</li>
+</ul>
+
+<h3>4.3 タスク管理</h3>
+<ul>
+<li>タスクの作成/編集/削除、ステータス管理（未着手/進行中/完了の3段階を基本とする）。</li>
+<li>期限設定・一覧表示。<strong>確定</strong>: リスト表示とカンバン表示（ステータス別の列にドラッグ&amp;ドロップで移動）の両方を初期スコープに含める。</li>
+<li>ノートとの相互リンク作成・一覧表示。</li>
+</ul>
+
+<h3>4.4 図の作成（Mermaidのみ、初期スコープ）</h3>
+<ul>
+<li>ノート本文内にMermaid記法を記述するとレンダリングされる。</li>
+<li>MCPツール経由でAIエージェントがMermaidソースを生成・更新できる。</li>
+<li>フリーハンド図（Excalidraw等）は初期スコープに含めない（§9）。</li>
+</ul>
+
+<h3>4.5 画像の取り込み</h3>
+<ul>
+<li>デスクトップUIからのファイル選択、クリップボード貼り付けによるノートへの画像添付。</li>
+<li>画像のプレビュー表示。</li>
+<li>OCR等による画像内テキストの検索対象化は初期スコープに含めない（§9）。</li>
+</ul>
+
+<h3>4.6 デスクトップUI（閲覧・手動編集・AIチャット）</h3>
+<ul>
+<li>ノート一覧・検索画面、ノート詳細/編集画面。</li>
+<li>タスク一覧画面、タスク詳細/編集画面。</li>
+<li>ノート/タスク間リンクの表示・作成。</li>
+<li>画像取り込みUI。</li>
+<li>AIチャットパネル: 利用者が自身のAIエージェント（Claude等、BYO Agent）を接続して使うチャットUI。<strong>接続方式を確定</strong>: 利用者が設定画面でAnthropic APIキーを入力し、hanamaskが内蔵する簡易エージェントループ（システムプロンプト＋§7のMCPツール群をtool定義として渡す）からClaude API（Messages API、tool use）を直接呼び出す。hanamask自体は会話内容の解釈・応答生成ロジック（モデル）を持たず、Claude APIに委譲する。チャットからの操作は§4.1のMCPツール群を経由してノート/タスクに反映される。既存のClaude Codeセッションとの連携は、公式な連携手段が現状ないため将来スコープとする（§8）。<strong>APIキーの保存方式を確定</strong>: ElectronのmainプロセスがElectron標準の<code>safeStorage</code>（Windows DPAPI等、OSのセキュアストレージを利用）でAPIキーを暗号化し、暗号化済みの値をuserDataディレクトリ配下の設定ファイルに保存する。サードパーティのkeytar等や環境変数(.env)での管理は行わない。<strong>使用モデルを確定</strong>: 設定画面でモデル名を選択・変更できるようにする（デフォルトは実装時点の最新Sonnet系モデル）。トークンコストは利用者自身のAnthropic APIアカウントに直接課金される前提とし、hanamask側は使用量集計・上限設定等の課金管理機能を持たない。</li>
+<li><strong>リアルタイム反映</strong>: CLIエージェント（またはデスクトップUIチャット）がMCPツール経由でノート・タスクを更新した際、開いているデスクトップUI画面に手動リロードなしで反映する。利用者がノートを開いたままAI開発を進め、記録が自動で書き足されていく様子を眺められることを狙いとする。<strong>実装方式は確定</strong>: MCPツールがDB書き込みを行った直後、Electronのmainプロセスが<code>ipcMain</code>/<code>webContents.send</code>でレンダラー（デスクトップUI）に変更通知イベントを送る。ファイル監視やWebSocket等の別レイヤーは不要（同一プロセス内で完結）。<strong>反映粒度は画面全体の再取得とする</strong>（差分反映は行わない。個人利用・ローカルDBのためデータ量の影響は小さいと判断し、実装のシンプルさを優先）。</li>
+</ul>
+
+<h3>4.7 破壊的操作へのガードレール</h3>
+<p>UI連携ツール（§4.1, §7.2）をAIエージェントが自由に呼べる方針にした一方、削除・上書きのような取り返しのつかない操作からデータを守るため、以下のガードレールを設ける。</p>
+<ul>
+<li><strong>ソフトデリート（ゴミ箱）</strong>: <code>delete_note</code>/<code>delete_task</code>は物理削除せず、<code>deleted_at</code>を立てて「削除済み」状態にするのみ。<strong>確定</strong>: 削除から30日間は<code>restore_note</code>/<code>restore_task</code>で復元でき、30日経過したレコードはアプリ起動時のバッチ処理で自動的に完全削除（パージ）する。</li>
+<li><strong>編集履歴（バージョニング）</strong>: <code>update_note</code>で本文が更新される直前の内容をスナップショットとして保存する。<code>list_note_versions</code>で履歴を確認し、<code>restore_note_version</code>で過去バージョンに戻せる。</li>
+<li><strong>確認フラグ必須化</strong>: <code>delete_note</code>/<code>delete_task</code>は<code>confirm: true</code>を明示的に渡さない限りエラーを返す。AIエージェントが文脈を読み違えて一発で削除してしまう事故を防ぐ。</li>
+</ul>
+
+<h2 id="5">5. 非機能要件</h2>
+<ul>
+<li><strong>想定利用者数</strong>: 管理者本人のみ（1ユーザー）。</li>
+<li><strong>認証</strong>: <strong>確定</strong>: ローカル完結・個人利用のため、OS側のログインユーザーに委ね、アプリ独自の認証（ログイン画面等）は持たない。組織・マルチテナントの概念は持たない。</li>
+<li><strong>実行形態</strong>: ローカルで動作するネイティブデスクトップアプリ（<strong>Electron採用を確定</strong>。Node.jsのフル機能とwork-managerのNext.js/Prisma資産を流用しやすい点を優先した）。インストール後はネットワーク接続なしでノート・タスク管理そのものは完結する（AIエージェントの呼び出し自体は利用者の環境・API接続に依存する）。</li>
+<li><strong>技術スタック</strong>: UI部分はwork-managerの資産（Next.js, TypeScript, Tailwind CSS）をElectronのレンダラープロセスとして流用できるか実装時に検証する。<strong>MCPサーバーはElectronのmainプロセスに内蔵し、localhost向けのHTTPトランスポート（Streamable HTTP/SSE）で外部AIエージェント（Claude Code等）からの接続を待ち受ける</strong>（Node.js製MCP SDKを想定）。ノート・タスク更新をmainプロセス内で検知し、Electron IPC経由でレンダラー（デスクトップUI）に画面全体再取得の形でリアルタイム反映する（§4.6参照）。Auth.js・Stripe等、課金・マルチテナント関連コンポーネントは本プロダクトでは不要（§8）。</li>
+<li><strong>配布形態</strong>: <strong>確定</strong>: <code>electron-builder</code>等でWindows向けインストーラー（.exe）を作成する。自動更新機構は初期スコープに含めず、更新はインストーラーの再配布で行う。対応OSはWindowsを優先し、他OSは将来必要になれば追加する。</li>
+<li><strong>データ保存</strong>: メタデータ（Note/Task/Link等）はSQLite（ローカルファイル1つで完結）。<strong>画像は確定</strong>: ローカルファイルシステム（アプリのデータディレクトリ配下）に保存し、<code>Image.file_path</code>でパス参照する（DBの肥大化を避けるため）。</li>
+</ul>
+
+<h2 id="6">6. データモデル（概念レベル・暫定）</h2>
+<ul>
+<li><strong>Note</strong>: <code>id</code>, <code>title</code>, <code>body</code>(Markdown。Mermaid図はコードフェンスとして本文にインライン記述する), <code>tags</code>, <code>deleted_at</code>(ソフトデリート用、NULL=有効), <code>created_at</code>, <code>updated_at</code></li>
+<li><strong>NoteVersion</strong>: <code>id</code>, <code>note_id</code>, <code>title</code>, <code>body</code>, <code>tags</code>, <code>created_at</code>（<code>update_note</code>実行前のスナップショット。編集履歴・復元用）</li>
+<li><strong>Task</strong>: <code>id</code>, <code>title</code>, <code>status</code>(<code>todo</code> | <code>in_progress</code> | <code>done</code>), <code>due_date</code>, <code>deleted_at</code>(ソフトデリート用、NULL=有効), <code>created_at</code>, <code>updated_at</code></li>
+<li><strong>Link</strong>: <code>id</code>, <code>from_type</code>(<code>note</code> | <code>task</code>), <code>from_id</code>, <code>to_type</code>(<code>note</code> | <code>task</code>), <code>to_id</code></li>
+<li><strong>Image</strong>: <code>id</code>, <code>note_id</code>, <code>file_path</code>, <code>mime_type</code></li>
+</ul>
+<p>各レコードに <code>created_at</code>/<code>updated_at</code> を持たせる。</p>
+
+<h2 id="7">7. MCPツール一覧（確定）</h2>
+<p>Diagramは独立エンティティにせず、Mermaidコードをノート本文にMarkdownのコードフェンス（<code>```mermaid</code>）としてインライン埋め込みする方式とする。これにより専用の図操作ツールは持たず、<code>update_note</code>が本文の一部として図の追加・更新を兼ねる。データモデル（§6）の<code>Diagram</code>エンティティは廃止する。</p>
+
+<h3>7.1 データ操作ツール</h3>
+<table>
+<thead><tr><th>ツール名</th><th>何をするか</th></tr></thead>
+<tbody>
+<tr><td><code>create_note</code></td><td>新しいノートを作る</td></tr>
+<tr><td><code>update_note</code></td><td>ノートの内容（本文・タグ）を書き換える。Mermaid図も本文に含めて更新する。実行前の内容は自動的に履歴（NoteVersion）として保存される</td></tr>
+<tr><td><code>get_note</code></td><td>1件のノートを詳細まで取得する（紐づくタスクも含む）</td></tr>
+<tr><td><code>search_notes</code></td><td>ノートをキーワード・タグで探す（削除済みノートはデフォルトで除外）</td></tr>
+<tr><td><code>delete_note</code></td><td>ノートをソフトデリートする。<code>confirm: true</code>が必須</td></tr>
+<tr><td><code>restore_note</code></td><td>ソフトデリートしたノートを復元する</td></tr>
+<tr><td><code>list_note_versions</code></td><td>ノートの編集履歴一覧を取得する</td></tr>
+<tr><td><code>restore_note_version</code></td><td>ノートを過去のバージョンに戻す</td></tr>
+<tr><td><code>create_task</code></td><td>新しいタスクを作る</td></tr>
+<tr><td><code>update_task</code></td><td>タスクの内容（タイトル・ステータス・期限）を書き換える</td></tr>
+<tr><td><code>list_tasks</code></td><td>条件（未完了のみ等）でタスクを一覧取得する（削除済みタスクはデフォルトで除外）</td></tr>
+<tr><td><code>delete_task</code></td><td>タスクをソフトデリートする。<code>confirm: true</code>が必須</td></tr>
+<tr><td><code>restore_task</code></td><td>ソフトデリートしたタスクを復元する</td></tr>
+<tr><td><code>link_entities</code></td><td>ノートとタスクなど、2つを紐づける</td></tr>
+<tr><td><code>unlink_entities</code></td><td>紐づきを解除する</td></tr>
+<tr><td><code>list_links</code></td><td>あるノート/タスクに紐づいているもの一覧を取得する</td></tr>
+<tr><td><code>attach_image</code></td><td>ノートに画像を添付する</td></tr>
+</tbody>
+</table>
+
+<h3>7.2 UI連携ツール</h3>
+<p>デスクトップUIの起動・画面遷移を行う。<strong>AIエージェントは自身の判断で自由に呼び出してよい</strong>（例: ノート作成直後に該当ページを開いて内容を提示する）。</p>
+<table>
+<thead><tr><th>ツール名</th><th>何をするか</th></tr></thead>
+<tbody>
+<tr><td><code>open_app</code></td><td>デスクトップUIを起動する（未起動なら起動、起動済みならウィンドウを前面に出す）</td></tr>
+<tr><td><code>open_note</code></td><td>指定したノートのページを開く（UI未起動なら起動も兼ねる）</td></tr>
+<tr><td><code>open_task</code></td><td>指定したタスクのページを開く</td></tr>
+<tr><td><code>open_search</code></td><td>指定したキーワード/タグで検索した結果画面を開く</td></tr>
+</tbody>
+</table>
+
+<h2 id="8">8. 未決定事項・今後確認したい項目</h2>
+<ul>
+<li>将来の複数マシン同期機能の具体的な方式（クラウド経由か、ローカルネットワーク直接同期か等）・時期</li>
+</ul>
+
+<h2 id="9">9. スコープ外（現時点）</h2>
+<ul>
+<li>hanamask自前のAIモデル・AIロジック（§1参照。チャットは利用者自身が管理するAIエージェントを接続して使うBYO Agent方式）</li>
+<li>既存のClaude Codeセッションとの直接連携（公式な連携手段が現状ないため）</li>
+<li>フリーハンド図（Excalidraw等）。着手トリガーは定めず、Mermaidのみでの運用を試して必要性を感じたら検討する</li>
+<li>OCR等、画像内テキストの検索対象化</li>
+<li>開発コンテキスト（git commit/PR/issue）とノート/タスクの自動リンク</li>
+<li>マルチテナント・組織管理</li>
+<li>課金・プラン管理</li>
+<li>他ユーザーとの共有・コラボレーション機能</li>
+<li>モバイルアプリ（ネイティブ）対応</li>
+<li>クラウド同期・複数マシン間のデータ共有: 初期はローカル1台完結とするが、<strong>将来的な同期機能は前向きに検討する</strong>（具体的な方式・時期は未定。同期を見据えると§6のId体系・競合解決方針に影響しうるため、実装時は将来拡張を意識した設計にする）</li>
+</ul>
+
+</main>
+</body>
+</html>
