@@ -142,12 +142,9 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
 
-# AWS CDK (infra/)
-infra/cdk.out/
-infra/*.js
-infra/**/*.js
-infra/*.d.ts
-infra/**/*.d.ts
+# hanamask: ローカルSQLite DBファイル・electron-builderのパッケージ出力
+*.sqlite3
+release/
 
 # Claude Code のセッションローカルな実行時状態（sessionId/pid等）。プロジェクト設定ではないため追跡しない。
 .claude/scheduled_tasks.lock

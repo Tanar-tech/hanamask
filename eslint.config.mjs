@@ -1,7 +1,24 @@
-// ESLint 9 flat config。Electron+MCP+SQLite基盤の実装時に本設定する（暫定プレースホルダ）。
+import tsParser from "@typescript-eslint/parser";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+
 const config = [
   {
-    ignores: ["out/**", "dist/**", ".next/**"],
+    ignores: ["out/**", "dist/**", "release/**", "node_modules/**"],
+  },
+  {
+    files: ["**/*.ts", "**/*.tsx"],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tsPlugin,
+    },
+    rules: {
+      ...tsPlugin.configs.recommended.rules,
+    },
   },
 ];
 
