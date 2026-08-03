@@ -1,130 +1,119 @@
-# SPEC.md — 機能追加バッチ(1)：タブ表示 / 月表示カレンダー / プロジェクトその場登録 / 工数集計ダッシュボード
+# SPEC.md — 基盤(1): Electron + MCPサーバー + SQLite の最小垂直スライス（ノートのみ）
 
-作成日: 2026-07-28
-対象: docs/REQUIREMENTS.md §4.1, §4.3, §4.2, §4.5 に対応する4機能の追加実装
-
-> 2026-07-28 管理者承認済み: 機能3（プロジェクトその場新規登録）実装OK／機能2の集計単位は実働時間ベースでOK／機能4のグラフは適切な外部ライブラリがあれば利用してよい（→ Recharts採用）。
+作成日: 2026-08-03
+対象: docs/REQUIREMENTS.md §4.1（MCPサーバー）, §4.2（ノート、一部）, §4.6（リアルタイム反映）, §5（実行形態）, §6（Note部分）, §7.1（一部）
 
 ---
 
-## Part 1: 利用者向け（管理者レビュー対象・承認済み）
+## Part 1: 利用者向け（このSPECのレビュー対象）
 
-### 機能1: 実行中タスクのタブタイトル/favicon表示
+### 何を作るか
 
-**説明**: ブラウザの別タブを見ていても、今どのタスクを実行中かが一目でわかるように、タブタイトルとfaviconを実行中タスクに応じて動的に切り替える。休憩中・未着手時は元のタイトルに戻す。（docs/REQUIREMENTS.md §4.1「実行中タスクの常時表示」に対応、現状未実装）
+hanamaskの要求定義（docs/REQUIREMENTS.md）が確定したので、ゼロベースで実装を開始する。今回はアプリ全体を一度に作るのではなく、最も検証したいコアの仕組み——**「AIエージェントがMCP経由でノートを作ると、開いているデスクトップ画面に自動で反映される」**——を、ノート機能だけに絞って最初に通す。タスク・リンク・画像・図・AIチャット・削除/復元・編集履歴は次回以降のSPECで追加する。
 
-**受け入れ条件**:
-- [ ] タスクを開始すると、ブラウザタブのタイトルがタスク名を含む表示に変わる
-- [ ] タスクを切り替えると、タブタイトルが新しいタスク名に更新される
-- [ ] 休憩を開始すると、タブタイトルが「休憩中」を示す表示になる
-- [ ] 終業操作（タスク完了）後は、タブタイトルが元の「Chocotto」に戻る
-- [ ] favicon が実行中/休憩中/待機中で視覚的に区別できる（色や記号の変化）
-- [ ] ページを再読み込みしても、実行中タスクがあれば正しいタブタイトルが復元される
+### なぜこの範囲を最初にやるか
 
----
+このアプリの一番の差別化点（§1）は「MCPネイティブ」と「デスクトップUIへのリアルタイム反映」であり、ここが技術的に一番不確実な部分でもある。他の機能（タスク管理、画像添付等）は一度この土台が動けば同じパターンの横展開で追加できるため、最初に最小構成で通して土台の妥当性を確認する。
 
-### 機能2: 月表示カレンダー
+### 技術的な決定事項（このSPECで新たに確定するもの）
 
-**説明**: 現状は週表示（タイムライン形式）のみのカレンダーに、月表示を追加する。月表示は各日のタスク実行状況を実働時間（数値）で表示する。週表示と月表示は切り替え可能にする。（docs/REQUIREMENTS.md §4.3に対応）
+要求定義（docs/REQUIREMENTS.md）で「実装時に確定/検証する」とされていた点のうち、この基盤実装に必要な範囲を以下のとおり決定する。矛盾・要確認事項ではなく、実装を進めるための具体化。
 
-**受け入れ条件**:
-- [ ] ダッシュボードで「週表示」「月表示」を切り替えられる
-- [ ] 月表示では、当月のカレンダーグリッドに各日の実働時間合計が表示される
-- [ ] 前月・今月・次月に移動できる
-- [ ] 月表示の日をクリックすると、その日の詳細（タスク一覧）を確認できる
-- [ ] 実行中タスク（終了時刻未確定）も当日の集計に反映される
+- **SQLiteアクセス**: `better-sqlite3`（同期API、Electronのmainプロセスとの相性、追加ネイティブ依存が少ない点を優先）。Prisma等のORMは導入しない。
+- **MCP SDK**: `@modelcontextprotocol/sdk`（公式Node.js製）。Streamable HTTPトランスポートでlocalhostの固定ポートに待ち受ける。
+- **レンダラーUI**: 旧work-manager由来のNext.js(App Router)資産は、SSR/静的エクスポート前提でElectronレンダラー（単純なSPA）に不向きと判断し流用しない（既にPR #2で削除済み）。代わりに **Vite + React + TypeScript** の素のSPA構成を新規採用する。Tailwind CSSはREQUIREMENTS.md §5の記載通り引き続き採用する。
+- **パッケージマネージャ**: 既存の `package-lock.json`（npm）をそのまま使う（グローバル規約の「既存ロックファイルに従う」に該当）。
 
-（集計単位は実働時間ベースで確定。タスク件数表示は将来拡張とする）
+### 受け入れ条件
 
----
+- [ ] `npm run dev` 相当のコマンドで、"hanamask" というタイトルのElectronウィンドウが起動し、ノート一覧画面（初期状態は空）が表示される 📸
+- [ ] MCPクライアント（Claude Code等）がlocalhostのMCPエンドポイントに接続し、`create_note`（title, body, tags）を呼び出すと、SQLiteにノートが保存される
+- [ ] `create_note` 呼び出し直後、起動済みのElectronウィンドウのノート一覧が**手動リロードなしに**新しいノートを表示する 📸
+- [ ] `search_notes`（キーワード）で、title/bodyに一致するノートが返る
+- [ ] `get_note`（id）で、1件のノート詳細が返る
+- [ ] アプリを終了し再起動しても、作成済みのノートが表示される（SQLiteファイルへの永続化）
 
-### 機能3: プロジェクト/カテゴリの「その場新規登録」
+### 今回のスコープ外（次回以降のSPECで対応）
 
-**説明**: タスク開始・編集時のプロジェクト選択欄から、既存プロジェクトの選択に加えて「新規プロジェクトを作成」してその場で選択できるようにする。事前のマスタ登録という原則を維持しつつ、都度の画面遷移の手間を省く。（docs/REQUIREMENTS.md §7未決定事項に該当していたが、2026-07-28管理者承認により実装確定）
-
-**受け入れ条件**:
-- [ ] タスク開始画面のプロジェクト選択欄から新規プロジェクトを作成できる
-- [ ] タスク編集画面のプロジェクト選択欄からも同様に新規作成できる
-- [ ] 作成したプロジェクトはサイドバーのプロジェクト一覧にも反映される
-- [ ] 同一組織内の他メンバーにも新規プロジェクトが共有される（組織単位でのプロジェクト共有という既存仕様通り）
-- [ ] 空文字や重複名など不正な入力はエラーメッセージで弾かれる
+タスク/リンク/画像/NoteVersion（編集履歴）エンティティ、`delete_note`等のソフトデリート・確認フラグ・復元、Mermaidレンダリング、画像添付、AIチャットパネル（BYO Agent接続）、`open_note`等のUI連携ツール、カンバン表示、インストーラーパッケージング（electron-builder実配布）。
 
 ---
 
-### 機能4: 工数集計ダッシュボード
+## Part 2: AI用（実装セット定義）
 
-**説明**: プロジェクト別・日別・週別・月別の工数（実働時間）集計を、グラフで視覚的に確認できるページを追加する。（docs/REQUIREMENTS.md §4.5に対応）
+### 共有コントラクト（Phase 3開始前に確定する型・関数シグネチャ）
 
-**受け入れ条件**:
-- [ ] 集計ページで日別・週別・月別の切り替えができる
-- [ ] プロジェクトごとの実働時間が棒グラフ等で視覚的に表示される
-- [ ] 選択期間の合計実働時間が表示される
-- [ ] 休憩時間は集計に含まれない
-- [ ] 実行中タスク（終了時刻未確定）は現在時刻までの経過時間として集計に含まれる
-- [ ] 自分の組織のデータのみが表示される（他組織データの混入がないこと）
+以降の全セットはこの契約に従って実装する。契約自体の変更が必要になった場合はPhase 4統合ゲートでのみ行う。
 
-**グラフ実装方針**: 2026-07-28管理者確認により、[Recharts](https://recharts.org/) を新規導入する（React 19 / Next.js App Router対応、軽量、SVGベースでTailwindスタイルとも親和性が高いため採用）。`package.json` への依存追加はSPECで管理者から明示的に承認済み。
+```ts
+// Note エンティティ（SQLiteの notes テーブルに対応）
+interface Note {
+  id: string;        // uuid
+  title: string;
+  body: string;       // Markdown（Mermaidはコードフェンスとしてインライン）
+  tags: string[];
+  createdAt: string;  // ISO8601
+  updatedAt: string;
+}
 
----
+// src/main/db/notes-repo.ts が公開する関数（Set A が実装）
+function createNote(input: { title: string; body: string; tags: string[] }): Note;
+function getNote(id: string): Note | null;
+function searchNotes(query: string): Note[];
 
-## Part 2: AI用（実装セット定義・並列グループ宣言）
+// src/main/mcp/change-emitter.ts が公開する型（Set B が実装）
+// notes-repo経由でDBが変更された直後に発火する、Electron非依存のイベント発行者
+interface ChangeEmitter {
+  emitNotesChanged(): void;
+  onNotesChanged(listener: () => void): () => void; // 戻り値は購読解除関数
+}
 
-### 前提
-- 全セット共通で `docs/REQUIREMENTS.md`・既存コーディング規約（`"use client"` + named export、kebab-caseファイル名、Tailwind直書き、ドメインロジックは `src/lib/*.ts` に純粋関数として分離、ファイル冒頭に日本語コメントで参照ドキュメントを明記）に従う。
-- 全サーバーハンドラで `requireOrganizationContext(req)`（`src/server/context.ts`）を先頭で呼び、`organizationId` を全Prismaクエリの `where` に含める（他組織データ混入防止）。
-- **本SPECの実装は独立worktree `work-manager-dashboard-batch1`（ブランチ `feature/dashboard-batch1`）内で行う。同時に別セッションが `work-manager` 本体ディレクトリで別作業（IAM権限修正等）を進めているため、当該ディレクトリには一切触れないこと。**
+// preloadがrendererに公開するAPI（Set C が実装、Set D はこの型に対して実装する）
+interface HanamaskPreloadApi {
+  listNotes(): Promise<Note[]>;
+  onNotesChanged(callback: () => void): () => void;
+}
+// window.hanamask: HanamaskPreloadApi としてグローバルに公開する
+```
 
 ### 実装セット一覧
 
-#### Set A: 実行中タスクのタブタイトル/favicon表示
-- **目的**: 機能1の受け入れ条件すべて
-- **触ってよいファイル**:
-  - `src/lib/use-document-title.ts`（新規、document.title/faviconを状態に応じて更新するクライアントフック）
-  - `src/app/icon.tsx`（新規、Next.js動的favicon。静的favicon切替が難しい場合はlink[rel=icon]をDOM操作で書き換える代替実装でも可）
-  - `src/app/dashboard/task-panel.tsx`（編集: openTask状態の変化に応じて `use-document-title.ts` のフックを呼び出す処理を追加。既存のUI・ロジックは変更しない）
-- **依存する既存ファイル（読み取りのみ）**: `src/lib/task-timer.ts`
-- **テスト置き場**: `src/lib/use-document-title.test.ts`（Vitest + jsdom、document.titleが正しく更新されることを検証）
+#### Set A: DBレイヤー（`src/main/db/`）
+- 目的: ノートの永続化。受け入れ条件の「SQLite保存」「再起動後も残る」を満たす。
+- 新規作成してよいファイル: `src/main/db/schema.sql`（`notes`テーブルのみ定義）, `src/main/db/db.ts`（`app.getPath('userData')` 配下にDBファイルを開き、`notes`テーブルが無ければ`schema.sql`を実行する接続シングルトン）, `src/main/db/notes-repo.ts`（共有コントラクトの3関数を実装）
+- 読み取りのみ依存する既存ファイル: なし
+- テスト置き場: `tests/main/db/notes-repo.test.ts`（一時ファイルDBを使い、`createNote`→`getNote`→`searchNotes`のラウンドトリップを検証）
 
-#### Set B: 月表示カレンダー
-- **目的**: 機能2の受け入れ条件すべて（page.tsxへの表示切替UI組み込みを除く）
-- **触ってよいファイル**:
-  - `src/lib/month.ts`（新規、月範囲計算・日別グルーピングの純粋関数。`src/lib/week.ts` の設計パターンを踏襲）
-  - `src/app/dashboard/month-calendar.tsx`（新規、月表示UIコンポーネント。既存 `/api/tasks/range` を利用してデータ取得）
-- **依存する既存ファイル（読み取りのみ）**: `src/lib/week.ts`, `src/app/dashboard/week-calendar.tsx`, `src/app/dashboard/task-edit-dialog.tsx`
-- **テスト置き場**: `src/lib/month.test.ts`
-- **備考**: `page.tsx` への週/月切替タブの組み込みはPhase 4（共有ファイル）で行う
+#### Set D: レンダラーUI（`src/renderer/`）
+- 目的: ノート一覧表示・リアルタイム反映のUI側。受け入れ条件の画面表示・自動更新を満たす。
+- 新規作成してよいファイル: `index.html`, `vite.config.ts`, `src/renderer/main.tsx`, `src/renderer/App.tsx`, `src/renderer/components/NoteList.tsx`, `src/renderer/types/preload.d.ts`（`HanamaskPreloadApi`の型宣言。共有コントラクトのコピーでよい）
+- 読み取りのみ依存する既存ファイル: なし（`window.hanamask`はこのセット内でモックして単体テストする。実物との結線はPhase 4）
+- テスト置き場: `tests/renderer/NoteList.test.tsx`（`window.hanamask`をモックし、ノート一覧のレンダリングと`onNotesChanged`発火時の再取得を検証）
 
-#### Set C: プロジェクト/カテゴリのその場新規登録
-- **目的**: 機能3の受け入れ条件すべて（task-panel.tsxへの組み込みを除く）
-- **触ってよいファイル**:
-  - `src/server/handlers/projects.ts`（編集: `createProject` ハンドラを追加。既存 `listProjects` は変更しない）
-  - `src/app/dashboard/project-select.tsx`（新規、プロジェクト選択＋新規作成フォームを内包する共通コンポーネント）
-  - `src/app/dashboard/task-edit-dialog.tsx`（編集: 既存の `<select>` を `<ProjectSelect>` に置換）
-- **依存する既存ファイル（読み取りのみ）**: `src/server/context.ts`, `src/lib/current-organization.ts`
-- **テスト置き場**: `src/server/handlers/projects.test.ts`
-- **備考**: `task-panel.tsx` への `<ProjectSelect>` 組み込みと `src/server/app.ts` へのルート登録（`POST /api/projects`）はPhase 4（共有ファイル）で行う
+Set A・Set Dは互いに触るファイルが重複せず、共有コントラクトのみに依存するため**並列グループ1**として同時実装する。
 
-#### Set D: 工数集計ダッシュボード
-- **目的**: 機能4の受け入れ条件すべて（app.tsへのルート登録を除く）
-- **触ってよいファイル**:
-  - `src/lib/aggregation.ts`（新規、日/週/月別・プロジェクト別の工数集計を行う純粋関数）
-  - `src/server/handlers/stats.ts`（新規、`GET /api/stats/summary` 相当のハンドラ。`getTasksInRange` と同様のクエリパターンを踏襲）
-  - `src/app/dashboard/stats/page.tsx`（新規、集計ページ）
-  - `src/app/dashboard/stats-chart.tsx`（新規、Rechartsを用いた棒グラフコンポーネント）
-  - `src/app/dashboard/header.tsx`（編集: 集計ページへのナビリンク追加。他セットは本ファイルを触らない）
-  - `package.json` / `package-lock.json`（編集: `recharts` を dependencies に追加し `npm install` を実行。他セットは本ファイルを触らないため単独編集可）
-- **依存する既存ファイル（読み取りのみ）**: `src/lib/task-timer.ts`, `src/server/context.ts`
-- **テスト置き場**: `src/lib/aggregation.test.ts`, `src/server/handlers/stats.test.ts`
-- **備考**: `src/server/app.ts` へのルート登録（`GET /api/stats/summary`）はPhase 4（共有ファイル）で行う
+#### Set B: MCPサーバー（`src/main/mcp/`）
+- 目的: 外部AIエージェントからの`create_note`/`get_note`/`search_notes`呼び出しを受け付ける。受け入れ条件のMCP経由操作を満たす。
+- 新規作成してよいファイル: `src/main/mcp/server.ts`（`@modelcontextprotocol/sdk`のStreamable HTTPサーバーをlocalhost固定ポートで起動）, `src/main/mcp/tools.ts`（3ツールのスキーマ定義とハンドラ。ハンドラは`notes-repo`の関数を呼び、成功時に`change-emitter`へ通知する）, `src/main/mcp/change-emitter.ts`（共有コントラクトの`ChangeEmitter`実装。Node標準の`EventEmitter`で十分）
+- 読み取りのみ依存する既存ファイル: `src/main/db/notes-repo.ts`（Set Aの実装、実物を呼ぶ）
+- テスト置き場: `tests/main/mcp/tools.test.ts`（ツールハンドラを直接呼び出し、`notes-repo`への反映と`change-emitter`発火を検証。実DBの代わりに一時ファイルDBを使ってよい）
+
+#### Set C: Electronシェル（`src/main/index.ts`, `src/preload/index.ts`）
+- 目的: アプリの起動、ウィンドウ生成、preload経由のIPC公開、MCPサーバー起動、DB変更のレンダラーへの通知配線。
+- 新規作成してよいファイル: `src/main/index.ts`（`app.whenReady`でBrowserWindow生成、Set Bの`startMcpServer()`相当を呼ぶ、`change-emitter`の発火を`webContents.send('notes:changed')`へ橋渡し）, `src/preload/index.ts`（`contextBridge.exposeInMainWorld('hanamask', ...)` で共有コントラクトの`HanamaskPreloadApi`を実装。`listNotes`は`ipcMain.handle`経由で`notes-repo.searchNotes('')`相当を呼ぶ）
+- 読み取りのみ依存する既存ファイル: `src/main/db/notes-repo.ts`（Set A）, `src/main/mcp/server.ts` / `change-emitter.ts`（Set B）
+- テスト置き場: `tests/main/index.test.ts`（IPCハンドラ登録のユニットテスト。実ウィンドウ生成はテスト対象外とし、e2e相当の確認はPhase 4/5の手動起動で行う）
+
+Set B・Set CはSet Aの実物に依存するため、Set A完了後に**並列グループ2**として同時実装する（Set B・C間はファイルが重複しない）。
 
 ### 並列グループ宣言
-- Set A / Set B / Set C / Set D は互いにファイルが重複しないため、**全セット同時並列実行可能**。
-- 以下は共有ファイルのためPhase 4（統合ゲート）でのみ編集する：
-  - `src/app/dashboard/page.tsx`（Set Bの週/月切替タブ組み込み）
-  - `src/app/dashboard/task-panel.tsx` への `<ProjectSelect>` 追加（Set Aが既に編集するファイルへの追加変更）
-  - `src/server/app.ts`（Set C・Set Dの新規ルート登録: `POST /api/projects`, `GET /api/stats/summary`）
+
+1. **並列グループ1**（先行・依存なし）: Set A, Set D
+2. **並列グループ2**（Set A完了後）: Set B, Set C
+3. **Phase 4 統合ゲート（共有ファイルはここでのみ編集）**: `package.json`（`dev`/`build`/`test`スクリプト追加、`electron`/`vite`/`better-sqlite3`/`@modelcontextprotocol/sdk`等の依存追加）, `tsconfig.json`分割（main/preload用・renderer用）, `.gitignore`（`dist/`, `*.sqlite3`追加）, `src/preload/index.ts`とSet Dのレンダラーの実結線, `src/main/index.ts`とSet B/Set Aの実結線。結線後、実際に`npm run dev`でアプリを起動し、Part 1の受け入れ条件を手動で一通り確認する（MCPクライアント役はcurl等でHTTPを直接叩いてもよい）。
 
 ### 完了条件
-- `npm test`（Vitest）が全て緑
-- `npm run lint`（ESLint）がエラーなし
-- Phase 5レビュー（正しさ/仕様カバレッジ/重複抜け漏れ/型・null安全性）で重大な指摘がない
+
+- `npm run lint` / `npm run typecheck` / `npm test` が全て緑
+- Phase 4で`npm run dev`を実行し、Part 1の受け入れ条件6項目を全て手動確認できる
+- 3回までの自己修正ループで解決しない失敗があれば、そこで止めて報告する（無条件の自走はしない）
