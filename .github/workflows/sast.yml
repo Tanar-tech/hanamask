@@ -1,0 +1,30 @@
+name: SAST
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore: &non_functional_paths
+      - "**/*.md"
+      - "docs/**"
+      - ".claude/**"
+  push:
+    branches: [main]
+    paths-ignore: *non_functional_paths
+
+concurrency:
+  group: sast-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # OWASP Top 10（必須）+ ハードコードされたシークレットの検出（docs/CICD.md §6.1参照）。
+      # Semgrep OSS CLIはOSS/無料で、semgrep.dev（AppSec Platform）へのログイン・トークンは
+      # 使用しない。GitHub Advanced Security（有料）にも依存せず、結果はジョブログにのみ出力する。
+      - name: Semgrep scan (OWASP Top 10 + secrets)
+        run: semgrep scan --config p/owasp-top-ten --config p/secrets --error

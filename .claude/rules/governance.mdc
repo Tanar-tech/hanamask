@@ -1,0 +1,20 @@
+---
+description: work-manager リポジトリの体制・運用ルール（常時適用）
+globs:
+alwaysApply: true
+---
+
+# work-manager プロジェクト指示
+
+このリポジトリの体制・運用ルールは [docs/GOVERNANCE.md](../../docs/GOVERNANCE.md) に、アプリケーションの要求定義は [docs/REQUIREMENTS.md](../../docs/REQUIREMENTS.md) に定義されている。作業前に必ず参照すること。
+
+## 要点
+
+- 体制: 管理者（ユーザー） / 開発管理者 / 開発要員。Cursor上での作業はこの体制における実装作業（開発要員に相当する範囲）として行う。
+- `main` への破壊的操作、リリース、依存関係の大幅変更、アーキテクチャの不可逆な決定は事前に管理者の承認を得る（詳細は docs/GOVERNANCE.md §6）。承認が必要な操作を自律的に実行しない。
+- コミットは Conventional Commits 形式を基本とする（docs/GOVERNANCE.md §4）。
+- 生成したコード・変更は必ずレビュー可能な単位（差分が追える単位）でコミットし、無関係な変更を混在させない。
+- 技術スタック・コーディング規約は未確定（docs/GOVERNANCE.md §8）。決定次第この節を更新する。
+- アプリの機能要件・未決定事項は docs/REQUIREMENTS.md を参照。特に §7 の未決定事項は実装着手前に管理者へ確認する。
+- スコープの明確なタスクは `.cursor/agents/implementer` に委任できる。実装完了後は `.cursor/agents/reviewer`（静的レビュー）・`.cursor/agents/verifier`（動作検証）で確認してから採用する。
+- worktree 単位の並列実行は herdr 経由でCodex CLI（主）/ Claude Code CLIを使う運用（docs/HERDR.md、docs/CODEX.md、docs/GOVERNANCE.md §7.1）。Cursor上の作業には直接関係しないが、他の開発要員がその方式で並行作業している前提で担当領域の重複に注意する。
