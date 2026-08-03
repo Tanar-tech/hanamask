@@ -3,7 +3,7 @@ import { Construct } from "constructs";
 import * as iam from "aws-cdk-lib/aws-iam";
 
 const GITHUB_ORG = "Tanar-tech";
-const GITHUB_REPO = "work-manager";
+const GITHUB_REPO = "hanamask";
 const GITHUB_OIDC_PROVIDER_URL = "https://token.actions.githubusercontent.com";
 
 // GitHub Actions（release.yml）がAWSへデプロイするためのOIDC連携スタック（docs/CICD.md §5）。
@@ -24,9 +24,9 @@ export class GithubDeployStack extends cdk.Stack {
     });
 
     const deployRole = new iam.Role(this, "GithubDeployRole", {
-      roleName: "work-manager-github-deploy",
+      roleName: "hanamask-github-deploy",
       // NOTE: IAMのdescriptionはLatin-1の範囲しか受け付けないため英語で書く（日本語だとCREATE_FAILED）
-      description: "work-manager: CDK deploy role assumed by GitHub Actions (release.yml) via OIDC",
+      description: "hanamask: CDK deploy role assumed by GitHub Actions (release.yml) via OIDC",
       assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
         StringEquals: {
           "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
@@ -51,10 +51,10 @@ export class GithubDeployStack extends cdk.Stack {
         sid: "ReadStackOutputs",
         actions: ["cloudformation:DescribeStacks"],
         resources: [
-          // 本体・プレビュー（WorkManagerPreviewStack-pr-*）の両方を許可
-          `arn:aws:cloudformation:${this.region}:${this.account}:stack/WorkManager*/*`,
+          // 本体・プレビュー（HanamaskPreviewStack-pr-*）の両方を許可
+          `arn:aws:cloudformation:${this.region}:${this.account}:stack/Hanamask*/*`,
           // DomainStackはACM証明書がus-east-1必須のためCloudFront用証明書をそこで発行する（docs/AWS.md）
-          `arn:aws:cloudformation:us-east-1:${this.account}:stack/WorkManagerDomainStack/*`,
+          `arn:aws:cloudformation:us-east-1:${this.account}:stack/HanamaskDomainStack/*`,
         ],
       }),
     );
@@ -62,9 +62,9 @@ export class GithubDeployStack extends cdk.Stack {
       new iam.PolicyStatement({
         sid: "InvokeDbLambdas",
         actions: ["lambda:InvokeFunction"],
-        // 本体マイグレーション(work-manager-migrate)、PRごとのマイグレーション
-        // (work-manager-migrate-pr-*)、スキーマ破棄(work-manager-drop-schema)
-        resources: [`arn:aws:lambda:${this.region}:${this.account}:function:work-manager-*`],
+        // 本体マイグレーション(hanamask-migrate)、PRごとのマイグレーション
+        // (hanamask-migrate-pr-*)、スキーマ破棄(hanamask-drop-schema)
+        resources: [`arn:aws:lambda:${this.region}:${this.account}:function:hanamask-*`],
       }),
     );
 
@@ -73,13 +73,13 @@ export class GithubDeployStack extends cdk.Stack {
     // 現在のテンプレートと差分を取り、対象リソースを直接更新するため、bootstrap実行ロール
     // (cdk-*-cfn-exec-role)とは別にこのロールへの権限付与が必要（2026-07-28 PR#12で
     // --hotswap-fallback導入時に付け忘れていた不備の修正）。
-    // プレビュースタック(WorkManagerPreviewStack-pr-*)のみに限定する。
+    // プレビュースタック(HanamaskPreviewStack-pr-*)のみに限定する。
     deployRole.addToPolicy(
       new iam.PolicyStatement({
         sid: "HotswapReadPreviewStackTemplate",
         actions: ["cloudformation:GetTemplate", "cloudformation:DescribeStackResources"],
         resources: [
-          `arn:aws:cloudformation:${this.region}:${this.account}:stack/WorkManagerPreviewStack-pr-*/*`,
+          `arn:aws:cloudformation:${this.region}:${this.account}:stack/HanamaskPreviewStack-pr-*/*`,
         ],
       }),
     );
@@ -93,9 +93,9 @@ export class GithubDeployStack extends cdk.Stack {
         ],
         resources: [
           // ApiFunction（CDK自動命名、スタック名で始まる）
-          `arn:aws:lambda:${this.region}:${this.account}:function:WorkManagerPreviewStack-pr-*`,
+          `arn:aws:lambda:${this.region}:${this.account}:function:HanamaskPreviewStack-pr-*`,
           // MigrationFunction（明示的な関数名）
-          `arn:aws:lambda:${this.region}:${this.account}:function:work-manager-migrate-pr-*`,
+          `arn:aws:lambda:${this.region}:${this.account}:function:hanamask-migrate-pr-*`,
         ],
       }),
     );
@@ -110,7 +110,7 @@ export class GithubDeployStack extends cdk.Stack {
           "cloudfront:PublishFunction",
         ],
         resources: [
-          `arn:aws:cloudfront::${this.account}:function/WorkManagerPreviewStack-pr-*`,
+          `arn:aws:cloudfront::${this.account}:function/HanamaskPreviewStack-pr-*`,
         ],
       }),
     );

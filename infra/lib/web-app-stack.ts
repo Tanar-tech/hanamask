@@ -19,7 +19,7 @@ import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as route53Targets from "aws-cdk-lib/aws-route53-targets";
 
-// work-manager 本体（Webアプリ）のスモールスタート構成（docs/AWS.md）:
+// hanamask 本体（Webアプリ）のスモールスタート構成（docs/AWS.md）:
 //   CloudFront ─┬─ S3（Next.js静的エクスポート out/）
 //               └─ /api/* → API Gateway (HTTP API) → Lambda (dist/lambda/) → Aurora Serverless v2
 // フロントとAPIを同一オリジン（CloudFrontドメイン）に載せることで、CORSなし・
@@ -27,10 +27,10 @@ import * as route53Targets from "aws-cdk-lib/aws-route53-targets";
 //
 // デプロイ前提（docs/GOVERNANCE.md §6 により実デプロイは管理者が実施）:
 //   1. リポジトリルートで `npm run build`（out/ 生成）と `npm run build:lambda`（dist/lambda/ 生成）
-//   2. infra/ で `npx cdk deploy WorkManagerWebAppStack`
+//   2. infra/ で `npx cdk deploy HanamaskWebAppStack`
 //   3. 初回はDBマイグレーション適用が必要（docs/AWS.md「DBマイグレーション」参照）
 export interface WebAppStackProps extends cdk.StackProps {
-  /** カスタムドメイン（例: work-manager.dev.takudon3.com）。省略時はCloudFrontの既定ドメインのみ */
+  /** カスタムドメイン（例: hanamask.dev.takudon3.com）。省略時はCloudFrontの既定ドメインのみ */
   domainName?: string;
   /** domainName指定時は必須。us-east-1で発行されたACM証明書（DomainStack参照） */
   certificate?: acm.ICertificate;
@@ -76,8 +76,8 @@ export class WebAppStack extends cdk.Stack {
       writer: rds.ClusterInstance.serverlessV2("Writer"),
       serverlessV2MinCapacity: 0.5,
       serverlessV2MaxCapacity: 1,
-      defaultDatabaseName: "work_manager",
-      credentials: rds.Credentials.fromGeneratedSecret("workmanager", {
+      defaultDatabaseName: "hanamask",
+      credentials: rds.Credentials.fromGeneratedSecret("hanamask", {
         excludeCharacters: " \"'@/\\%&:?#[]{}()*+,;<=>^`|~!$",
       }),
       storageEncrypted: true,
@@ -97,7 +97,7 @@ export class WebAppStack extends cdk.Stack {
     });
 
     new events.Rule(this, "AuroraStartSchedule", {
-      description: "work-manager: Auroraを平日9:00 JSTに起動（業務時間開始）",
+      description: "hanamask: Auroraを平日9:00 JSTに起動（業務時間開始）",
       schedule: events.Schedule.cron({ minute: "0", hour: "0", weekDay: "MON-FRI" }),
       targets: [
         new targets.AwsApi({
@@ -110,7 +110,7 @@ export class WebAppStack extends cdk.Stack {
     });
 
     new events.Rule(this, "AuroraStopSchedule", {
-      description: "work-manager: Auroraを平日17:00 JSTに停止（業務時間終了、週末は月曜まで停止継続）",
+      description: "hanamask: Auroraを平日17:00 JSTに停止（業務時間終了、週末は月曜まで停止継続）",
       schedule: events.Schedule.cron({ minute: "0", hour: "8", weekDay: "MON-FRI" }),
       targets: [
         new targets.AwsApi({
@@ -124,7 +124,7 @@ export class WebAppStack extends cdk.Stack {
 
     // セッショントークン署名用シークレット（src/server/token.ts の AUTH_SECRET）
     const authSecret = new secretsmanager.Secret(this, "AuthSecret", {
-      description: "work-manager session token signing secret (AUTH_SECRET)",
+      description: "hanamask session token signing secret (AUTH_SECRET)",
       generateSecretString: { passwordLength: 64, excludePunctuation: true },
     });
 
@@ -144,11 +144,11 @@ export class WebAppStack extends cdk.Stack {
     // （コンソール閲覧可）。スモールスタットの割り切りであり、規模拡大時は
     // RDS Proxy + IAM認証 or 実行時Secrets Manager取得への移行を検討する（docs/AWS.md）。
     const databaseUrl =
-      "postgresql://workmanager:" +
+      "postgresql://hanamask:" +
       dbSecret.secretValueFromJson("password").unsafeUnwrap() +
       "@" +
       cluster.clusterEndpoint.hostname +
-      ":5432/work_manager?connection_limit=1&pool_timeout=20";
+      ":5432/hanamask?connection_limit=1&pool_timeout=20";
 
     const apiFunction = new lambda.Function(this, "ApiFunction", {
       runtime: lambda.Runtime.NODEJS_24_X,
@@ -178,7 +178,7 @@ export class WebAppStack extends cdk.Stack {
       );
     }
     const migrationFunction = new lambda.Function(this, "MigrationFunction", {
-      functionName: "work-manager-migrate",
+      functionName: "hanamask-migrate",
       runtime: lambda.Runtime.NODEJS_24_X,
       handler: "index.handler",
       code: lambda.Code.fromAsset(migrateBundleDir),
@@ -208,13 +208,13 @@ export class WebAppStack extends cdk.Stack {
 
     // スキーマ破棄用の共有Lambda（PRクローズ時にpr_<番号>スキーマをDROPする。dist/migrateのdropschema.handler）。
     const dbUrlBase =
-      "postgresql://workmanager:" +
+      "postgresql://hanamask:" +
       dbSecret.secretValueFromJson("password").unsafeUnwrap() +
       "@" +
       cluster.clusterEndpoint.hostname +
-      ":5432/work_manager";
+      ":5432/hanamask";
     const dropSchemaFunction = new lambda.Function(this, "DropSchemaFunction", {
-      functionName: "work-manager-drop-schema",
+      functionName: "hanamask-drop-schema",
       runtime: lambda.Runtime.NODEJS_24_X,
       handler: "dropschema.handler",
       code: lambda.Code.fromAsset(migrateBundleDir),
@@ -247,7 +247,7 @@ export class WebAppStack extends cdk.Stack {
 
     // --- API Gateway (HTTP API) ---
     const httpApi = new apigwv2.HttpApi(this, "HttpApi", {
-      apiName: "work-manager-api",
+      apiName: "hanamask-api",
     });
     httpApi.addRoutes({
       path: "/api/{proxy+}",
@@ -283,7 +283,7 @@ export class WebAppStack extends cdk.Stack {
     });
 
     const distribution = new cloudfront.Distribution(this, "Distribution", {
-      comment: "work-manager",
+      comment: "hanamask",
       defaultRootObject: "index.html",
       // 日本のユーザーが主対象のため、日本のエッジを含むPRICE_CLASS_200にする
       priceClass: cloudfront.PriceClass.PRICE_CLASS_200,

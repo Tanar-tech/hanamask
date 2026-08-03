@@ -81,12 +81,12 @@ export class PreviewStack extends cdk.Stack {
       jsonField: "password",
     }).unsafeUnwrap();
     const databaseUrl =
-      `postgresql://workmanager:${dbPassword}@${props.dbEndpoint}:5432/work_manager` +
+      `postgresql://hanamask:${dbPassword}@${props.dbEndpoint}:5432/hanamask` +
       `?schema=${schema}&connection_limit=1&pool_timeout=20`;
 
     // プレビュー専用のセッション署名鍵（本番とは分離。スタック更新をまたいで安定させるため構築）。
     const authSecret = new secretsmanager.Secret(this, "AuthSecret", {
-      description: `work-manager preview AUTH_SECRET (pr-${props.prNumber})`,
+      description: `hanamask preview AUTH_SECRET (pr-${props.prNumber})`,
       generateSecretString: { passwordLength: 64, excludePunctuation: true },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
@@ -110,7 +110,7 @@ export class PreviewStack extends cdk.Stack {
 
     // --- マイグレーションLambda（pr_<番号>スキーマを作成しmigrate deploy。pr-preview.ymlがinvoke） ---
     const migrationFunction = new lambda.Function(this, "MigrationFunction", {
-      functionName: `work-manager-migrate-pr-${props.prNumber}`,
+      functionName: `hanamask-migrate-pr-${props.prNumber}`,
       runtime: lambda.Runtime.NODEJS_24_X,
       handler: "index.handler",
       code: lambda.Code.fromAsset(migrateBundleDir),
@@ -126,7 +126,7 @@ export class PreviewStack extends cdk.Stack {
 
     // --- API Gateway (HTTP API) ---
     const httpApi = new apigwv2.HttpApi(this, "HttpApi", {
-      apiName: `work-manager-preview-pr-${props.prNumber}`,
+      apiName: `hanamask-preview-pr-${props.prNumber}`,
     });
     httpApi.addRoutes({
       path: "/api/{proxy+}",
@@ -159,7 +159,7 @@ export class PreviewStack extends cdk.Stack {
     });
 
     const distribution = new cloudfront.Distribution(this, "Distribution", {
-      comment: `work-manager preview pr-${props.prNumber}`,
+      comment: `hanamask preview pr-${props.prNumber}`,
       defaultRootObject: "index.html",
       priceClass: cloudfront.PriceClass.PRICE_CLASS_200,
       domainNames: [props.domainName],

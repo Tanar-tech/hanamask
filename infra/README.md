@@ -1,6 +1,6 @@
-# work-manager infra (AWS CDK)
+# hanamask infra (AWS CDK)
 
-work-manager 本体は AWS を使わない、ローカル動作の Windows デスクトップアプリ。ここは
+hanamask 本体は AWS を使わない、ローカル動作の Windows デスクトップアプリ。ここは
 **CI/CDのビルド成果物（exe/zip）をS3に保存・配布する**用途に限定したAWSリソースのみを扱う
 （詳細は [docs/CICD.md](../docs/CICD.md) §10）。
 

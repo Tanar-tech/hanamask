@@ -6,7 +6,7 @@ name: PR Preview
 #
 # 単一Aurora内のスキーマ pr_<PR番号> にPRごとのデータを分離する。共有情報（VPC/Aurora/SG/
 # ワイルドカード証明書）はWebAppStack/DomainStackのdescribe-stacks出力から取得し、CDKコンテキスト
-# としてPreviewStackへ渡す。認証はGitHub OIDC（release.ymlと同じ work-manager-github-deploy ロール）。
+# としてPreviewStackへ渡す。認証はGitHub OIDC（release.ymlと同じ hanamask-github-deploy ロール）。
 #
 # 前提（初回のみ・管理者）: 本ブランチのWebAppStack/DomainStack/GithubDeployStack更新を本番へ反映
 # （Deployワークフロー実行 + GithubDeployStack再デプロイ）しておくこと。
@@ -73,13 +73,13 @@ jobs:
           get() { aws cloudformation describe-stacks --stack-name "$1" --region "$2" \
             --query "Stacks[0].Outputs[?OutputKey=='$3'].OutputValue" --output text; }
           {
-            echo "vpcId=$(get WorkManagerWebAppStack "$AWS_REGION" SharedVpcId)"
-            echo "subnets=$(get WorkManagerWebAppStack "$AWS_REGION" SharedIsolatedSubnetIds)"
-            echo "azs=$(get WorkManagerWebAppStack "$AWS_REGION" SharedAvailabilityZones)"
-            echo "sgId=$(get WorkManagerWebAppStack "$AWS_REGION" SharedPreviewLambdaSgId)"
-            echo "dbEndpoint=$(get WorkManagerWebAppStack "$AWS_REGION" SharedDbEndpoint)"
-            echo "dbSecretArn=$(get WorkManagerWebAppStack "$AWS_REGION" SharedDbSecretArn)"
-            echo "certArn=$(get WorkManagerDomainStack us-east-1 PreviewCertificateArn)"
+            echo "vpcId=$(get HanamaskWebAppStack "$AWS_REGION" SharedVpcId)"
+            echo "subnets=$(get HanamaskWebAppStack "$AWS_REGION" SharedIsolatedSubnetIds)"
+            echo "azs=$(get HanamaskWebAppStack "$AWS_REGION" SharedAvailabilityZones)"
+            echo "sgId=$(get HanamaskWebAppStack "$AWS_REGION" SharedPreviewLambdaSgId)"
+            echo "dbEndpoint=$(get HanamaskWebAppStack "$AWS_REGION" SharedDbEndpoint)"
+            echo "dbSecretArn=$(get HanamaskWebAppStack "$AWS_REGION" SharedDbSecretArn)"
+            echo "certArn=$(get HanamaskDomainStack us-east-1 PreviewCertificateArn)"
           } >> "$GITHUB_OUTPUT"
 
       # --hotswap-fallback は一時的に無効化中（2026-07-28）: GithubDeployRoleに
@@ -90,7 +90,7 @@ jobs:
       - name: CDK deploy preview stack
         working-directory: infra
         run: |
-          npx cdk deploy "WorkManagerPreviewStack-pr-${PR_NUMBER}" --require-approval never \
+          npx cdk deploy "HanamaskPreviewStack-pr-${PR_NUMBER}" --require-approval never \
             -c prNumber="${PR_NUMBER}" \
             -c vpcId="${{ steps.shared.outputs.vpcId }}" \
             -c isolatedSubnetIds="${{ steps.shared.outputs.subnets }}" \
@@ -104,7 +104,7 @@ jobs:
         run: |
           set -euo pipefail
           RESPONSE=$(aws lambda invoke \
-            --function-name "work-manager-migrate-pr-${PR_NUMBER}" \
+            --function-name "hanamask-migrate-pr-${PR_NUMBER}" \
             --cli-read-timeout 350 \
             --cli-binary-format raw-in-base64-out \
             --payload '{"seed":true}' \
@@ -167,7 +167,7 @@ jobs:
         run: |
           set -euo pipefail
           RESPONSE=$(aws lambda invoke \
-            --function-name work-manager-drop-schema \
+            --function-name hanamask-drop-schema \
             --cli-read-timeout 150 \
             --cli-binary-format raw-in-base64-out \
             --payload "{\"schema\":\"pr_${PR_NUMBER}\"}" \
@@ -184,19 +184,19 @@ jobs:
           get() { aws cloudformation describe-stacks --stack-name "$1" --region "$2" \
             --query "Stacks[0].Outputs[?OutputKey=='$3'].OutputValue" --output text; }
           {
-            echo "vpcId=$(get WorkManagerWebAppStack "$AWS_REGION" SharedVpcId)"
-            echo "subnets=$(get WorkManagerWebAppStack "$AWS_REGION" SharedIsolatedSubnetIds)"
-            echo "azs=$(get WorkManagerWebAppStack "$AWS_REGION" SharedAvailabilityZones)"
-            echo "sgId=$(get WorkManagerWebAppStack "$AWS_REGION" SharedPreviewLambdaSgId)"
-            echo "dbEndpoint=$(get WorkManagerWebAppStack "$AWS_REGION" SharedDbEndpoint)"
-            echo "dbSecretArn=$(get WorkManagerWebAppStack "$AWS_REGION" SharedDbSecretArn)"
-            echo "certArn=$(get WorkManagerDomainStack us-east-1 PreviewCertificateArn)"
+            echo "vpcId=$(get HanamaskWebAppStack "$AWS_REGION" SharedVpcId)"
+            echo "subnets=$(get HanamaskWebAppStack "$AWS_REGION" SharedIsolatedSubnetIds)"
+            echo "azs=$(get HanamaskWebAppStack "$AWS_REGION" SharedAvailabilityZones)"
+            echo "sgId=$(get HanamaskWebAppStack "$AWS_REGION" SharedPreviewLambdaSgId)"
+            echo "dbEndpoint=$(get HanamaskWebAppStack "$AWS_REGION" SharedDbEndpoint)"
+            echo "dbSecretArn=$(get HanamaskWebAppStack "$AWS_REGION" SharedDbSecretArn)"
+            echo "certArn=$(get HanamaskDomainStack us-east-1 PreviewCertificateArn)"
           } >> "$GITHUB_OUTPUT"
 
       - name: CDK destroy preview stack
         working-directory: infra
         run: |
-          npx cdk destroy "WorkManagerPreviewStack-pr-${PR_NUMBER}" --force \
+          npx cdk destroy "HanamaskPreviewStack-pr-${PR_NUMBER}" --force \
             -c prNumber="${PR_NUMBER}" \
             -c vpcId="${{ steps.shared.outputs.vpcId }}" \
             -c isolatedSubnetIds="${{ steps.shared.outputs.subnets }}" \

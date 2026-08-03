@@ -46,9 +46,14 @@ if (install.status !== 0) {
 }
 
 cpSync(path.join(root, "prisma", "schema.prisma"), path.join(outDir, "prisma", "schema.prisma"));
-cpSync(path.join(root, "prisma", "migrations"), path.join(outDir, "prisma", "migrations"), {
-  recursive: true,
-});
+// prisma/migrations はアプリ仕様確定前は存在しない場合がある（`prisma migrate dev` 未実行）。
+// その場合は空ディレクトリを用意する（migrate deployはマイグレーション0件でも成功する）。
+const migrationsDir = path.join(root, "prisma", "migrations");
+if (existsSync(migrationsDir)) {
+  cpSync(migrationsDir, path.join(outDir, "prisma", "migrations"), { recursive: true });
+} else {
+  mkdirSync(path.join(outDir, "prisma", "migrations"), { recursive: true });
+}
 
 // シード（seedData）が使う @prisma/client（生成済みクライアント）と bcryptjs を同梱する。
 // prisma本体と違いnpm installでは入らないため、ルートのnode_modules（事前に`npx prisma generate`

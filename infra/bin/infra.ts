@@ -13,7 +13,7 @@ const app = new cdk.App();
 // 参照（crossRegionReferences）には両スタックで同一アカウントの明示的なenvが必要なため固定する。
 const AWS_ACCOUNT_ID = "284133227933";
 const APP_REGION = "ap-northeast-1";
-const APP_DOMAIN_NAME = "work-manager.dev.takudon3.com";
+const APP_DOMAIN_NAME = "hanamask.dev.takudon3.com";
 const PREVIEW_WILDCARD_DOMAIN = "*.preview.dev.takudon3.com";
 // takudon3.com は既にこのAWSアカウントのRoute53ホストゾーンが権威DNSとして稼働中
 // （2026-07-27確認。`aws route53 list-hosted-zones-by-name --dns-name takudon3.com` で取得）。
@@ -36,9 +36,9 @@ if (prNumber) {
     }
     return value;
   };
-  new PreviewStack(app, `WorkManagerPreviewStack-pr-${prNumber}`, {
+  new PreviewStack(app, `HanamaskPreviewStack-pr-${prNumber}`, {
     env: { account: AWS_ACCOUNT_ID, region: APP_REGION },
-    description: `work-manager: PR #${prNumber} プレビュー環境`,
+    description: `hanamask: PR #${prNumber} プレビュー環境`,
     prNumber,
     domainName: `pr-${prNumber}.preview.dev.takudon3.com`,
     hostedZoneId: EXISTING_HOSTED_ZONE_ID,
@@ -54,18 +54,18 @@ if (prNumber) {
   // プレビューデプロイ時は本体スタックを合成対象にしない（describe-stacks値のみで完結させる）。
 } else {
   // 旧: Windowsデスクトップアプリ時代のビルド成果物配布用（docs/CICD.md §9）。
-  new ReleaseBucketStack(app, "WorkManagerReleaseBucketStack", {
+  new ReleaseBucketStack(app, "HanamaskReleaseBucketStack", {
     description:
-      "work-manager: CI/CDのビルド成果物配布用S3バケットと、GitHub Actionsから使うOIDCロール",
+      "hanamask: CI/CDのビルド成果物配布用S3バケットと、GitHub Actionsから使うOIDCロール",
   });
 
   // カスタムドメイン（2026-07-24 /goal指示）。CloudFront用ACM証明書はus-east-1必須のため
   // WebAppStackとは別リージョン。詳細は docs/AWS.md、infra/lib/domain-stack.ts 参照。
-  const domainStack = new DomainStack(app, "WorkManagerDomainStack", {
+  const domainStack = new DomainStack(app, "HanamaskDomainStack", {
     env: { account: AWS_ACCOUNT_ID, region: "us-east-1" },
     crossRegionReferences: true,
     description:
-      "work-manager: カスタムドメイン用ACM証明書（us-east-1固定。ホストゾーンは既存takudon3.comを参照）",
+      "hanamask: カスタムドメイン用ACM証明書（us-east-1固定。ホストゾーンは既存takudon3.comを参照）",
     hostedZoneId: EXISTING_HOSTED_ZONE_ID,
     hostedZoneName: EXISTING_HOSTED_ZONE_NAME,
     appDomainName: APP_DOMAIN_NAME,
@@ -73,18 +73,18 @@ if (prNumber) {
   });
 
   // Webアプリ本体（CloudFront+S3 / API Gateway+Lambda / Aurora Serverless v2。docs/AWS.md）
-  new WebAppStack(app, "WorkManagerWebAppStack", {
+  new WebAppStack(app, "HanamaskWebAppStack", {
     env: { account: AWS_ACCOUNT_ID, region: APP_REGION },
     crossRegionReferences: true,
     description:
-      "work-manager: Webアプリ本体（CloudFront+S3静的フロント、API Gateway+LambdaバックエンドAPI、Aurora Serverless v2）",
+      "hanamask: Webアプリ本体（CloudFront+S3静的フロント、API Gateway+LambdaバックエンドAPI、Aurora Serverless v2）",
     domainName: APP_DOMAIN_NAME,
     certificate: domainStack.certificate,
     hostedZone: domainStack.hostedZone,
   });
 
   // GitHub ActionsからのCDKデプロイ用OIDCロール（管理者がローカルから一度だけデプロイする）
-  new GithubDeployStack(app, "WorkManagerGithubDeployStack", {
-    description: "work-manager: GitHub Actions(release.yml/pr-preview.yml)用のOIDCプロバイダとデプロイロール",
+  new GithubDeployStack(app, "HanamaskGithubDeployStack", {
+    description: "hanamask: GitHub Actions(release.yml/pr-preview.yml)用のOIDCプロバイダとデプロイロール",
   });
 }

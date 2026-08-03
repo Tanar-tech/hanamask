@@ -1,9 +1,9 @@
 name: Deploy
 
 # AWSへの本番デプロイ（docs/CICD.md §5、docs/AWS.md）。
-# 認証はGitHub OIDC（WorkManagerGithubDeployStackのロールをAssume。静的キー不使用）。
+# 認証はGitHub OIDC（HanamaskGithubDeployStackのロールをAssume。静的キー不使用）。
 # 事前準備（管理者・初回のみ）:
-#   1. infra/ で WorkManagerGithubDeployStack をローカルからデプロイ
+#   1. infra/ で HanamaskGithubDeployStack をローカルからデプロイ
 #   2. リポジトリ変数 AWS_DEPLOY_ROLE_ARN にロールARNを設定
 #   3. production Environment に Required reviewers を設定（承認ゲート。docs/CICD.md §6）
 
@@ -76,13 +76,13 @@ jobs:
 
       - name: CDK deploy
         working-directory: infra
-        run: npx cdk deploy WorkManagerDomainStack WorkManagerWebAppStack --require-approval never
+        run: npx cdk deploy HanamaskDomainStack HanamaskWebAppStack --require-approval never
 
       - name: Run database migrations (Lambda)
         run: |
           set -euo pipefail
           RESPONSE=$(aws lambda invoke \
-            --function-name work-manager-migrate \
+            --function-name hanamask-migrate \
             --cli-read-timeout 350 \
             --cli-binary-format raw-in-base64-out \
             --payload '{}' \
@@ -99,6 +99,6 @@ jobs:
       - name: Show stack outputs
         run: |
           aws cloudformation describe-stacks \
-            --stack-name WorkManagerWebAppStack \
+            --stack-name HanamaskWebAppStack \
             --query "Stacks[0].Outputs" \
             --output table

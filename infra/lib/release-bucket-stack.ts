@@ -4,11 +4,11 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import * as iam from "aws-cdk-lib/aws-iam";
 
 const GITHUB_ORG = "Tanar-tech";
-const GITHUB_REPO = "work-manager";
+const GITHUB_REPO = "hanamask";
 const GITHUB_OIDC_PROVIDER_URL = "https://token.actions.githubusercontent.com";
 
 /**
- * work-manager の CI/CD 専用スタック。
+ * hanamask の CI/CD 専用スタック。
  * アプリケーション自体はローカル動作の Windows デスクトップアプリであり、
  * このスタックは「ビルド成果物(exe/zip)をS3に保存・配布する」用途に限定する
  * （アプリのバックエンドではない。docs/CICD.md 参照）。
@@ -38,7 +38,7 @@ export class ReleaseBucketStack extends cdk.Stack {
     // release.yml から assume する最小権限ロール。
     // 対象リポジトリ以外からは assume できないよう sub クレームで縛る。
     const releaseRole = new iam.Role(this, "GitHubActionsReleaseRole", {
-      roleName: "work-manager-github-actions-release",
+      roleName: "hanamask-github-actions-release",
       description: "release.yml がビルド成果物をS3にアップロードするための最小権限ロール",
       assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
         StringEquals: {

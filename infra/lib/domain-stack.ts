@@ -3,7 +3,7 @@ import { Construct } from "constructs";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 
-// カスタムドメイン用スタック（2026-07-24 /goal指示: work-manager.dev.takudon3.com）。
+// カスタムドメイン用スタック（2026-07-24 /goal指示: hanamask.dev.takudon3.com）。
 // CloudFrontで使うACM証明書は必ずus-east-1リージョンで発行する必要があるため、
 // このスタックはWebAppStack（ap-northeast-1）とは別リージョンにデプロイし、
 // crossRegionReferences で証明書・ホストゾーンをWebAppStackへ渡す（infra/bin/infra.ts参照）。
@@ -16,7 +16,7 @@ export interface DomainStackProps extends cdk.StackProps {
   hostedZoneId: string;
   /** 既存のホストゾーン名（takudon3.com） */
   hostedZoneName: string;
-  /** ACM証明書を発行する完全修飾ドメイン名（例: work-manager.dev.takudon3.com） */
+  /** ACM証明書を発行する完全修飾ドメイン名（例: hanamask.dev.takudon3.com） */
   appDomainName: string;
   /** PRプレビュー用ワイルドカードドメイン（例: *.preview.dev.takudon3.com） */
   previewWildcardDomainName: string;
