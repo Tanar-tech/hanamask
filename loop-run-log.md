@@ -1,4 +1,4 @@
-# Loop Run Log — YOUR_PROJECT
+# Loop Run Log — hanamask
 
 Append one entry per run. Prune entries older than 30 days.
 
@@ -20,3 +20,16 @@ Append one entry per run. Prune entries older than 30 days.
 ## Recent Runs
 
 <!-- Loop appends below this line -->
+
+```json
+{
+  "run_id": "2026-08-03T02:05:00Z",
+  "pattern": "daily-triage",
+  "duration_s": 90,
+  "items_found": 2,
+  "actions_taken": 0,
+  "escalations": 1,
+  "tokens_estimate": null,
+  "outcome": "report-only"
+}
+```
