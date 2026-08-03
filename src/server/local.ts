@@ -64,5 +64,5 @@ const server = createServer((incoming, outgoing) => {
 });
 
 server.listen(port, () => {
-  console.log(`work-manager API server: http://localhost:${port}`);
+  console.log(`hanamask API server: http://localhost:${port}`);
 });

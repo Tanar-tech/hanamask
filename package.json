@@ -1,8 +1,8 @@
 {
-  "name": "work-manager",
+  "name": "hanamask",
   "version": "0.1.0",
   "private": true,
-  "description": "タスク管理と工数管理を一体化したWebアプリケーション（SaaS）",
+  "description": "hanamask（仕様検討中）",
   "scripts": {
     "dev": "next dev",
     "dev:api": "tsx watch src/server/local.ts",
@@ -16,19 +16,13 @@
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:migrate:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "prisma:migrate:deploy": "prisma migrate deploy"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
-    "bcryptjs": "^3.0.3",
     "next": "^16.2.12",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "recharts": "^3.10.1",
     "stripe": "^22.3.2"
   },
   "devDependencies": {
