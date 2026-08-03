@@ -1,13 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { Note } from "../main/db/notes-repo.js";
+import type { HanamaskPreloadApi } from "../shared/preload-api.js";
 
 const NOTES_CHANGED_CHANNEL = "notes:changed";
 const NOTES_LIST_CHANNEL = "notes:list";
-
-export interface HanamaskPreloadApi {
-  listNotes(): Promise<Note[]>;
-  onNotesChanged(callback: () => void): () => void;
-}
 
 const api: HanamaskPreloadApi = {
   listNotes: () => ipcRenderer.invoke(NOTES_LIST_CHANNEL),

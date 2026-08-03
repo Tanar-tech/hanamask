@@ -2,7 +2,8 @@ import { app, BrowserWindow, ipcMain } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
-import { searchNotes, type Note } from "./db/notes-repo.js";
+import { searchNotes } from "./db/notes-repo.js";
+import type { Note } from "../shared/preload-api.js";
 import { onNotesChanged } from "./mcp/change-emitter.js";
 import { startMcpServer } from "./mcp/server.js";
 
@@ -70,6 +71,9 @@ app.on("before-quit", () => {
   });
 });
 
-app.whenReady().then(start, (error: unknown) => {
-  throw new Error(`Failed to start hanamask: ${String(error)}`);
-});
+app
+  .whenReady()
+  .then(start)
+  .catch((error: unknown) => {
+    throw new Error(`Failed to start hanamask: ${String(error)}`);
+  });

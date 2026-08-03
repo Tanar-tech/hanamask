@@ -1,16 +1,4 @@
-export interface Note {
-  id: string;
-  title: string;
-  body: string;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface HanamaskPreloadApi {
-  listNotes(): Promise<Note[]>;
-  onNotesChanged(callback: () => void): () => void;
-}
+import type { HanamaskPreloadApi } from "../../shared/preload-api.js";
 
 declare global {
   interface Window {

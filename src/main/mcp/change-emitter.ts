@@ -1,10 +1,6 @@
 import { EventEmitter } from "node:events";
 
-export interface ChangeEmitter {
-  emitNotesChanged(): void;
-  onNotesChanged(listener: () => void): () => void;
-}
-
+// SPEC.mdの共有コントラクト ChangeEmitter は、オブジェクトではなく個別関数として公開する。
 const NOTES_CHANGED_EVENT = "notes:changed";
 
 const emitter = new EventEmitter();
@@ -19,5 +15,3 @@ export const onNotesChanged = (listener: () => void): (() => void) => {
     emitter.off(NOTES_CHANGED_EVENT, listener);
   };
 };
-
-export const changeEmitter: ChangeEmitter = { emitNotesChanged, onNotesChanged };

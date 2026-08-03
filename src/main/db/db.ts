@@ -19,13 +19,21 @@ const applySchema = (db: DatabaseHandle): void => {
 
 export const openDb = (dbFilePath: string): DatabaseHandle => {
   closeDb();
+  let db: DatabaseHandle;
   try {
-    connection = new Database(dbFilePath);
+    db = new Database(dbFilePath);
   } catch (error) {
     throw new Error(`Failed to open database at ${dbFilePath}: ${String(error)}`);
   }
-  applySchema(connection);
-  return connection;
+  connection = db;
+  try {
+    applySchema(db);
+  } catch (error) {
+    // Leaving a half-initialized handle in place would let later getDb() calls hit a broken schema.
+    closeDb();
+    throw error;
+  }
+  return db;
 };
 
 export const getDb = (): DatabaseHandle => {

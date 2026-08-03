@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { NoteList } from "../../src/renderer/components/NoteList";
-import type { Note } from "../../src/renderer/types/preload";
+import type { Note } from "../../src/shared/preload-api";
 
 const makeNote = (overrides: Partial<Note> = {}): Note => ({
   id: "note-1",

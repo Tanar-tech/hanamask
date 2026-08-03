@@ -63,7 +63,8 @@ const handleMcpRequest = async (req: IncomingMessage, res: ServerResponse): Prom
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   const server = createNoteMcpServer();
   res.on("close", () => {
-    void server.close();
+    // The response is already gone, so a failed teardown has nowhere to be reported.
+    server.close().catch(() => {});
   });
   await server.connect(transport);
   await transport.handleRequest(req, res);

@@ -1,20 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
-
-export interface Note {
-  id: string;
-  title: string;
-  body: string;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface NoteInput {
-  title: string;
-  body: string;
-  tags: string[];
-}
+import type { Note, NoteInput } from "../../shared/preload-api.js";
 
 interface NoteRow {
   id: string;

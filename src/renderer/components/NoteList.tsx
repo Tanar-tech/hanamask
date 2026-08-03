@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
-import type { Note } from "../types/preload";
+import type { Note } from "../../shared/preload-api";
 
 const BODY_PREVIEW_LENGTH = 120;
 
