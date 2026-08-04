@@ -111,13 +111,14 @@ flowchart LR
 
 <h3 id="t04">T04: ノート編集履歴（バージョニング）</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 進行中（バックエンド完了。管理者判断: 復元操作自体も新バージョンとして積む方式で実装した。履歴表示UIは<code>src/renderer/components/</code>の詳細画面連携が未着手のため残す）</li>
 <li>依存: 必須: T03（更新前スナップショットを撮るには<code>update_note</code>が存在する必要がある）</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.7, §6, §7.1。<code>update_note</code>実行直前の内容をスナップショットし、<code>list_note_versions</code>/<code>restore_note_version</code>で辿れるようにする。</li>
 <li>変更範囲: <code>src/main/db/</code>（<code>NoteVersion</code>テーブル・リポジトリ関数）, <code>src/main/mcp/tools.ts</code>（2ツール追加）, <code>src/renderer/components/</code>（履歴表示UI）。</li>
 <li>禁止事項: バージョン数の上限・自動間引きは<code>docs/REQUIREMENTS.md</code>に規定が無いため実装しない（無制限保存のまま。上限が必要になったら別タスクで管理者に提案する）。</li>
 <li>テスト: <code>update_note</code>呼び出しごとにスナップショットが1件増えることの単体テスト、<code>restore_note_version</code>で本文が過去バージョンに戻ることのテスト（戻す操作自体もスナップショットを積むか、<code>docs/REQUIREMENTS.md</code>に明記が無いため実装前に停止条件で確認）。</li>
-<li>停止条件: 「過去バージョンへの復元」がさらに新しいバージョンとして積まれるか、単純上書きかは要求定義に記載が無いため、実装前に管理者へ確認する。</li>
+<li>停止条件: 「過去バージョンへの復元」がさらに新しいバージョンとして積まれるか、単純上書きかは要求定義に記載が無いため、実装前に管理者へ確認する。→ 管理者確認済み（新バージョンとして積む方式）。</li>
+<li>実績: <code>notes-repo.ts</code>に<code>snapshotNote</code>（<code>updateNote</code>冒頭で自動実行）・<code>listNoteVersions</code>・<code>restoreNoteVersion</code>（内部で<code>updateNote</code>を呼ぶことで復元自体も履歴に積む）を追加。<code>tools.ts</code>に<code>list_note_versions</code>/<code>restore_note_version</code>を追加。単体テスト10件+MCPツール5件を追加。<code>implementer</code>が実装、<code>reviewer</code>・<code>verifier</code>とも指摘なし（<code>restoreNoteVersion</code>経由の一連の流れを実データで確認済み）。履歴表示UIはT03/T06と同様、ノート詳細画面への組み込みが必要なため別タスクで対応する。</li>
 </ul>
 
 <h3 id="t05">T05: タスク管理（CRUD・ステータス・ソフトデリート）</h3>
