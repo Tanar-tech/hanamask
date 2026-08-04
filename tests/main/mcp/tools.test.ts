@@ -23,6 +23,30 @@ const readJsonPayload = (result: CallToolResult): unknown => {
   return JSON.parse(firstContent.text);
 };
 
+const readNoteId = (result: CallToolResult): string => {
+  const payload = readJsonPayload(result);
+  if (typeof payload !== "object" || payload === null || !("note" in payload)) {
+    throw new Error("payload has no note");
+  }
+  const { note } = payload;
+  if (typeof note !== "object" || note === null || !("id" in note)) {
+    throw new Error("note has no id");
+  }
+  const { id } = note;
+  if (typeof id !== "string") throw new Error("note id is not a string");
+  return id;
+};
+
+const readNoteCount = (result: CallToolResult): number => {
+  const payload = readJsonPayload(result);
+  if (typeof payload !== "object" || payload === null || !("notes" in payload)) {
+    throw new Error("payload has no notes");
+  }
+  const { notes } = payload;
+  if (!Array.isArray(notes)) throw new Error("payload notes is not an array");
+  return notes.length;
+};
+
 describe("mcp note tools", () => {
   let dbFilePath: string;
 
@@ -36,12 +60,7 @@ describe("mcp note tools", () => {
     rmSync(dbFilePath, { force: true });
   });
 
-  it("exposes create_note, get_note and search_notes definitions", () => {
-    expect(noteTools.map((tool) => tool.definition.name).sort()).toEqual([
-      "create_note",
-      "get_note",
-      "search_notes",
-    ]);
+  it("exposes create_note's input schema", () => {
     const createNoteTool = findNoteTool("create_note");
     expect(createNoteTool?.definition.inputSchema.type).toBe("object");
     expect(Object.keys(createNoteTool?.definition.inputSchema.properties ?? {}).sort()).toEqual([
@@ -59,16 +78,7 @@ describe("mcp note tools", () => {
     });
 
     expect(result.isError).toBeFalsy();
-    const payload = readJsonPayload(result);
-    if (typeof payload !== "object" || payload === null || !("note" in payload)) {
-      throw new Error("create_note payload has no note");
-    }
-    const { note } = payload;
-    if (typeof note !== "object" || note === null || !("id" in note)) {
-      throw new Error("create_note payload note has no id");
-    }
-    const { id } = note;
-    if (typeof id !== "string") throw new Error("create_note returned a non-string id");
+    const id = readNoteId(result);
 
     const stored = getNote(id);
     expect(stored?.title).toBe("設計メモ");
@@ -112,18 +122,9 @@ describe("mcp note tools", () => {
   });
 
   it("returns a stored note through get_note", async () => {
-    const created = readJsonPayload(
+    const id = readNoteId(
       await callTool("create_note", { title: "取得", body: "本文", tags: ["x"] }),
     );
-    if (typeof created !== "object" || created === null || !("note" in created)) {
-      throw new Error("create_note payload has no note");
-    }
-    const { note } = created;
-    if (typeof note !== "object" || note === null || !("id" in note)) {
-      throw new Error("create_note payload note has no id");
-    }
-    const { id } = note;
-    if (typeof id !== "string") throw new Error("create_note returned a non-string id");
 
     const result = await callTool("get_note", { id });
 
@@ -171,5 +172,80 @@ describe("mcp note tools", () => {
     expect(result.isError).toBe(true);
     const [firstContent] = result.content;
     expect(firstContent?.type).toBe("text");
+  });
+
+  it("exposes update_note, delete_note and restore_note definitions", () => {
+    expect(noteTools.map((tool) => tool.definition.name).sort()).toEqual([
+      "create_note",
+      "delete_note",
+      "get_note",
+      "restore_note",
+      "search_notes",
+      "update_note",
+    ]);
+  });
+
+  it("updates a note's title through update_note and notifies listeners", async () => {
+    const id = readNoteId(await callTool("create_note", { title: "元", body: "本文", tags: [] }));
+
+    const listener = vi.fn();
+    const unsubscribe = onNotesChanged(listener);
+
+    const result = await callTool("update_note", { id, title: "新" });
+
+    expect(result.isError).toBeFalsy();
+    expect(readJsonPayload(result)).toEqual({ note: expect.objectContaining({ id, title: "新" }) });
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("returns an MCP error from update_note for an unknown id", async () => {
+    const result = await callTool("update_note", { id: randomUUID(), title: "x" });
+
+    expect(result.isError).toBe(true);
+  });
+
+  it("rejects delete_note without confirm: true", async () => {
+    const id = readNoteId(await callTool("create_note", { title: "消す", body: "本文", tags: [] }));
+
+    const result = await callTool("delete_note", { id });
+
+    expect(result.isError).toBe(true);
+    const stillThere = await callTool("search_notes", { query: "消す" });
+    expect(readNoteCount(stillThere)).toBe(1);
+  });
+
+  it("soft-deletes a note through delete_note when confirm: true is passed, and notifies listeners", async () => {
+    const id = readNoteId(await callTool("create_note", { title: "消す", body: "本文", tags: [] }));
+
+    const listener = vi.fn();
+    const unsubscribe = onNotesChanged(listener);
+
+    const result = await callTool("delete_note", { id, confirm: true });
+
+    expect(result.isError).toBeFalsy();
+    expect(listener).toHaveBeenCalledTimes(1);
+    const afterDelete = await callTool("search_notes", { query: "消す" });
+    expect(readNoteCount(afterDelete)).toBe(0);
+    unsubscribe();
+  });
+
+  it("restores a soft-deleted note through restore_note", async () => {
+    const id = readNoteId(await callTool("create_note", { title: "戻す", body: "本文", tags: [] }));
+    await callTool("delete_note", { id, confirm: true });
+
+    const result = await callTool("restore_note", { id });
+
+    expect(result.isError).toBeFalsy();
+    const afterRestore = await callTool("search_notes", { query: "戻す" });
+    expect(readNoteCount(afterRestore)).toBe(1);
+  });
+
+  it("returns an MCP error from restore_note for a note that is not deleted", async () => {
+    const id = readNoteId(await callTool("create_note", { title: "通常", body: "本文", tags: [] }));
+
+    const result = await callTool("restore_note", { id });
+
+    expect(result.isError).toBe(true);
   });
 });
