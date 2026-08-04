@@ -73,6 +73,8 @@ const mockHanamask = (
     onTasksChanged: vi.fn(() => () => {}),
     attachImage: attachImageMock,
     listImages: listImagesMock,
+    searchNotes: vi.fn(async () => []),
+    onNavigate: vi.fn(() => () => {}),
   };
   return {
     getNote: getNoteMock,

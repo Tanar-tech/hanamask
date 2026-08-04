@@ -13,7 +13,8 @@ import {
 import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
 import { listImages } from "./db/images-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
-import type { Image, Note, Task, TaskStatus } from "../shared/preload-api.js";
+import type { Image, NavigateTarget, Note, Task, TaskStatus } from "../shared/preload-api.js";
+import { setUiNavigator } from "./ui/navigate.js";
 import {
   emitNotesChanged,
   emitTasksChanged,
@@ -27,6 +28,7 @@ const WINDOW_WIDTH_PX = 1200;
 const WINDOW_HEIGHT_PX = 800;
 const NOTES_CHANGED_CHANNEL = "notes:changed";
 const NOTES_LIST_CHANNEL = "notes:list";
+const NOTES_SEARCH_CHANNEL = "notes:search";
 const TASKS_CHANGED_CHANNEL = "tasks:changed";
 const TASKS_LIST_CHANNEL = "tasks:list";
 const NOTES_DELETE_CHANNEL = "notes:delete";
@@ -37,6 +39,8 @@ const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
 const IMAGES_LIST_CHANNEL = "images:list";
 const IMAGES_DIR_NAME = "images";
+const UI_NAVIGATE_CHANNEL = "ui:navigate";
+const RENDERER_READY_EVENT = "did-finish-load";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 // .cjs, not .js: Electron's sandboxed preload loader only executes CommonJS, and
@@ -61,6 +65,8 @@ export const broadcastTasksChanged = (): void => {
 };
 
 const listNotes = (): Note[] => searchNotes("");
+
+const findNotes = (_event: IpcMainInvokeEvent, query: string): Note[] => searchNotes(query);
 
 const findNote = (_event: IpcMainInvokeEvent, id: string): Note | null => getNote(id);
 
@@ -118,6 +124,32 @@ const createMainWindow = (): BrowserWindow => {
   return window;
 };
 
+// MCPツール（open_app等）から呼ばれるため、ウィンドウが閉じられている場合は作り直す。
+const showMainWindow = (): BrowserWindow => {
+  const [existing] = BrowserWindow.getAllWindows();
+  if (existing === undefined) return createMainWindow();
+  if (existing.isMinimized()) existing.restore();
+  existing.show();
+  existing.focus();
+  return existing;
+};
+
+// A window that is still loading has no renderer to receive the event yet, so the
+// navigation has to wait for the first paint or it is silently dropped.
+const sendNavigate = (window: BrowserWindow, target: NavigateTarget): void => {
+  if (!window.webContents.isLoading()) {
+    window.webContents.send(UI_NAVIGATE_CHANNEL, target);
+    return;
+  }
+  window.webContents.once(RENDERER_READY_EVENT, () => {
+    window.webContents.send(UI_NAVIGATE_CHANNEL, target);
+  });
+};
+
+const navigateMainWindow = (target: NavigateTarget): void => {
+  sendNavigate(showMainWindow(), target);
+};
+
 let stopMcpServer: (() => Promise<void>) | undefined;
 
 // E2E tests point this at a temp file to avoid touching the developer's real note database.
@@ -132,6 +164,12 @@ const start = async (): Promise<void> => {
   setImagesDirPath(join(app.getPath("userData"), IMAGES_DIR_NAME));
   purgeSoftDeletedRecords(new Date());
   createMainWindow();
+  setUiNavigator({
+    showWindow: () => {
+      showMainWindow();
+    },
+    navigate: navigateMainWindow,
+  });
   onNotesChanged(broadcastNotesChanged);
   onTasksChanged(broadcastTasksChanged);
   const mcpServer = await startMcpServer();
@@ -139,6 +177,7 @@ const start = async (): Promise<void> => {
 };
 
 ipcMain.handle(NOTES_LIST_CHANNEL, listNotes);
+ipcMain.handle(NOTES_SEARCH_CHANNEL, findNotes);
 ipcMain.handle(TASKS_LIST_CHANNEL, () => listTasks());
 ipcMain.handle(NOTES_GET_CHANNEL, findNote);
 ipcMain.handle(TASKS_GET_CHANNEL, findTask);
