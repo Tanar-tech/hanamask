@@ -29,6 +29,7 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
     updateNote: vi.fn(async () => null),
     deleteNote: vi.fn(async () => {}),
     onNotesChanged: vi.fn(() => () => {}),
+    onLinksChanged: vi.fn(() => () => {}),
     onNavigate: vi.fn(() => () => {}),
     listNoteVersions: vi.fn(async () => []),
     restoreNoteVersion: vi.fn(async () => null),
