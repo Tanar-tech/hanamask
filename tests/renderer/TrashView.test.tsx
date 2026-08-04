@@ -101,6 +101,38 @@ describe("TrashView", () => {
     expect(await screen.findByText("削除済みのノートはありません")).toBeTruthy();
   });
 
+  it("復元の応答待ちの間は他のノートの復元ボタンも押せない", async () => {
+    const { listDeletedNotes, restoreNote } = mockHanamask();
+    listDeletedNotes.mockImplementation(async () => [
+      makeNote(),
+      makeNote({ id: "note-2", title: "もう一件" }),
+    ]);
+    let resolveRestore: ((note: Note) => void) | undefined;
+    restoreNote.mockImplementationOnce(
+      () =>
+        new Promise<Note>((resolve) => {
+          resolveRestore = resolve;
+        }),
+    );
+
+    render(<TrashView onBack={vi.fn()} />);
+    await clickButton("復元");
+
+    const buttons = await screen.findAllByRole("button", { name: "復元" });
+    expect(buttons.every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+
+    await clickButton("復元", 1);
+    expect(restoreNote).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveRestore?.(makeNote());
+    });
+    await waitFor(() => {
+      const reenabled = screen.getAllByRole("button", { name: "復元" });
+      expect(reenabled.every((button) => !(button as HTMLButtonElement).disabled)).toBe(true);
+    });
+  });
+
   it("復元では確認ダイアログを出さない", async () => {
     const confirmMock = vi.fn(() => false);
     vi.stubGlobal("confirm", confirmMock);
