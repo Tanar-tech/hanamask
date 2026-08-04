@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 
 // SPEC.mdの共有コントラクト ChangeEmitter は、オブジェクトではなく個別関数として公開する。
 const NOTES_CHANGED_EVENT = "notes:changed";
+const TASKS_CHANGED_EVENT = "tasks:changed";
 
 const emitter = new EventEmitter();
 
@@ -13,5 +14,16 @@ export const onNotesChanged = (listener: () => void): (() => void) => {
   emitter.on(NOTES_CHANGED_EVENT, listener);
   return () => {
     emitter.off(NOTES_CHANGED_EVENT, listener);
+  };
+};
+
+export const emitTasksChanged = (): void => {
+  emitter.emit(TASKS_CHANGED_EVENT);
+};
+
+export const onTasksChanged = (listener: () => void): (() => void) => {
+  emitter.on(TASKS_CHANGED_EVENT, listener);
+  return () => {
+    emitter.off(TASKS_CHANGED_EVENT, listener);
   };
 };

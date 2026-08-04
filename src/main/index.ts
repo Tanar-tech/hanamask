@@ -3,8 +3,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
 import { searchNotes } from "./db/notes-repo.js";
+import { listTasks } from "./db/tasks-repo.js";
 import type { Note } from "../shared/preload-api.js";
-import { onNotesChanged } from "./mcp/change-emitter.js";
+import { onNotesChanged, onTasksChanged } from "./mcp/change-emitter.js";
 import { startMcpServer } from "./mcp/server.js";
 
 const DB_FILE_NAME = "hanamask.sqlite3";
@@ -12,6 +13,8 @@ const WINDOW_WIDTH_PX = 1200;
 const WINDOW_HEIGHT_PX = 800;
 const NOTES_CHANGED_CHANNEL = "notes:changed";
 const NOTES_LIST_CHANNEL = "notes:list";
+const TASKS_CHANGED_CHANNEL = "tasks:changed";
+const TASKS_LIST_CHANNEL = "tasks:list";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 // .cjs, not .js: Electron's sandboxed preload loader only executes CommonJS, and
@@ -26,6 +29,12 @@ const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 export const broadcastNotesChanged = (): void => {
   BrowserWindow.getAllWindows().forEach((window) => {
     window.webContents.send(NOTES_CHANGED_CHANNEL);
+  });
+};
+
+export const broadcastTasksChanged = (): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(TASKS_CHANGED_CHANNEL);
   });
 };
 
@@ -65,11 +74,13 @@ const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
   createMainWindow();
   onNotesChanged(broadcastNotesChanged);
+  onTasksChanged(broadcastTasksChanged);
   const mcpServer = await startMcpServer();
   stopMcpServer = mcpServer.close;
 };
 
 ipcMain.handle(NOTES_LIST_CHANNEL, listNotes);
+ipcMain.handle(TASKS_LIST_CHANNEL, () => listTasks());
 
 app.on("window-all-closed", () => {
   app.quit();

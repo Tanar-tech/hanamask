@@ -22,7 +22,12 @@ const mockHanamask = (notesByCall: Note[][]) => {
     listeners.push(callback);
     return unsubscribe;
   });
-  window.hanamask = { listNotes, onNotesChanged };
+  window.hanamask = {
+    listNotes,
+    onNotesChanged,
+    listTasks: vi.fn(async () => []),
+    onTasksChanged: vi.fn(() => () => {}),
+  };
   return { listNotes, onNotesChanged, listeners, unsubscribe };
 };
 
