@@ -75,6 +75,7 @@ const mockHanamask = (
   const updateNoteMock = vi.fn(imageApi.updateNote ?? (async () => makeNote()));
   const listNoteVersionsMock = vi.fn(imageApi.listNoteVersions ?? (async () => []));
   const restoreNoteVersionMock = vi.fn(imageApi.restoreNoteVersion ?? (async () => makeNote()));
+  const onNotesChangedMock = vi.fn<(callback: () => void) => () => void>(() => () => {});
   window.hanamask = {
     listNoteVersions: listNoteVersionsMock,
     restoreNoteVersion: restoreNoteVersionMock,
@@ -82,7 +83,7 @@ const mockHanamask = (
     getNote: getNoteMock,
     updateNote: updateNoteMock,
     deleteNote: vi.fn(async () => {}),
-    onNotesChanged: vi.fn(() => () => {}),
+    onNotesChanged: onNotesChangedMock,
     listTasks: vi.fn(async () => []),
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
@@ -99,7 +100,18 @@ const mockHanamask = (
     updateNote: updateNoteMock,
     listNoteVersions: listNoteVersionsMock,
     restoreNoteVersion: restoreNoteVersionMock,
+    onNotesChanged: onNotesChangedMock,
   };
+};
+
+const emitNotesChanged = async (
+  onNotesChanged: ReturnType<typeof mockHanamask>["onNotesChanged"],
+): Promise<void> => {
+  await act(async () => {
+    onNotesChanged.mock.calls.forEach(([callback]) => {
+      callback();
+    });
+  });
 };
 
 const startEditing = async (): Promise<void> => {
@@ -274,6 +286,27 @@ describe("NoteDetail", () => {
       expect(screen.getAllByRole("img")).toHaveLength(1);
     });
     expect(screen.getByRole("img").getAttribute("src")).toBe("file:///data/images/new.png");
+    expect(listImages).toHaveBeenCalledTimes(2);
+  });
+
+  it("MCP経由の変更通知を受けると画像一覧を再取得する", async () => {
+    const attached = makeImage({ id: "image-mcp", filePath: "/data/images/mcp.png" });
+    let stored: Image[] = [];
+    const { listImages, onNotesChanged } = mockHanamask(async () => makeNote(), {
+      listImages: async () => stored,
+    });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    expect(screen.queryAllByRole("img")).toHaveLength(0);
+
+    stored = [attached];
+    await emitNotesChanged(onNotesChanged);
+
+    await waitFor(() => {
+      expect(screen.getAllByRole("img")).toHaveLength(1);
+    });
+    expect(screen.getByRole("img").getAttribute("src")).toBe("file:///data/images/mcp.png");
     expect(listImages).toHaveBeenCalledTimes(2);
   });
 

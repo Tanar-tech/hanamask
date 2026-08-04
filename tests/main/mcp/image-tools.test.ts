@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -7,6 +7,7 @@ import { closeDb, openDb } from "../../../src/main/db/db";
 import { listImages } from "../../../src/main/db/images-repo";
 import { setImagesDirPath } from "../../../src/main/images/attach-image";
 import { findNoteTool, noteTools } from "../../../src/main/mcp/tools";
+import { onNotesChanged } from "../../../src/main/mcp/change-emitter";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 const callTool = (name: string, args: unknown): CallToolResult => {
@@ -89,6 +90,37 @@ describe("mcp attach_image tool", () => {
 
     expect(result.isError).toBe(true);
     expect(listImages("note-1")).toEqual([]);
+  });
+
+  it("添付成功時に変更通知リスナーを呼ぶ", () => {
+    const listener = vi.fn();
+    const unsubscribe = onNotesChanged(listener);
+
+    callTool("attach_image", {
+      note_id: "note-1",
+      file_name: "shot.png",
+      data_base64: pngDataBase64,
+      mime_type: "image/png",
+    });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("添付が失敗した場合は変更通知リスナーを呼ばない", () => {
+    const listener = vi.fn();
+    const unsubscribe = onNotesChanged(listener);
+
+    const result = callTool("attach_image", {
+      note_id: "note-1",
+      file_name: "doc.pdf",
+      data_base64: pngDataBase64,
+      mime_type: "application/pdf",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(listener).not.toHaveBeenCalled();
+    unsubscribe();
   });
 
   it("引数が欠けている場合はエラー結果を返す", () => {
