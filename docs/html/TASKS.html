@@ -59,9 +59,9 @@
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル（BYO Agent）。未着手・最大の残スコープ</td><td>T03, T05</td></tr>
 <tr><td><a href="#t16">T16</a></td><td>ソフトデリート済みノートの一覧・復元UI（T03から分離）</td><td>T03</td></tr>
 <tr><td><a href="#t17">T17</a></td><td>MCP経由のノート本体更新を、開いている詳細画面へ反映する</td><td>T15</td></tr>
-<tr><td><a href="#t18">T18</a></td><td>T04履歴UIの復元レース修正（reviewerのMajor指摘）</td><td>T04</td></tr>
 <tr><td><a href="#t19">T19</a></td><td>Mermaid描画失敗時のエラーSVGのDOM残留（T07の既知の見た目の問題）</td><td>T07</td></tr>
 <tr><td><a href="#t20">T20</a></td><td>リンク操作の変更通知（MCP経由のリンク作成・解除がUIに反映されない）</td><td>T06</td></tr>
+<tr><td><a href="#t21">T21</a></td><td>ノート切替時の復元レース（<code>App.tsx</code>の<code>&lt;NoteDetail&gt;</code>に<code>key</code>が無い）</td><td>T15</td></tr>
 </tbody>
 </table>
 
@@ -92,7 +92,8 @@ flowchart LR
   classDef todo fill:#f6d7d7,stroke:#a05050,color:#123;
   class T00,T03,T05,T15,T04,T07,T08,T09,T10,T11 done;
   class T06 wip;
-  class T12,T16,T17,T18,T19,T20 todo;
+  class T12,T16,T17,T19,T20,T21 todo;
+  class T18 done;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -316,7 +317,7 @@ flowchart LR
 
 <h3 id="t18">T18: T04履歴UIの復元レース修正</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #30）</li>
 <li>依存: 必須: T04（履歴表示・復元UI）／推奨: なし</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.7。T04のPR #25レビューで<code>reviewer</code>がMajor指摘した不具合の修正。<code>NoteVersionHistory</code>の復元は<code>restoreNoteVersion</code>のIPC応答を待つ非同期処理だが、その待機中に利用者が「編集」ボタンを押すと復元前の<code>note</code>から<code>draft</code>が作られる。<code>onRestored</code>は親の<code>note</code>だけを更新するため<code>draft</code>は古いままとなり、その状態で保存すると復元結果を上書きしてしまう（利用者から見ると復元がなかったことになる）。</li>
 <li>変更範囲: <code>src/renderer/components/NoteVersionHistory.tsx</code>（復元処理中であることを親へ伝える）, <code>src/renderer/components/NoteDetail.tsx</code>（復元処理中は編集ボタンを無効化する、または復元完了時に<code>draft</code>を破棄する）。</li>
@@ -345,6 +346,17 @@ flowchart LR
 <li>禁止事項: リンクの種類（参照/依存等の意味づけ）の追加はしない。<code>links:create</code>/<code>links:delete</code> IPCハンドラ（UI操作由来）は既にUI側で再取得しているため、そこに二重の通知を足して不要な再取得を増やさないこと。</li>
 <li>テスト: <code>link_entities</code>/<code>unlink_entities</code>の成功時に通知リスナーが呼ばれ、失敗時は呼ばれないことのMCPツールテスト。<code>EntityLinks</code>が通知を受けてリンク一覧を再取得することのコンポーネントテスト。</li>
 <li>停止条件: 通知チャンネルを新設するか既存を流用するかは、エンティティ横断（1つのリンクがノートとタスクの両方に関わる）という性質上、既存の<code>notes:changed</code>/<code>tasks:changed</code>のどちらに載せても不自然になる。新設が妥当と考えられるが、共有コントラクト（<code>src/shared/preload-api.ts</code>）への追加を伴うため、方針を管理者に確認してから着手する。</li>
+</ul>
+
+<h3 id="t21">T21: ノート切替時の復元レース（<code>NoteDetail</code>が再マウントされない）</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>依存: 必須: T15（ノート/タスク詳細画面）</li>
+<li>目的: <code>reviewer</code>がT18のレビュー中に発見した既存の欠落。<code>src/renderer/App.tsx</code>の<code>&lt;NoteDetail noteId={view.id} ... /&gt;</code>に<code>key</code>指定が無いため、別のノートへ切り替えても<code>NoteDetail</code>/<code>NoteVersionHistory</code>は同一インスタンスとして再利用される。あるバージョンの復元がIPC応答待ちの間に別ノートへ遷移すると<code>NoteVersionHistory</code>はアンマウントされず<code>mounted.current</code>が<code>true</code>のままになり、復元完了時に<code>onRestored</code>（=<code>setNote</code>）が表示中の別ノートを旧ノートの復元結果で上書きしうる。T18の修正で導入した<code>mounted</code> refによる防御が、この経路では効かない。</li>
+<li>変更範囲: <code>src/renderer/App.tsx</code>（<code>&lt;NoteDetail&gt;</code>/<code>&lt;TaskDetail&gt;</code>に<code>key={view.id}</code>を付与してノートIDごとに再マウントさせる）。副作用として詳細画面のローカルstate（編集中の<code>draft</code>等）がノート切替時に確実にリセットされるため、既存の<code>useEffect</code>によるリセット処理が冗長になる可能性がある。</li>
+<li>禁止事項: <code>NoteVersionHistory</code>/<code>NoteDetail</code>側のガードロジック（T18で追加した<code>mounted</code> ref・<code>restoring</code>フラグ）を削除しないこと。<code>key</code>追加はこれらを代替するものではなく、アンマウント経路を確実にするための補強である。</li>
+<li>テスト: 復元のIPC応答待ち中に別ノートへ遷移し、応答が解決しても表示中のノートが上書きされないことのテスト（<code>App.test.tsx</code>または<code>NoteDetail.test.tsx</code>）。まずこのレースを再現する失敗テストを書いてから修正すること。<code>key</code>追加で既存のノート切替・タスク切替のテストが壊れないことも確認する。</li>
+<li>停止条件: <code>key</code>追加により詳細画面のstate管理（既存の<code>noteId</code>変更時リセット処理）と重複・競合が生じる場合、どちらを正とするかの方針を管理者に確認する。</li>
 </ul>
 
 </main>
