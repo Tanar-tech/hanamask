@@ -1,0 +1,29 @@
+appId: dev.tanar.hanamask
+productName: hanamask
+copyright: Copyright © 2026 Tanar
+
+directories:
+  output: release
+
+# node_modules の本番依存は electron-builder が自動で同梱するため列挙しない。
+files:
+  - dist/**
+  - package.json
+  # react/react-dom/mermaid はレンダラーのバンドル(dist/renderer)に取り込み済みで、
+  # 実行時に node_modules から解決されることはない。
+  - "!node_modules/react/**"
+  - "!node_modules/react-dom/**"
+  - "!node_modules/mermaid/**"
+
+# ネイティブアドオンは .node を asar 内から dlopen できないため展開して同梱する。
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**"
+
+win:
+  target:
+    - nsis
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
