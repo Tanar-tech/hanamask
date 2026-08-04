@@ -14,9 +14,12 @@ import {
 } from "./db/notes-repo.js";
 import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
 import { listImages } from "./db/images-repo.js";
+import { createLink, deleteLink, listLinks, type LinkInput } from "./db/links-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
 import type {
+  EntityType,
   Image,
+  Link,
   NavigateTarget,
   Note,
   NoteVersion,
@@ -49,6 +52,9 @@ const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
 const IMAGES_LIST_CHANNEL = "images:list";
+const LINKS_LIST_CHANNEL = "links:list";
+const LINKS_CREATE_CHANNEL = "links:create";
+const LINKS_DELETE_CHANNEL = "links:delete";
 const IMAGES_DIR_NAME = "images";
 const UI_NAVIGATE_CHANNEL = "ui:navigate";
 const RENDERER_READY_EVENT = "did-finish-load";
@@ -123,6 +129,18 @@ const attachImageToNote = (
 ): Image => attachImage({ noteId, fileName, dataBase64, mimeType });
 
 const findImages = (_event: IpcMainInvokeEvent, noteId: string): Image[] => listImages(noteId);
+
+// リンクにはノート・タスクのような変更通知チャンネルが無く、MCPツール側も通知を出さないため、
+// 作成・削除後の再取得は呼び出し元（レンダラー）に任せる。
+const findLinks = (
+  _event: IpcMainInvokeEvent,
+  entityType: EntityType,
+  entityId: string,
+): Link[] => listLinks(entityType, entityId);
+
+const addLink = (_event: IpcMainInvokeEvent, input: LinkInput): Link => createLink(input);
+
+const removeLink = (_event: IpcMainInvokeEvent, id: string): boolean => deleteLink(id);
 
 const createMainWindow = (): BrowserWindow => {
   const window = new BrowserWindow({
@@ -209,6 +227,9 @@ ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
 ipcMain.handle(IMAGES_LIST_CHANNEL, findImages);
+ipcMain.handle(LINKS_LIST_CHANNEL, findLinks);
+ipcMain.handle(LINKS_CREATE_CHANNEL, addLink);
+ipcMain.handle(LINKS_DELETE_CHANNEL, removeLink);
 
 app.on("window-all-closed", () => {
   app.quit();

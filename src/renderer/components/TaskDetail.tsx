@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type JSX } from "react";
 import type { Task, TaskStatus } from "../../shared/preload-api";
+import { EntityLinks } from "./EntityLinks";
 
 interface TaskDetailProps {
   taskId: string;
@@ -75,6 +76,7 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
             ))}
           </select>
           <p>{task.dueDate ?? "期限なし"}</p>
+          <EntityLinks entityType="task" entityId={taskId} />
         </>
       )}
     </article>

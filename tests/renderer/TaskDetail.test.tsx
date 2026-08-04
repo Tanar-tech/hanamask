@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TaskDetail } from "../../src/renderer/components/TaskDetail";
 import type { Image, Task } from "../../src/shared/preload-api";
 
@@ -41,6 +41,9 @@ const mockHanamask = (getTask: (id: string) => Promise<Task | null>) => {
     listImages: vi.fn(async () => []),
     searchNotes: vi.fn(async () => []),
     onNavigate: vi.fn(() => () => {}),
+    listLinks: vi.fn(async () => []),
+    createLink: vi.fn(),
+    deleteLink: vi.fn(async () => true),
   };
   return { getTask: getTaskMock, updateTaskStatus };
 };
@@ -134,5 +137,21 @@ describe("TaskDetail", () => {
     });
 
     expect(onBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("TaskDetail のリンク", () => {
+  it("リンクUIを表示し自分を対象にリンク一覧を取得する", async () => {
+    mockHanamask(async () => makeTask());
+    const listLinks = vi.fn(async () => []);
+    window.hanamask.listLinks = listLinks;
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByRole("heading", { name: "リンク" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "リンクする" })).toBeTruthy();
+    await waitFor(() => {
+      expect(listLinks).toHaveBeenCalledWith("task", "task-1");
+    });
   });
 });
