@@ -43,7 +43,7 @@
 <tr><td>1</td><td>T03, T05</td><td>完了</td><td>T00</td></tr>
 <tr><td>1.5</td><td>T15（ノート/タスク詳細画面）</td><td>完了</td><td>T00／推奨: T03, T05</td></tr>
 <tr><td>2</td><td>T04, T07, T08, T09, T10</td><td>完了</td><td>T03 および/または T05（詳細は各タスクの「依存」欄）。UI部分の組み込み先はT15完了により確保された</td></tr>
-<tr><td>2</td><td>T06（リンク機能）</td><td><strong>進行中</strong>（バックエンドはマージ済み、リンク表示・作成UIはレビュー中で未マージ）</td><td>T03, T05</td></tr>
+<tr><td>2</td><td>T06（リンク機能）</td><td>完了</td><td>T03, T05</td></tr>
 <tr><td>2</td><td>T12（AIチャットパネル）</td><td><strong>未着手</strong></td><td>T03, T05</td></tr>
 <tr><td>3</td><td>T11</td><td>完了</td><td>T03, T05, T06（バックエンド分）</td></tr>
 <tr><td>独立</td><td>T13, T14</td><td>完了</td><td>なし</td></tr>
@@ -61,6 +61,7 @@
 <tr><td><a href="#t17">T17</a></td><td>MCP経由のノート本体更新を、開いている詳細画面へ反映する</td><td>T15</td></tr>
 <tr><td><a href="#t18">T18</a></td><td>T04履歴UIの復元レース修正（reviewerのMajor指摘）</td><td>T04</td></tr>
 <tr><td><a href="#t19">T19</a></td><td>Mermaid描画失敗時のエラーSVGのDOM残留（T07の既知の見た目の問題）</td><td>T07</td></tr>
+<tr><td><a href="#t20">T20</a></td><td>リンク操作の変更通知（MCP経由のリンク作成・解除がUIに反映されない）</td><td>T06</td></tr>
 </tbody>
 </table>
 
@@ -84,13 +85,14 @@ flowchart LR
   T15 --> T17["T17 MCP更新のUI反映"]
   T04 --> T18["T18 復元レース修正"]
   T07 --> T19["T19 MermaidエラーSVG残留"]
+  T06 --> T20["T20 リンク変更通知"]
 
   classDef done fill:#d7ead7,stroke:#4a7a4a,color:#123;
   classDef wip fill:#fdf0c8,stroke:#a08a30,color:#123;
   classDef todo fill:#f6d7d7,stroke:#a05050,color:#123;
   class T00,T03,T05,T15,T04,T07,T08,T09,T10,T11 done;
   class T06 wip;
-  class T12,T16,T17,T18,T19 todo;
+  class T12,T16,T17,T18,T19,T20 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -168,7 +170,7 @@ flowchart LR
 
 <h3 id="t06">T06: リンク機能（ノート-タスク、ノート-ノート、タスク-タスク）</h3>
 <ul>
-<li>ステータス: 進行中（バックエンドはマージ済み＝PR #13。リンク表示・作成UIは実装済みだが<strong>現在レビュー中で未マージ</strong>）</li>
+<li>ステータス: 完了（バックエンド＝PR #13、リンク表示・作成UI＝PR #29）</li>
 <li>依存: 必須: T03, T05（リンク対象となるノート/タスクの更新・詳細画面が無いとリンク表示・作成UIを組み込む先が無い）</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §3-8（相互リンクの探索）, §4.2, §4.3, §7.1。<code>link_entities</code>/<code>unlink_entities</code>/<code>list_links</code>と、ノート/タスク詳細画面でのリンク表示・作成UIを実装する。</li>
 <li>変更範囲: <code>src/main/db/links-repo.ts</code>（新規）, <code>src/main/mcp/tools.ts</code>（3ツール追加）, <code>src/renderer/components/</code>（リンク表示・作成UI、ノート/タスク詳細画面への組み込み）。</li>
@@ -176,7 +178,7 @@ flowchart LR
 <li>テスト: <code>links-repo</code>の作成・解除・一覧取得の単体テスト、双方向に取得できること（<code>from</code>側・<code>to</code>側どちらからでも<code>list_links</code>で見えること）のテスト。</li>
 <li>停止条件: 特になし。</li>
 <li>実績: <code>links-repo.ts</code>（<code>createLink</code>/<code>deleteLink</code>（物理削除）/<code>listLinks</code>）、<code>tools.ts</code>に<code>link_entities</code>/<code>unlink_entities</code>/<code>list_links</code>を追加し<code>server.ts</code>で配線。外部キー制約は張っていない（<code>from</code>/<code>to</code>がnote/taskいずれも取りうるため単一FKで表現できず、参照整合性は要求定義にも規定が無いため今回は許容する判断とした。理由は<code>schema.sql</code>のコメントに明記）。単体テスト（<code>links-repo</code>9件・MCPツール12件）を追加。<code>implementer</code>が実装、<code>reviewer</code>がレビュー（Major指摘2件=本ドキュメント更新漏れとFK根拠コメント不足、いずれも本コミットで対応済み）、<code>verifier</code>がツールハンドラ直接呼び出しでlink_entities→list_links（from/to双方向）→unlink_entitiesの一連の流れを実データで確認済み。</li>
-<li>状況（UI分）: T15でノート/タスク詳細画面が完成したため組み込み先が確保され、リンク表示・作成UIの実装に着手済み。実装は完了しているがレビューが継続中で<code>main</code>には未マージ。マージ完了をもって本タスクを完了とする。</li>
+<li>実績（UI分・PR #29）: T15でノート/タスク詳細画面が完成したため組み込み先が確保され、<code>EntityLinks.tsx</code>（新規）を<code>NoteDetail.tsx</code>（表示モードのみ）と<code>TaskDetail.tsx</code>に組み込んだ。<code>links:list</code>/<code>links:create</code>/<code>links:delete</code> IPCチャンネルを新設。リンク一覧は「自分ではない方の端点」を表示、作成フォーム（種別select + ID入力）と解除ボタン（confirm確認付き）を実装。単体テスト16件を追加。<code>reviewer</code>がバグ指摘なしと判定（端点表示ロジックがfrom側/to側・自己参照・同IDで種別違いのケースで正しいこと、stale responseガードがテストで再現検証されていることを確認）。ただし<code>link_entities</code>/<code>unlink_entities</code> MCPツールが変更通知を出さないため、AIエージェント経由のリンク操作が開いている画面に反映されない問題が判明した（既存バックエンド由来の欠落）→ <a href="#t20">T20</a>として分離。</li>
 </ul>
 
 <h3 id="t07">T07: Mermaid図のレンダリング表示</h3>
@@ -332,6 +334,17 @@ flowchart LR
 <li>禁止事項: mermaidライブラリのバージョン変更・別ライブラリへの差し替えは行わない（<code>docs/GOVERNANCE.md</code> §6の依存関係変更に該当する）。エラー時の表示内容（<code>role="alert"</code>のメッセージ）の仕様変更は行わない。ライブラリ内部の書き換え（monkey patch）は行わない。</li>
 <li>テスト: まず実機（<code>.claude/skills/e2e-runner/SKILL.md</code>に従い<code>xvfb-run</code>でElectronを起動）で、構文エラーを含むMermaidノート→別ノートへ切替、の操作でエラーSVGが残留することを再現・確認する（再現しない場合は本タスクを「対応不要」として閉じてよい）。再現したら、描画失敗後およびアンマウント後に<code>document.body</code>直下へmermaid由来の要素が残らないことのコンポーネントテストを追加する。正常なMermaid図のレンダリングが壊れていないことの回帰テストも維持する。</li>
 <li>停止条件: クリーンアップのために対象要素を特定する手段がmermaidの内部実装（生成されるid・クラス名）に依存するため、実装が壊れやすいと判断した場合は方針を管理者に確認する。実機で再現しなかった場合は自己判断で実装せず、その結果を報告して止める。</li>
+</ul>
+
+<h3 id="t20">T20: リンク操作の変更通知（MCP経由のリンク作成・解除をUIへ反映）</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>依存: 必須: T06（リンク機能）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.6。T06の<code>reviewer</code>検証で判明した仕様との乖離。<code>link_entities</code>/<code>unlink_entities</code> MCPツールが変更通知を出していないため、AIエージェントがMCP経由でリンクを張っても、開いているノート/タスク詳細画面に反映されない。§4.6は「MCPツールがDB書き込みを行った直後、mainプロセスがレンダラーに変更通知イベントを送る」ことをこのアプリの中核メカニズムと位置づけており、リンクだけが例外になっている状態。</li>
+<li>変更範囲: <code>src/main/mcp/change-emitter.ts</code>（<code>links:changed</code>相当の通知を追加するか、既存の<code>notes:changed</code>/<code>tasks:changed</code>を流用するかを判断）, <code>src/main/mcp/tools.ts</code>（<code>link_entities</code>/<code>unlink_entities</code>の成功時に通知）, <code>src/main/index.ts</code>（ブロードキャスト配線）, <code>src/preload/index.ts</code>, <code>src/shared/preload-api.ts</code>, <code>src/renderer/components/EntityLinks.tsx</code>（購読して再取得）。</li>
+<li>禁止事項: リンクの種類（参照/依存等の意味づけ）の追加はしない。<code>links:create</code>/<code>links:delete</code> IPCハンドラ（UI操作由来）は既にUI側で再取得しているため、そこに二重の通知を足して不要な再取得を増やさないこと。</li>
+<li>テスト: <code>link_entities</code>/<code>unlink_entities</code>の成功時に通知リスナーが呼ばれ、失敗時は呼ばれないことのMCPツールテスト。<code>EntityLinks</code>が通知を受けてリンク一覧を再取得することのコンポーネントテスト。</li>
+<li>停止条件: 通知チャンネルを新設するか既存を流用するかは、エンティティ横断（1つのリンクがノートとタスクの両方に関わる）という性質上、既存の<code>notes:changed</code>/<code>tasks:changed</code>のどちらに載せても不自然になる。新設が妥当と考えられるが、共有コントラクト（<code>src/shared/preload-api.ts</code>）への追加を伴うため、方針を管理者に確認してから着手する。</li>
 </ul>
 
 </main>

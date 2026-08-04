@@ -55,6 +55,9 @@ const mockHanamask = () => {
     }),
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),
+    listLinks: vi.fn(async () => []),
+    createLink: vi.fn(),
+    deleteLink: vi.fn(async () => true),
   };
 };
 

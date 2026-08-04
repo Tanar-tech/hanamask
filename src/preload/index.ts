@@ -16,6 +16,9 @@ const TASKS_LIST_CHANNEL = "tasks:list";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
 const IMAGES_LIST_CHANNEL = "images:list";
+const LINKS_LIST_CHANNEL = "links:list";
+const LINKS_CREATE_CHANNEL = "links:create";
+const LINKS_DELETE_CHANNEL = "links:delete";
 
 const subscribe = (channel: string, callback: () => void): (() => void) => {
   const listener = (): void => callback();
@@ -53,6 +56,10 @@ const api: HanamaskPreloadApi = {
   attachImage: (noteId, fileName, dataBase64, mimeType) =>
     ipcRenderer.invoke(IMAGES_ATTACH_CHANNEL, noteId, fileName, dataBase64, mimeType),
   listImages: (noteId) => ipcRenderer.invoke(IMAGES_LIST_CHANNEL, noteId),
+  listLinks: (entityType, entityId) =>
+    ipcRenderer.invoke(LINKS_LIST_CHANNEL, entityType, entityId),
+  createLink: (input) => ipcRenderer.invoke(LINKS_CREATE_CHANNEL, input),
+  deleteLink: (id) => ipcRenderer.invoke(LINKS_DELETE_CHANNEL, id),
 };
 
 contextBridge.exposeInMainWorld("hanamask", api);

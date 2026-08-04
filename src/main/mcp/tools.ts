@@ -289,16 +289,16 @@ const attachImageTool: NoteTool = {
       required: ["note_id", "file_name", "data_base64", "mime_type"],
     },
   },
-  handler: toToolHandler((args) =>
-    jsonResult({
-      image: attachImage({
-        noteId: readString(args, "note_id"),
-        fileName: readString(args, "file_name"),
-        dataBase64: readString(args, "data_base64"),
-        mimeType: readString(args, "mime_type"),
-      }),
-    }),
-  ),
+  handler: toToolHandler((args) => {
+    const image = attachImage({
+      noteId: readString(args, "note_id"),
+      fileName: readString(args, "file_name"),
+      dataBase64: readString(args, "data_base64"),
+      mimeType: readString(args, "mime_type"),
+    });
+    emitNotesChanged();
+    return jsonResult({ image });
+  }),
 };
 
 export const noteTools: readonly NoteTool[] = [

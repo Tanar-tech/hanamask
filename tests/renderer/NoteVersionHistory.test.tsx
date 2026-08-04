@@ -48,6 +48,9 @@ const mockHanamask = (overrides: HistoryApiOverrides = {}) => {
     onTasksChanged: vi.fn(() => () => {}),
     attachImage: vi.fn(),
     listImages: vi.fn(async () => []),
+    listLinks: vi.fn(async () => []),
+    createLink: vi.fn(),
+    deleteLink: vi.fn(async () => true),
   };
   return { listNoteVersions, restoreNoteVersion };
 };
