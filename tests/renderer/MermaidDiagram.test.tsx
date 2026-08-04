@@ -15,14 +15,50 @@ const mockRenderSuccess = (svg = RENDERED_SVG) => {
   vi.mocked(mermaid.render).mockResolvedValue({ svg, diagramType: "flowchart" });
 };
 
+// 本物のmermaidは描画開始時に <div id="d{id}"><svg id="{id}">…</svg></div> をdocument.body直下へ挿入し、
+// 成功時のみ自分で撤去する（失敗時は残したまま例外を投げる）。その挙動を再現する。
+const insertedTempElementIds: string[] = [];
+
+const appendMermaidTempElements = (diagramId: string): void => {
+  insertedTempElementIds.push(`d${diagramId}`);
+  const container = document.createElement("div");
+  container.id = `d${diagramId}`;
+  const svg = document.createElement("svg");
+  svg.id = diagramId;
+  svg.setAttribute("data-name", "mermaid-internal");
+  container.appendChild(svg);
+  document.body.appendChild(container);
+};
+
 const mockRenderFailure = (message = "Parse error on line 1") => {
-  vi.mocked(mermaid.render).mockRejectedValue(new Error(message));
+  vi.mocked(mermaid.render).mockImplementation((diagramId: string) => {
+    appendMermaidTempElements(diagramId);
+    return Promise.reject(new Error(message));
+  });
+};
+
+const mockRenderNeverSettles = () => {
+  vi.mocked(mermaid.render).mockImplementation((diagramId: string) => {
+    appendMermaidTempElements(diagramId);
+    return new Promise(() => {
+      // 描画中のままアンマウントされる状況を再現するため、決して解決しない。
+    });
+  });
 };
 
 const queryRenderedSvg = (): SVGElement | null => document.querySelector("svg[data-name='rendered']");
 
+const queryMermaidLeftovers = (): Element[] =>
+  insertedTempElementIds
+    .map((id) => document.getElementById(id))
+    .filter((element): element is HTMLElement => element !== null);
+
 afterEach(() => {
   cleanup();
+  queryMermaidLeftovers().forEach((element) => {
+    element.remove();
+  });
+  insertedTempElementIds.length = 0;
   // vi.mockのファクトリで作ったvi.fnはrestoreAllMocksでは呼び出し履歴が消えないため明示的にクリアする。
   vi.clearAllMocks();
   vi.restoreAllMocks();
@@ -79,6 +115,26 @@ describe("MermaidDiagram", () => {
 
     await waitFor(() => expect(queryRenderedSvg()).not.toBeNull());
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("描画に失敗したらmermaidがdocument.body直下に残した要素を除去する", async () => {
+    mockRenderFailure();
+
+    render(<MermaidDiagram code="graph TD; A-->" />);
+
+    await screen.findByRole("alert");
+    expect(queryMermaidLeftovers()).toEqual([]);
+  });
+
+  it("描画中にアンマウントされてもdocument.body直下にmermaid由来の要素を残さない", async () => {
+    mockRenderNeverSettles();
+
+    const { unmount } = render(<MermaidDiagram code={VALID_CODE} />);
+    await waitFor(() => expect(queryMermaidLeftovers()).toHaveLength(1));
+
+    unmount();
+
+    expect(queryMermaidLeftovers()).toEqual([]);
   });
 
   it("空のコードではmermaid.renderを呼ばず何も表示しない", async () => {

@@ -28,7 +28,22 @@ const mockHanamask = (overrides: LinkApiOverrides = {}) => {
   const listLinks = vi.fn(overrides.listLinks ?? (async () => []));
   const createLink = vi.fn(overrides.createLink ?? (async () => makeLink()));
   const deleteLink = vi.fn(overrides.deleteLink ?? (async () => true));
+  const unsubscribeLinksChanged = vi.fn();
+  const linksChangedListeners: Array<() => void> = [];
+  const onLinksChanged = vi.fn((callback: () => void) => {
+    linksChangedListeners.push(callback);
+    return unsubscribeLinksChanged;
+  });
+  const emitLinksChanged = async (): Promise<void> => {
+    await act(async () => {
+      linksChangedListeners.forEach((listener) => {
+        listener();
+      });
+    });
+  };
   window.hanamask = {
+    listDeletedNotes: vi.fn(async () => []),
+    restoreNote: vi.fn(async () => null),
     listNotes: vi.fn(async () => []),
     searchNotes: vi.fn(async () => []),
     getNote: vi.fn(async () => null),
@@ -47,8 +62,16 @@ const mockHanamask = (overrides: LinkApiOverrides = {}) => {
     listLinks,
     createLink,
     deleteLink,
+    onLinksChanged,
   };
-  return { listLinks, createLink, deleteLink };
+  return {
+    listLinks,
+    createLink,
+    deleteLink,
+    onLinksChanged,
+    unsubscribeLinksChanged,
+    emitLinksChanged,
+  };
 };
 
 const stubConfirm = (result: boolean): ReturnType<typeof vi.fn> => {
@@ -327,5 +350,34 @@ describe("EntityLinks", () => {
     expect(screen.queryByText("タスク: task-9")).toBeNull();
     expect(screen.getByText("タスク: task-22")).toBeTruthy();
     expect(listLinks).toHaveBeenCalledTimes(2);
+  });
+
+  it("リンクの変更通知を受け取ると一覧を取り直す", async () => {
+    let currentLinks: Link[] = [];
+    const { listLinks, emitLinksChanged } = mockHanamask({
+      listLinks: async () => currentLinks,
+    });
+
+    render(<EntityLinks entityType="note" entityId="note-1" />);
+    await screen.findByText("リンクはありません");
+
+    currentLinks = [makeLink({ toId: "task-9" })];
+    await emitLinksChanged();
+
+    expect(await screen.findByText("タスク: task-9")).toBeTruthy();
+    expect(listLinks).toHaveBeenCalledTimes(2);
+  });
+
+  it("アンマウント時にリンクの変更通知の購読を解除する", async () => {
+    const { onLinksChanged, unsubscribeLinksChanged } = mockHanamask({ listLinks: async () => [] });
+
+    const { unmount } = render(<EntityLinks entityType="note" entityId="note-1" />);
+    await waitFor(() => {
+      expect(onLinksChanged).toHaveBeenCalled();
+    });
+
+    unmount();
+
+    expect(unsubscribeLinksChanged).toHaveBeenCalledTimes(1);
   });
 });

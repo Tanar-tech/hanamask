@@ -10,6 +10,16 @@ const RENDER_FAILED_PREFIX = "図の描画に失敗しました";
 // mermaid.render は要素IDをDOM/CSSセレクタとして扱うため、useIdが含む ":" を除去する。
 const toDiagramId = (rawId: string): string => `mermaid-${rawId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
 
+// mermaid.render は描画用の一時要素をdocument.body直下へ挿入し、成功時のみ自分で撤去する。
+// 失敗時（構文エラー等）はエラーSVGを載せたまま例外を投げるため、React管理外の要素として残り続ける。
+// 描画結果のSVGは #root 配下のfigureに入るので、body直下のものだけを対象にすれば巻き添えにしない。
+const removeMermaidBodyLeftovers = (diagramId: string): void => {
+  [diagramId, `d${diagramId}`, `i${diagramId}`].forEach((id) => {
+    const element = document.getElementById(id);
+    if (element?.parentElement === document.body) element.remove();
+  });
+};
+
 export const MermaidDiagram = ({ code }: MermaidDiagramProps): JSX.Element => {
   const diagramId = toDiagramId(useId());
   const [svg, setSvg] = useState<string | null>(null);
@@ -31,6 +41,7 @@ export const MermaidDiagram = ({ code }: MermaidDiagramProps): JSX.Element => {
         setSvg(rendered);
         setError(null);
       } catch (cause) {
+        removeMermaidBodyLeftovers(diagramId);
         if (!current) return;
         setSvg(null);
         setError(`${RENDER_FAILED_PREFIX}: ${String(cause)}`);
@@ -39,6 +50,7 @@ export const MermaidDiagram = ({ code }: MermaidDiagramProps): JSX.Element => {
     void draw();
     return () => {
       current = false;
+      removeMermaidBodyLeftovers(diagramId);
     };
   }, [code, diagramId]);
 

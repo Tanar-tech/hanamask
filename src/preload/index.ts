@@ -10,6 +10,8 @@ const NOTES_GET_CHANNEL = "notes:get";
 const NOTES_UPDATE_CHANNEL = "notes:update";
 const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
 const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
+const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
+const NOTES_RESTORE_CHANNEL = "notes:restore";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_CHANGED_CHANNEL = "tasks:changed";
 const TASKS_LIST_CHANNEL = "tasks:list";
@@ -19,6 +21,7 @@ const IMAGES_LIST_CHANNEL = "images:list";
 const LINKS_LIST_CHANNEL = "links:list";
 const LINKS_CREATE_CHANNEL = "links:create";
 const LINKS_DELETE_CHANNEL = "links:delete";
+const LINKS_CHANGED_CHANNEL = "links:changed";
 
 const subscribe = (channel: string, callback: () => void): (() => void) => {
   const listener = (): void => callback();
@@ -48,6 +51,8 @@ const api: HanamaskPreloadApi = {
   listNoteVersions: (noteId) => ipcRenderer.invoke(NOTES_LIST_VERSIONS_CHANNEL, noteId),
   restoreNoteVersion: (versionId) =>
     ipcRenderer.invoke(NOTES_RESTORE_VERSION_CHANNEL, versionId),
+  listDeletedNotes: () => ipcRenderer.invoke(NOTES_LIST_DELETED_CHANNEL),
+  restoreNote: (id) => ipcRenderer.invoke(NOTES_RESTORE_CHANNEL, id),
   listTasks: () => ipcRenderer.invoke(TASKS_LIST_CHANNEL),
   getTask: (id) => ipcRenderer.invoke(TASKS_GET_CHANNEL, id),
   updateTaskStatus: (id, status) => ipcRenderer.invoke(TASKS_UPDATE_STATUS_CHANNEL, id, status),
@@ -60,6 +65,7 @@ const api: HanamaskPreloadApi = {
     ipcRenderer.invoke(LINKS_LIST_CHANNEL, entityType, entityId),
   createLink: (input) => ipcRenderer.invoke(LINKS_CREATE_CHANNEL, input),
   deleteLink: (id) => ipcRenderer.invoke(LINKS_DELETE_CHANNEL, id),
+  onLinksChanged: (callback) => subscribe(LINKS_CHANGED_CHANNEL, callback),
 };
 
 contextBridge.exposeInMainWorld("hanamask", api);

@@ -5,7 +5,9 @@ import { openDb } from "./db/db.js";
 import { purgeSoftDeletedRecords } from "./db/purge.js";
 import {
   getNote,
+  listDeletedNotes,
   listNoteVersions,
+  restoreNote,
   restoreNoteVersion,
   searchNotes,
   softDeleteNote,
@@ -30,6 +32,7 @@ import { setUiNavigator } from "./ui/navigate.js";
 import {
   emitNotesChanged,
   emitTasksChanged,
+  onLinksChanged,
   onNotesChanged,
   onTasksChanged,
 } from "./mcp/change-emitter.js";
@@ -48,6 +51,8 @@ const NOTES_GET_CHANNEL = "notes:get";
 const NOTES_UPDATE_CHANNEL = "notes:update";
 const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
 const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
+const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
+const NOTES_RESTORE_CHANNEL = "notes:restore";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
@@ -55,6 +60,7 @@ const IMAGES_LIST_CHANNEL = "images:list";
 const LINKS_LIST_CHANNEL = "links:list";
 const LINKS_CREATE_CHANNEL = "links:create";
 const LINKS_DELETE_CHANNEL = "links:delete";
+const LINKS_CHANGED_CHANNEL = "links:changed";
 const IMAGES_DIR_NAME = "images";
 const UI_NAVIGATE_CHANNEL = "ui:navigate";
 const RENDERER_READY_EVENT = "did-finish-load";
@@ -78,6 +84,12 @@ export const broadcastNotesChanged = (): void => {
 export const broadcastTasksChanged = (): void => {
   BrowserWindow.getAllWindows().forEach((window) => {
     window.webContents.send(TASKS_CHANGED_CHANNEL);
+  });
+};
+
+export const broadcastLinksChanged = (): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(LINKS_CHANGED_CHANNEL);
   });
 };
 
@@ -115,6 +127,13 @@ const restoreVersion = (_event: IpcMainInvokeEvent, versionId: string): Note | n
   return restored;
 };
 
+// MCPツール経由の復元と同じ通知経路を通すため、broadcastではなくemitNotesChangedを呼ぶ。
+const undeleteNote = (_event: IpcMainInvokeEvent, id: string): Note | null => {
+  const restored = restoreNote(id);
+  if (restored !== null) emitNotesChanged();
+  return restored;
+};
+
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
 const updateTaskStatus = (_event: IpcMainInvokeEvent, id: string, status: TaskStatus): void => {
   if (updateTask(id, { status }) !== null) emitTasksChanged();
@@ -130,8 +149,8 @@ const attachImageToNote = (
 
 const findImages = (_event: IpcMainInvokeEvent, noteId: string): Image[] => listImages(noteId);
 
-// リンクにはノート・タスクのような変更通知チャンネルが無く、MCPツール側も通知を出さないため、
-// 作成・削除後の再取得は呼び出し元（レンダラー）に任せる。
+// UI操作由来の作成・削除は呼び出し元（レンダラー）が自分で取り直すため、ここでは通知しない。
+// links:changed はMCPツール経由の操作だけが出す。
 const findLinks = (
   _event: IpcMainInvokeEvent,
   entityType: EntityType,
@@ -211,6 +230,7 @@ const start = async (): Promise<void> => {
   });
   onNotesChanged(broadcastNotesChanged);
   onTasksChanged(broadcastTasksChanged);
+  onLinksChanged(broadcastLinksChanged);
   const mcpServer = await startMcpServer();
   stopMcpServer = mcpServer.close;
 };
@@ -224,6 +244,8 @@ ipcMain.handle(NOTES_UPDATE_CHANNEL, editNote);
 ipcMain.handle(NOTES_LIST_VERSIONS_CHANNEL, findNoteVersions);
 ipcMain.handle(NOTES_RESTORE_VERSION_CHANNEL, restoreVersion);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
+ipcMain.handle(NOTES_LIST_DELETED_CHANNEL, () => listDeletedNotes());
+ipcMain.handle(NOTES_RESTORE_CHANNEL, undeleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
 ipcMain.handle(IMAGES_LIST_CHANNEL, findImages);

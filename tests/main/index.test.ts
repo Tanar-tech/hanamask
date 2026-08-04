@@ -31,6 +31,8 @@ const getNote = vi.fn();
 const updateNote = vi.fn();
 const listNoteVersions = vi.fn();
 const restoreNoteVersion = vi.fn();
+const listDeletedNotes = vi.fn();
+const restoreNote = vi.fn();
 const getTask = vi.fn();
 const openDb = vi.fn();
 const purgeSoftDeletedRecords = vi.fn(() => ({ notesPurged: 0, tasksPurged: 0 }));
@@ -46,6 +48,7 @@ const mkdirSync = vi.fn();
 const existsSync = vi.fn(() => false);
 const notesChangedListeners: Array<() => void> = [];
 const tasksChangedListeners: Array<() => void> = [];
+const linksChangedListeners: Array<() => void> = [];
 const openWindows: FakeWindow[] = [];
 
 // Declared as a function expression because the module under test calls it with `new`.
@@ -84,6 +87,8 @@ vi.mock("../../src/main/db/notes-repo", () => ({
   updateNote,
   listNoteVersions,
   restoreNoteVersion,
+  listDeletedNotes,
+  restoreNote,
 }));
 vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks, getTask }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords }));
@@ -109,6 +114,11 @@ vi.mock("../../src/main/mcp/change-emitter", () => ({
   emitTasksChanged: vi.fn(),
   onTasksChanged: (listener: () => void) => {
     tasksChangedListeners.push(listener);
+    return () => {};
+  },
+  emitLinksChanged: vi.fn(),
+  onLinksChanged: (listener: () => void) => {
+    linksChangedListeners.push(listener);
     return () => {};
   },
 }));
@@ -140,6 +150,11 @@ const findListNoteVersionsHandler = (): ((event: unknown, noteId: string) => Not
 
 const findRestoreNoteVersionHandler = (): ((event: unknown, versionId: string) => Note | null) =>
   findHandler("notes:restore-version");
+
+const findListDeletedNotesHandler = (): (() => Note[]) => findHandler("notes:list-deleted");
+
+const findRestoreNoteHandler = (): ((event: unknown, id: string) => Note | null) =>
+  findHandler("notes:restore");
 
 const findGetTaskHandler = (): ((event: unknown, id: string) => Task | null) =>
   findHandler("tasks:get");
@@ -193,6 +208,15 @@ const emitTasksChangedFromMcp = (): void => {
     throw new Error("no tasks-changed listener was registered");
   }
   tasksChangedListeners.forEach((listener) => {
+    listener();
+  });
+};
+
+const emitLinksChangedFromMcp = (): void => {
+  if (linksChangedListeners.length === 0) {
+    throw new Error("no links-changed listener was registered");
+  }
+  linksChangedListeners.forEach((listener) => {
     listener();
   });
 };
@@ -264,6 +288,8 @@ describe("main process entry", () => {
     updateNote.mockReset();
     listNoteVersions.mockReset();
     restoreNoteVersion.mockReset();
+    listDeletedNotes.mockReset();
+    restoreNote.mockReset();
     getTask.mockReset();
     createImage.mockReset();
     listImages.mockReset();
@@ -400,6 +426,44 @@ describe("main process entry", () => {
     restoreNoteVersion.mockReturnValue(null);
 
     expect(findRestoreNoteVersionHandler()(undefined, "missing-version")).toBeNull();
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).not.toHaveBeenCalled();
+    });
+  });
+
+  it("notes:list-deleted ハンドラは削除済みノートを返し通知しない", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("notes:list-deleted", expect.any(Function));
+    listDeletedNotes.mockReturnValue([sampleNote]);
+
+    expect(findListDeletedNotesHandler()()).toEqual([sampleNote]);
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).not.toHaveBeenCalled();
+    });
+  });
+
+  it("notes:list-deleted ハンドラは削除済みが無ければ空配列を返す", () => {
+    listDeletedNotes.mockReturnValue([]);
+
+    expect(findListDeletedNotesHandler()()).toEqual([]);
+  });
+
+  it("notes:restore ハンドラはノートを復元し全ウィンドウへ通知する", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("notes:restore", expect.any(Function));
+    restoreNote.mockReturnValue(sampleNote);
+
+    const result = findRestoreNoteHandler()(undefined, "note-1");
+
+    expect(result).toEqual(sampleNote);
+    expect(restoreNote).toHaveBeenCalledWith("note-1");
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).toHaveBeenCalledWith("notes:changed");
+    });
+  });
+
+  it("notes:restore ハンドラは復元できないノートではnullを返し通知しない", () => {
+    restoreNote.mockReturnValue(null);
+
+    expect(findRestoreNoteHandler()(undefined, "missing-note")).toBeNull();
     openWindows.forEach((window) => {
       expect(window.webContents.send).not.toHaveBeenCalled();
     });
@@ -665,5 +729,18 @@ describe("main process entry", () => {
 
     expect(window.webContents.send).toHaveBeenCalledTimes(1);
     expect(window.webContents.send).toHaveBeenCalledWith("notes:changed");
+  });
+
+  it("broadcasts links:changed to every open window", () => {
+    openWindows.forEach((window) => {
+      window.webContents.send.mockClear();
+    });
+
+    emitLinksChangedFromMcp();
+
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).toHaveBeenCalledTimes(1);
+      expect(window.webContents.send).toHaveBeenCalledWith("links:changed");
+    });
   });
 });

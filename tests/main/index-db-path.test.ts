@@ -36,6 +36,8 @@ vi.mock("../../src/main/mcp/change-emitter", () => ({
   onNotesChanged: vi.fn(() => () => {}),
   emitTasksChanged: vi.fn(),
   onTasksChanged: vi.fn(() => () => {}),
+  emitLinksChanged: vi.fn(),
+  onLinksChanged: vi.fn(() => () => {}),
 }));
 
 describe("main process HANAMASK_DB_PATH override", () => {

@@ -5,6 +5,7 @@ import { NoteList } from "./components/NoteList";
 import { SearchResults } from "./components/SearchResults";
 import { TaskDetail } from "./components/TaskDetail";
 import { TaskList } from "./components/TaskList";
+import { TrashView } from "./components/TrashView";
 import type { NavigateTarget } from "../shared/preload-api";
 
 const LIST_VIEW: NavigateTarget = { kind: "list" };
@@ -23,6 +24,7 @@ export const App = (): JSX.Element => {
       <h1>hanamask</h1>
       {view.kind === "note" && <NoteDetail noteId={view.id} onBack={backToList} />}
       {view.kind === "task" && <TaskDetail taskId={view.id} onBack={backToList} />}
+      {view.kind === "trash" && <TrashView onBack={backToList} />}
       {view.kind === "search" && (
         <SearchResults
           query={view.query}
@@ -45,6 +47,14 @@ export const App = (): JSX.Element => {
             }}
           />
           <KanbanView />
+          <button
+            type="button"
+            onClick={() => {
+              setView({ kind: "trash" });
+            }}
+          >
+            ゴミ箱
+          </button>
         </>
       )}
     </main>

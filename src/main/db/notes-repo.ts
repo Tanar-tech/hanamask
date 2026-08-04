@@ -129,6 +129,21 @@ export const searchNotes = (query: string): Note[] => {
   });
 };
 
+export const listDeletedNotes = (): Note[] => {
+  const rows: unknown[] = getDb()
+    .prepare(
+      // Two deletions can share a millisecond, so rowid breaks the tie by insertion order.
+      "SELECT * FROM notes WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC, rowid DESC",
+    )
+    .all();
+  return rows.map((row) => {
+    if (!isNoteRow(row)) {
+      throw new Error("Unexpected notes row shape in deleted notes");
+    }
+    return toNote(row);
+  });
+};
+
 export interface NoteUpdateInput {
   title?: string;
   body?: string;

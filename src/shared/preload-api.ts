@@ -66,7 +66,8 @@ export type NavigateTarget =
   | { kind: "list" }
   | { kind: "note"; id: string }
   | { kind: "task"; id: string }
-  | { kind: "search"; query: string };
+  | { kind: "search"; query: string }
+  | { kind: "trash" };
 
 export interface HanamaskPreloadApi {
   listNotes(): Promise<Note[]>;
@@ -80,6 +81,8 @@ export interface HanamaskPreloadApi {
   onNotesChanged(callback: () => void): () => void;
   listNoteVersions(noteId: string): Promise<NoteVersion[]>;
   restoreNoteVersion(versionId: string): Promise<Note | null>;
+  listDeletedNotes(): Promise<Note[]>;
+  restoreNote(id: string): Promise<Note | null>;
   listTasks(): Promise<Task[]>;
   getTask(id: string): Promise<Task | null>;
   updateTaskStatus(id: string, status: TaskStatus): Promise<void>;
@@ -102,4 +105,5 @@ export interface HanamaskPreloadApi {
     toId: string;
   }): Promise<Link>;
   deleteLink(id: string): Promise<boolean>;
+  onLinksChanged(callback: () => void): () => void;
 }

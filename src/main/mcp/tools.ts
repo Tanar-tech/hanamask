@@ -20,7 +20,7 @@ import {
 import { createLink, deleteLink, listLinks, toEntityType } from "../db/links-repo.js";
 import { attachImage } from "../images/attach-image.js";
 import { navigateUi, showUiWindow } from "../ui/navigate.js";
-import { emitNotesChanged, emitTasksChanged } from "./change-emitter.js";
+import { emitLinksChanged, emitNotesChanged, emitTasksChanged } from "./change-emitter.js";
 import type { EntityType, TaskStatus } from "../../shared/preload-api.js";
 
 export interface McpTool {
@@ -500,6 +500,7 @@ const linkEntitiesTool: McpTool = {
       toType: readEntityType(args, "to_type"),
       toId: readString(args, "to_id"),
     });
+    emitLinksChanged();
     return jsonResult({ link });
   }),
 };
@@ -521,6 +522,7 @@ const unlinkEntitiesTool: McpTool = {
     if (!deleteLink(id)) {
       return errorResult(`Link not found: ${id}`);
     }
+    emitLinksChanged();
     return jsonResult({ deleted: true });
   }),
 };

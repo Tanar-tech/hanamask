@@ -33,6 +33,8 @@ const mockHanamask = (overrides: HistoryApiOverrides = {}) => {
   const listNoteVersions = vi.fn(overrides.listNoteVersions ?? (async () => []));
   const restoreNoteVersion = vi.fn(overrides.restoreNoteVersion ?? (async () => makeNote()));
   window.hanamask = {
+    listDeletedNotes: vi.fn(async () => []),
+    restoreNote: vi.fn(async () => null),
     listNotes: vi.fn(async () => []),
     searchNotes: vi.fn(async () => []),
     getNote: vi.fn(async () => null),
@@ -51,6 +53,7 @@ const mockHanamask = (overrides: HistoryApiOverrides = {}) => {
     listLinks: vi.fn(async () => []),
     createLink: vi.fn(),
     deleteLink: vi.fn(async () => true),
+    onLinksChanged: vi.fn(() => () => {}),
   };
   return { listNoteVersions, restoreNoteVersion };
 };

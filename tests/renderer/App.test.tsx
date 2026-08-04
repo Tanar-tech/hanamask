@@ -21,6 +21,15 @@ const note: Note = {
   updatedAt: "2026-08-03T00:00:00.000Z",
 };
 
+const deletedNote: Note = {
+  id: "note-2",
+  title: "消したメモ",
+  body: "削除済みノートの本文",
+  tags: [],
+  createdAt: "2026-08-03T00:00:00.000Z",
+  updatedAt: "2026-08-03T00:00:00.000Z",
+};
+
 const task: Task = {
   id: "task-1",
   title: "MCPサーバーを実装する",
@@ -45,6 +54,8 @@ const mockHanamask = () => {
     onNotesChanged: vi.fn(() => () => {}),
     listNoteVersions: vi.fn(async () => []),
     restoreNoteVersion: vi.fn(async () => null),
+    listDeletedNotes: vi.fn(async () => [deletedNote]),
+    restoreNote: vi.fn(async () => deletedNote),
     listTasks: vi.fn(async () => [task]),
     getTask: vi.fn(async () => task),
     updateTaskStatus: vi.fn(async () => {}),
@@ -58,6 +69,7 @@ const mockHanamask = () => {
     listLinks: vi.fn(async () => []),
     createLink: vi.fn(),
     deleteLink: vi.fn(async () => true),
+    onLinksChanged: vi.fn(() => () => {}),
   };
 };
 
@@ -131,6 +143,23 @@ describe("App のナビゲーション", () => {
 
     await screen.findByText("MCPサーバーの設計についてのメモ本文");
     expect(window.hanamask.getNote).toHaveBeenCalledWith("note-1");
+  });
+});
+
+describe("App のゴミ箱画面", () => {
+  it("ゴミ箱ボタンで削除済みノート一覧に遷移し、戻るで一覧に戻る", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await clickButton("ゴミ箱");
+
+    expect(await screen.findByText("消したメモ")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "進行中" })).toBeNull();
+
+    await clickButton("戻る");
+
+    expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "進行中" })).toBeTruthy();
   });
 });
 
