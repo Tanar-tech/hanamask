@@ -185,6 +185,17 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
     };
   }, [noteId]);
 
+  // MCPツール経由の添付は同じ画面を開いたまま起きるため、変更通知で一覧を取り直す。
+  useEffect(
+    () =>
+      window.hanamask.onNotesChanged(() => {
+        void reloadImages().catch((cause: unknown) => {
+          setAttachError(`画像の読み込みに失敗しました: ${String(cause)}`);
+        });
+      }),
+    [reloadImages],
+  );
+
   const attachFile = useCallback(
     async (file: File): Promise<void> => {
       try {
