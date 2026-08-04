@@ -2,7 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanbanView } from "../../src/renderer/components/KanbanView";
-import type { Task } from "../../src/shared/preload-api";
+import type { Image, Task } from "../../src/shared/preload-api";
+
+const stubImage: Image = {
+  id: "image-1",
+  noteId: "note-1",
+  filePath: "/data/images/a.png",
+  fileUrl: "file:///data/images/a.png",
+  mimeType: "image/png",
+};
 
 const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: "task-1",
@@ -35,6 +43,8 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     getTask: vi.fn(async () => null),
     onTasksChanged,
     updateTaskStatus,
+    attachImage: vi.fn(async () => stubImage),
+    listImages: vi.fn(async () => []),
   };
   return { listTasks, onTasksChanged, updateTaskStatus, listeners, unsubscribe };
 };

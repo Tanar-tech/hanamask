@@ -2,7 +2,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { TaskDetail } from "../../src/renderer/components/TaskDetail";
-import type { Task } from "../../src/shared/preload-api";
+import type { Image, Task } from "../../src/shared/preload-api";
+
+const stubImage: Image = {
+  id: "image-1",
+  noteId: "note-1",
+  filePath: "/data/images/a.png",
+  fileUrl: "file:///data/images/a.png",
+  mimeType: "image/png",
+};
 
 const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: "task-1",
@@ -26,6 +34,8 @@ const mockHanamask = (getTask: (id: string) => Promise<Task | null>) => {
     getTask: getTaskMock,
     updateTaskStatus,
     onTasksChanged: vi.fn(() => () => {}),
+    attachImage: vi.fn(async () => stubImage),
+    listImages: vi.fn(async () => []),
   };
   return { getTask: getTaskMock, updateTaskStatus };
 };

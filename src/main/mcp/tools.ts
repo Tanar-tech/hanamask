@@ -18,6 +18,7 @@ import {
   updateTask,
 } from "../db/tasks-repo.js";
 import { createLink, deleteLink, listLinks, toEntityType } from "../db/links-repo.js";
+import { attachImage } from "../images/attach-image.js";
 import { emitNotesChanged, emitTasksChanged } from "./change-emitter.js";
 import type { EntityType, TaskStatus } from "../../shared/preload-api.js";
 
@@ -271,6 +272,34 @@ const restoreNoteVersionTool: NoteTool = {
   }),
 };
 
+const attachImageTool: NoteTool = {
+  definition: {
+    name: "attach_image",
+    description:
+      "Attach an image to a note. The image bytes are passed Base64 encoded, stored as a file under the app data directory, and the note keeps a path reference. Supported types: image/png, image/jpeg, image/gif, image/webp (10MB max).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        note_id: { type: "string", description: "Note id (uuid) to attach the image to" },
+        file_name: { type: "string", description: "Original file name, used for its extension" },
+        data_base64: { type: "string", description: "Base64 encoded image bytes" },
+        mime_type: { type: "string", description: "Image MIME type, e.g. image/png" },
+      },
+      required: ["note_id", "file_name", "data_base64", "mime_type"],
+    },
+  },
+  handler: toToolHandler((args) =>
+    jsonResult({
+      image: attachImage({
+        noteId: readString(args, "note_id"),
+        fileName: readString(args, "file_name"),
+        dataBase64: readString(args, "data_base64"),
+        mimeType: readString(args, "mime_type"),
+      }),
+    }),
+  ),
+};
+
 export const noteTools: readonly NoteTool[] = [
   createNoteTool,
   getNoteTool,
@@ -280,6 +309,7 @@ export const noteTools: readonly NoteTool[] = [
   restoreNoteTool,
   listNoteVersionsTool,
   restoreNoteVersionTool,
+  attachImageTool,
 ];
 
 export const findNoteTool = (name: string): NoteTool | undefined =>

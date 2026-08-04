@@ -172,13 +172,14 @@ flowchart LR
 
 <h3 id="t09">T09: 画像添付</h3>
 <ul>
-<li>ステータス: 未着手</li>
-<li>依存: 必須: T03（画像添付はノート編集画面への組み込みのため、その画面自体が無いと着手できない）</li>
+<li>ステータス: 完了</li>
+<li>依存: 必須: T03（画像添付はノート編集画面への組み込みのため、その画面自体が無いと着手できない）→ 実際にはT15（ノート/タスク詳細画面）に依存</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.5, §5, §6, §7.1。ファイル選択/クリップボード貼り付けによる画像添付、<code>attach_image</code>ツール、プレビュー表示を実装する。画像はローカルファイルシステム（アプリのデータディレクトリ配下）に保存し、DBには<code>file_path</code>のみ持つ。</li>
 <li>変更範囲: <code>src/main/db/images-repo.ts</code>（新規）, <code>src/main/mcp/tools.ts</code>（<code>attach_image</code>追加）, <code>src/main/index.ts</code>（画像ファイルの保存先ディレクトリ管理）, <code>src/renderer/components/</code>（添付UI・プレビュー表示）。</li>
 <li>禁止事項: OCR等の画像内テキスト検索対象化は<code>docs/REQUIREMENTS.md</code> §9で明示的にスコープ外。</li>
 <li>テスト: 画像ファイルがデータディレクトリ配下に保存され、<code>file_path</code>がDBに記録されることの単体テスト。不正な形式のファイルを渡した場合のエラーハンドリングのテスト。</li>
-<li>停止条件: 対応画像形式・サイズ上限は<code>docs/REQUIREMENTS.md</code>に規定が無いため、実装前に管理者へ確認する。</li>
+<li>停止条件: 対応画像形式・サイズ上限は<code>docs/REQUIREMENTS.md</code>に規定が無いため、実装前に管理者へ確認する。→ 管理者確認済み（PNG/JPEG/GIF/WebP、上限10MB）。</li>
+<li>実績: <code>images</code>テーブル、<code>images-repo.ts</code>（<code>createImage</code>/<code>listImages</code>、<code>pathToFileURL()</code>でクロスプラットフォーム対応のfile:// URL生成）を追加。画像保存ロジックは<code>src/main/images/attach-image.ts</code>に共通化し、<code>images:attach</code> IPCハンドラと<code>attach_image</code> MCPツールの両方から呼び出す構成。<code>NoteDetail.tsx</code>にファイル選択・クリップボード貼り付け（<code>document</code>への<code>paste</code>イベントリスナー）両方の添付UIとプレビュー表示を追加。単体テスト多数追加。<code>implementer</code>が実装、<code>reviewer</code>がMajor指摘3件（<code>attach_image</code> MCPツール未実装、クリップボード貼り付け未実装、Windows file:// URL不具合）→いずれも修正済み、Minor指摘2件（MIMEマジックバイト未検証、画像一覧取得ロジックの軽微な重複）は対応不要と判断。<code>verifier</code>がMCPツールハンドラの直接呼び出しで実際にファイル書き込み・DB登録まで確認済み。GUI実機でのファイル選択・貼り付け操作は実ユーザーデータディレクトリへの書き込みを避けるため未実施（コード・単体テストレベルでは確認済み）。MCP経由で添付した画像を開いている詳細画面に自動反映する仕組み（変更通知）は未実装のため別途対応する。</li>
 </ul>
 
 <h3 id="t10">T10: 30日パージバッチ</h3>

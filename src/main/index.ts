@@ -5,7 +5,9 @@ import { openDb } from "./db/db.js";
 import { purgeSoftDeletedRecords } from "./db/purge.js";
 import { getNote, searchNotes, softDeleteNote } from "./db/notes-repo.js";
 import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
-import type { Note, Task, TaskStatus } from "../shared/preload-api.js";
+import { listImages } from "./db/images-repo.js";
+import { attachImage, setImagesDirPath } from "./images/attach-image.js";
+import type { Image, Note, Task, TaskStatus } from "../shared/preload-api.js";
 import {
   emitNotesChanged,
   emitTasksChanged,
@@ -25,6 +27,9 @@ const NOTES_DELETE_CHANNEL = "notes:delete";
 const NOTES_GET_CHANNEL = "notes:get";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
+const IMAGES_ATTACH_CHANNEL = "images:attach";
+const IMAGES_LIST_CHANNEL = "images:list";
+const IMAGES_DIR_NAME = "images";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 // .cjs, not .js: Electron's sandboxed preload loader only executes CommonJS, and
@@ -64,6 +69,16 @@ const updateTaskStatus = (_event: IpcMainInvokeEvent, id: string, status: TaskSt
   if (updateTask(id, { status }) !== null) emitTasksChanged();
 };
 
+const attachImageToNote = (
+  _event: IpcMainInvokeEvent,
+  noteId: string,
+  fileName: string,
+  dataBase64: string,
+  mimeType: string,
+): Image => attachImage({ noteId, fileName, dataBase64, mimeType });
+
+const findImages = (_event: IpcMainInvokeEvent, noteId: string): Image[] => listImages(noteId);
+
 const createMainWindow = (): BrowserWindow => {
   const window = new BrowserWindow({
     width: WINDOW_WIDTH_PX,
@@ -96,6 +111,7 @@ const resolveDbFilePath = (): string => {
 
 const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
+  setImagesDirPath(join(app.getPath("userData"), IMAGES_DIR_NAME));
   purgeSoftDeletedRecords(new Date());
   createMainWindow();
   onNotesChanged(broadcastNotesChanged);
@@ -110,6 +126,8 @@ ipcMain.handle(NOTES_GET_CHANNEL, findNote);
 ipcMain.handle(TASKS_GET_CHANNEL, findTask);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
+ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
+ipcMain.handle(IMAGES_LIST_CHANNEL, findImages);
 
 app.on("window-all-closed", () => {
   app.quit();

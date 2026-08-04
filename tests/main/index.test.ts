@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Note, Task } from "../../src/shared/preload-api";
+import { join } from "node:path";
+import type { Image, Note, Task } from "../../src/shared/preload-api";
 
 interface FakeWindow {
   webContents: { send: ReturnType<typeof vi.fn> };
@@ -16,6 +17,11 @@ const openDb = vi.fn();
 const purgeSoftDeletedRecords = vi.fn(() => ({ notesPurged: 0, tasksPurged: 0 }));
 const startMcpServer = vi.fn(async () => ({ port: 39217, close: vi.fn(async () => {}) }));
 const listTasks = vi.fn();
+const createImage = vi.fn();
+const listImages = vi.fn();
+const writeFileSync = vi.fn();
+const mkdirSync = vi.fn();
+const existsSync = vi.fn(() => false);
 const notesChangedListeners: Array<() => void> = [];
 const tasksChangedListeners: Array<() => void> = [];
 const openWindows: FakeWindow[] = [];
@@ -48,6 +54,13 @@ vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
 vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes, softDeleteNote, getNote }));
 vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks, getTask }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords }));
+vi.mock("../../src/main/db/images-repo", () => ({ createImage, listImages }));
+// Only the three calls the image handler makes are faked; the rest of node:fs stays real
+// because other modules loaded in this process still need it.
+vi.mock("node:fs", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:fs")>();
+  return { ...actual, default: actual, writeFileSync, mkdirSync, existsSync };
+});
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
   emitNotesChanged: () => {
@@ -84,6 +97,19 @@ const findGetNoteHandler = (): ((event: unknown, id: string) => Note | null) =>
 
 const findGetTaskHandler = (): ((event: unknown, id: string) => Task | null) =>
   findHandler("tasks:get");
+
+const findAttachImageHandler =
+  (): ((
+    event: unknown,
+    noteId: string,
+    fileName: string,
+    dataBase64: string,
+    mimeType: string,
+  ) => Image) =>
+    findHandler("images:attach");
+
+const findListImagesHandler = (): ((event: unknown, noteId: string) => Image[]) =>
+  findHandler("images:list");
 
 const emitNotesChangedFromMcp = (): void => {
   if (notesChangedListeners.length === 0) {
@@ -129,6 +155,18 @@ const sampleNote: Note = {
   updatedAt: "2026-08-03T00:00:00.000Z",
 };
 
+const sampleImage: Image = {
+  id: "image-1",
+  noteId: "note-1",
+  filePath: "/tmp/hanamask-userdata/images/image-1.png",
+  fileUrl: "file:///tmp/hanamask-userdata/images/image-1.png",
+  mimeType: "image/png",
+};
+
+const imagesDirPath = join("/tmp/hanamask-userdata", "images");
+const pngDataBase64 = Buffer.from("fake-png-bytes").toString("base64");
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
 describe("main process entry", () => {
   // The module starts the app as an import side effect, so it is imported once.
   let main: typeof import("../../src/main/index");
@@ -147,6 +185,12 @@ describe("main process entry", () => {
     softDeleteNote.mockReset();
     getNote.mockReset();
     getTask.mockReset();
+    createImage.mockReset();
+    listImages.mockReset();
+    writeFileSync.mockReset();
+    mkdirSync.mockReset();
+    existsSync.mockReset();
+    existsSync.mockReturnValue(false);
     openWindows.forEach((window) => {
       window.webContents.send.mockClear();
     });
@@ -253,6 +297,86 @@ describe("main process entry", () => {
 
     expect(window.webContents.send).toHaveBeenCalledTimes(1);
     expect(window.webContents.send).toHaveBeenCalledWith("tasks:changed");
+  });
+
+  it("images:list ハンドラは指定ノートの画像を返す", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("images:list", expect.any(Function));
+    listImages.mockReturnValue([sampleImage]);
+
+    expect(findListImagesHandler()(undefined, "note-1")).toEqual([sampleImage]);
+    expect(listImages).toHaveBeenCalledWith("note-1");
+  });
+
+  it("images:attach ハンドラはファイルを保存しDBレコードを返す", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("images:attach", expect.any(Function));
+    createImage.mockReturnValue(sampleImage);
+
+    const attached = findAttachImageHandler()(
+      undefined,
+      "note-1",
+      "shot.png",
+      pngDataBase64,
+      "image/png",
+    );
+
+    expect(attached).toEqual(sampleImage);
+    expect(mkdirSync).toHaveBeenCalledWith(imagesDirPath, { recursive: true });
+    const [writtenPath, writtenData] = writeFileSync.mock.calls[0] ?? [];
+    expect(String(writtenPath).startsWith(`${imagesDirPath}/`)).toBe(true);
+    expect(String(writtenPath).endsWith(".png")).toBe(true);
+    expect(writtenData).toEqual(Buffer.from(pngDataBase64, "base64"));
+    expect(createImage).toHaveBeenCalledWith({
+      noteId: "note-1",
+      filePath: writtenPath,
+      mimeType: "image/png",
+    });
+  });
+
+  it("images:attach ハンドラは画像ディレクトリが既にあれば作り直さない", () => {
+    existsSync.mockReturnValue(true);
+    createImage.mockReturnValue(sampleImage);
+
+    findAttachImageHandler()(undefined, "note-1", "shot.png", pngDataBase64, "image/png");
+
+    expect(mkdirSync).not.toHaveBeenCalled();
+  });
+
+  it("images:attach ハンドラは対応形式すべてを受け付ける", () => {
+    createImage.mockReturnValue(sampleImage);
+
+    ["image/png", "image/jpeg", "image/gif", "image/webp"].forEach((mimeType) => {
+      expect(() =>
+        findAttachImageHandler()(undefined, "note-1", "shot", pngDataBase64, mimeType),
+      ).not.toThrow();
+    });
+  });
+
+  it("images:attach ハンドラは非対応のMIMEタイプを拒否する", () => {
+    expect(() =>
+      findAttachImageHandler()(undefined, "note-1", "doc.pdf", pngDataBase64, "application/pdf"),
+    ).toThrow(/application\/pdf/);
+    expect(writeFileSync).not.toHaveBeenCalled();
+    expect(createImage).not.toHaveBeenCalled();
+  });
+
+  it("images:attach ハンドラは10MBを超える画像を拒否する", () => {
+    const oversizedBase64 = Buffer.alloc(MAX_IMAGE_BYTES + 1).toString("base64");
+
+    expect(() =>
+      findAttachImageHandler()(undefined, "note-1", "big.png", oversizedBase64, "image/png"),
+    ).toThrow();
+    expect(writeFileSync).not.toHaveBeenCalled();
+    expect(createImage).not.toHaveBeenCalled();
+  });
+
+  it("images:attach ハンドラはちょうど10MBの画像を受け付ける", () => {
+    createImage.mockReturnValue(sampleImage);
+    const maxSizeBase64 = Buffer.alloc(MAX_IMAGE_BYTES).toString("base64");
+
+    expect(() =>
+      findAttachImageHandler()(undefined, "note-1", "max.png", maxSizeBase64, "image/png"),
+    ).not.toThrow();
+    expect(writeFileSync).toHaveBeenCalledTimes(1);
   });
 
   it("forwards an MCP-triggered change notification to the open window", () => {
