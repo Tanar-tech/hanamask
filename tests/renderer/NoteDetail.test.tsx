@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import mermaid from "mermaid";
 import { NoteDetail } from "../../src/renderer/components/NoteDetail";
-import type { Image, Note } from "../../src/shared/preload-api";
+import type { Image, Note, NoteVersion } from "../../src/shared/preload-api";
 
 vi.mock("mermaid", () => ({
   default: { initialize: vi.fn(), render: vi.fn() },
@@ -51,7 +51,19 @@ interface ImageApiOverrides {
     id: string,
     input: { title?: string; body?: string; tags?: string[] },
   ) => Promise<Note | null>;
+  listNoteVersions?: (noteId: string) => Promise<NoteVersion[]>;
+  restoreNoteVersion?: (versionId: string) => Promise<Note | null>;
 }
+
+const makeVersion = (overrides: Partial<NoteVersion> = {}): NoteVersion => ({
+  id: "version-1",
+  noteId: "note-1",
+  title: "旧タイトル",
+  body: "旧本文",
+  tags: ["design"],
+  createdAt: "2026-08-03T09:00:00.000Z",
+  ...overrides,
+});
 
 const mockHanamask = (
   getNote: (id: string) => Promise<Note | null>,
@@ -61,7 +73,11 @@ const mockHanamask = (
   const listImagesMock = vi.fn(imageApi.listImages ?? (async () => []));
   const attachImageMock = vi.fn(imageApi.attachImage ?? (async () => makeImage()));
   const updateNoteMock = vi.fn(imageApi.updateNote ?? (async () => makeNote()));
+  const listNoteVersionsMock = vi.fn(imageApi.listNoteVersions ?? (async () => []));
+  const restoreNoteVersionMock = vi.fn(imageApi.restoreNoteVersion ?? (async () => makeNote()));
   window.hanamask = {
+    listNoteVersions: listNoteVersionsMock,
+    restoreNoteVersion: restoreNoteVersionMock,
     listNotes: vi.fn(async () => []),
     getNote: getNoteMock,
     updateNote: updateNoteMock,
@@ -73,12 +89,16 @@ const mockHanamask = (
     onTasksChanged: vi.fn(() => () => {}),
     attachImage: attachImageMock,
     listImages: listImagesMock,
+    searchNotes: vi.fn(async () => []),
+    onNavigate: vi.fn(() => () => {}),
   };
   return {
     getNote: getNoteMock,
     listImages: listImagesMock,
     attachImage: attachImageMock,
     updateNote: updateNoteMock,
+    listNoteVersions: listNoteVersionsMock,
+    restoreNoteVersion: restoreNoteVersionMock,
   };
 };
 
@@ -509,5 +529,46 @@ describe("NoteDetail の編集", () => {
 
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByLabelText("タイトル")).toBeTruthy();
+  });
+});
+
+describe("NoteDetail の編集履歴", () => {
+  it("表示モードでは編集履歴を表示する", async () => {
+    const { listNoteVersions } = mockHanamask(async () => makeNote(), {
+      listNoteVersions: async () => [makeVersion()],
+    });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByText("旧タイトル")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "このバージョンに戻す" })).toBeTruthy();
+    expect(listNoteVersions).toHaveBeenCalledWith("note-1");
+  });
+
+  it("編集モードでは編集履歴を表示しない", async () => {
+    mockHanamask(async () => makeNote(), { listNoteVersions: async () => [makeVersion()] });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("旧タイトル");
+    await startEditing();
+
+    expect(screen.queryByText("旧タイトル")).toBeNull();
+    expect(screen.queryByRole("button", { name: "このバージョンに戻す" })).toBeNull();
+  });
+
+  it("履歴から復元すると表示中の内容が復元後のノートになる", async () => {
+    mockHanamask(async () => makeNote(), {
+      listNoteVersions: async () => [makeVersion()],
+      restoreNoteVersion: async () => makeNote({ title: "復元されたタイトル", body: "復元された本文" }),
+    });
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("旧タイトル");
+    await clickButton("このバージョンに戻す");
+
+    expect(await screen.findByText("復元されたタイトル")).toBeTruthy();
+    expect(screen.getByText("復元された本文")).toBeTruthy();
+    vi.unstubAllGlobals();
   });
 });

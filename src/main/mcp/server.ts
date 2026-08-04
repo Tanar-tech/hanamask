@@ -11,7 +11,7 @@ import {
   ListToolsRequestSchema,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { linkTools, noteTools, taskTools, type McpTool } from "./tools.js";
+import { linkTools, noteTools, taskTools, uiTools, type McpTool } from "./tools.js";
 
 const DEFAULT_PORT = 39217;
 const MAX_PORT = 65535;
@@ -35,7 +35,7 @@ const resolvePort = (): number => {
   return port;
 };
 
-const allTools: readonly McpTool[] = [...noteTools, ...taskTools, ...linkTools];
+const allTools: readonly McpTool[] = [...noteTools, ...taskTools, ...linkTools, ...uiTools];
 
 const callTool = (name: string, args: unknown): CallToolResult => {
   const tool = allTools.find((candidate) => candidate.definition.name === name);
