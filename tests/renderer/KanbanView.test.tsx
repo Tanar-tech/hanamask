@@ -35,6 +35,8 @@ const mockHanamask = (tasksByCall: Task[][]) => {
   });
   const updateTaskStatus = vi.fn(async () => {});
   window.hanamask = {
+    listDeletedNotes: vi.fn(async () => []),
+    restoreNote: vi.fn(async () => null),
     listNotes: vi.fn(async () => []),
     getNote: vi.fn(async () => null),
     updateNote: vi.fn(async () => null),

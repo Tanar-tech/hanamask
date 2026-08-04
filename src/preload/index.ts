@@ -10,6 +10,8 @@ const NOTES_GET_CHANNEL = "notes:get";
 const NOTES_UPDATE_CHANNEL = "notes:update";
 const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
 const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
+const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
+const NOTES_RESTORE_CHANNEL = "notes:restore";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_CHANGED_CHANNEL = "tasks:changed";
 const TASKS_LIST_CHANNEL = "tasks:list";
@@ -48,6 +50,8 @@ const api: HanamaskPreloadApi = {
   listNoteVersions: (noteId) => ipcRenderer.invoke(NOTES_LIST_VERSIONS_CHANNEL, noteId),
   restoreNoteVersion: (versionId) =>
     ipcRenderer.invoke(NOTES_RESTORE_VERSION_CHANNEL, versionId),
+  listDeletedNotes: () => ipcRenderer.invoke(NOTES_LIST_DELETED_CHANNEL),
+  restoreNote: (id) => ipcRenderer.invoke(NOTES_RESTORE_CHANNEL, id),
   listTasks: () => ipcRenderer.invoke(TASKS_LIST_CHANNEL),
   getTask: (id) => ipcRenderer.invoke(TASKS_GET_CHANNEL, id),
   updateTaskStatus: (id, status) => ipcRenderer.invoke(TASKS_UPDATE_STATUS_CHANNEL, id, status),

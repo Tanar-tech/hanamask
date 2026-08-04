@@ -29,6 +29,8 @@ const mockHanamask = (overrides: LinkApiOverrides = {}) => {
   const createLink = vi.fn(overrides.createLink ?? (async () => makeLink()));
   const deleteLink = vi.fn(overrides.deleteLink ?? (async () => true));
   window.hanamask = {
+    listDeletedNotes: vi.fn(async () => []),
+    restoreNote: vi.fn(async () => null),
     listNotes: vi.fn(async () => []),
     searchNotes: vi.fn(async () => []),
     getNote: vi.fn(async () => null),
