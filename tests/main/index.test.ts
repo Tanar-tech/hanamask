@@ -9,6 +9,7 @@ interface FakeWindow {
 
 const ipcHandle = vi.fn();
 const searchNotes = vi.fn();
+const softDeleteNote = vi.fn();
 const openDb = vi.fn();
 const startMcpServer = vi.fn(async () => ({ port: 39217, close: vi.fn(async () => {}) }));
 const notesChangedListeners: Array<() => void> = [];
@@ -39,23 +40,32 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
-vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes }));
+vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes, softDeleteNote }));
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
-  emitNotesChanged: vi.fn(),
+  emitNotesChanged: () => {
+    notesChangedListeners.forEach((listener) => {
+      listener();
+    });
+  },
   onNotesChanged: (listener: () => void) => {
     notesChangedListeners.push(listener);
     return () => {};
   },
 }));
 
-const findListNotesHandler = (): (() => Note[]) => {
-  const registration = ipcHandle.mock.calls.find((call) => call[0] === "notes:list");
+const findHandler = (channel: string) => {
+  const registration = ipcHandle.mock.calls.find((call) => call[0] === channel);
   if (registration === undefined) {
-    throw new Error("notes:list handler was not registered");
+    throw new Error(`${channel} handler was not registered`);
   }
   return registration[1];
 };
+
+const findListNotesHandler = (): (() => Note[]) => findHandler("notes:list");
+
+const findDeleteNoteHandler = (): ((event: unknown, id: string) => void) =>
+  findHandler("notes:delete");
 
 const emitNotesChangedFromMcp = (): void => {
   if (notesChangedListeners.length === 0) {
@@ -89,6 +99,10 @@ describe("main process entry", () => {
 
   beforeEach(() => {
     searchNotes.mockReset();
+    softDeleteNote.mockReset();
+    openWindows.forEach((window) => {
+      window.webContents.send.mockClear();
+    });
   });
 
   it("registers a notes:list IPC handler", () => {
@@ -100,6 +114,31 @@ describe("main process entry", () => {
 
     expect(findListNotesHandler()()).toEqual([sampleNote]);
     expect(searchNotes).toHaveBeenCalledWith("");
+  });
+
+  it("registers a notes:delete IPC handler", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("notes:delete", expect.any(Function));
+  });
+
+  it("soft deletes the note and notifies every window from the notes:delete handler", () => {
+    softDeleteNote.mockReturnValue(true);
+
+    findDeleteNoteHandler()(undefined, "note-1");
+
+    expect(softDeleteNote).toHaveBeenCalledWith("note-1");
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).toHaveBeenCalledWith("notes:changed");
+    });
+  });
+
+  it("does not notify when the note was already deleted", () => {
+    softDeleteNote.mockReturnValue(false);
+
+    findDeleteNoteHandler()(undefined, "missing-note");
+
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).not.toHaveBeenCalled();
+    });
   });
 
   it("opens the database and starts the MCP server on startup", () => {

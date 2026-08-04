@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { NoteList } from "../../src/renderer/components/NoteList";
 import type { Note } from "../../src/shared/preload-api";
 
@@ -22,8 +22,17 @@ const mockHanamask = (notesByCall: Note[][]) => {
     listeners.push(callback);
     return unsubscribe;
   });
-  window.hanamask = { listNotes, onNotesChanged };
-  return { listNotes, onNotesChanged, listeners, unsubscribe };
+  const deleteNote = vi.fn(async () => {});
+  window.hanamask = { listNotes, onNotesChanged, deleteNote };
+  return { listNotes, onNotesChanged, deleteNote, listeners, unsubscribe };
+};
+
+const clickDeleteButtonOf = async (title: string): Promise<void> => {
+  const item = (await screen.findByText(title)).closest("li");
+  if (item === null) throw new Error(`no list item for ${title}`);
+  await act(async () => {
+    within(item).getByRole("button", { name: "削除" }).click();
+  });
 };
 
 afterEach(() => {
@@ -69,6 +78,57 @@ describe("NoteList", () => {
     render(<NoteList />);
 
     expect(await screen.findByText("ノートはまだありません")).toBeTruthy();
+  });
+
+  it("削除ボタンで確認してOKするとそのノートを削除する", async () => {
+    const { deleteNote } = mockHanamask([[makeNote(), makeNote({ id: "note-2", title: "TODO整理" })]]);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<NoteList />);
+    await clickDeleteButtonOf("TODO整理");
+
+    expect(deleteNote).toHaveBeenCalledTimes(1);
+    expect(deleteNote).toHaveBeenCalledWith("note-2");
+  });
+
+  it("削除後のonNotesChangedで削除したノートが一覧から消える", async () => {
+    const { deleteNote, listeners } = mockHanamask([
+      [makeNote(), makeNote({ id: "note-2", title: "TODO整理" })],
+      [makeNote()],
+    ]);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<NoteList />);
+    await clickDeleteButtonOf("TODO整理");
+    expect(deleteNote).toHaveBeenCalledWith("note-2");
+
+    await act(async () => {
+      listeners.forEach((listener) => listener());
+    });
+
+    expect(screen.queryByText("TODO整理")).toBeNull();
+    expect(screen.getByText("設計メモ")).toBeTruthy();
+  });
+
+  it("削除の確認をキャンセルすると削除しない", async () => {
+    const { deleteNote } = mockHanamask([[makeNote()]]);
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<NoteList />);
+    await clickDeleteButtonOf("設計メモ");
+
+    expect(deleteNote).not.toHaveBeenCalled();
+  });
+
+  it("削除に失敗したらエラーを表示する", async () => {
+    const { deleteNote } = mockHanamask([[makeNote()]]);
+    deleteNote.mockRejectedValueOnce(new Error("boom"));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<NoteList />);
+    await clickDeleteButtonOf("設計メモ");
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
   });
 
   it("アンマウント時に購読を解除する", async () => {

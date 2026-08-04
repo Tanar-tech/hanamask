@@ -3,9 +3,11 @@ import type { HanamaskPreloadApi } from "../shared/preload-api.js";
 
 const NOTES_CHANGED_CHANNEL = "notes:changed";
 const NOTES_LIST_CHANNEL = "notes:list";
+const NOTES_DELETE_CHANNEL = "notes:delete";
 
 const api: HanamaskPreloadApi = {
   listNotes: () => ipcRenderer.invoke(NOTES_LIST_CHANNEL),
+  deleteNote: (id) => ipcRenderer.invoke(NOTES_DELETE_CHANNEL, id),
   onNotesChanged: (callback) => {
     const listener = (): void => callback();
     ipcRenderer.on(NOTES_CHANGED_CHANNEL, listener);

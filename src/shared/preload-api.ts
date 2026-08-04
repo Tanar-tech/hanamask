@@ -16,5 +16,6 @@ export interface NoteInput {
 
 export interface HanamaskPreloadApi {
   listNotes(): Promise<Note[]>;
+  deleteNote(id: string): Promise<void>;
   onNotesChanged(callback: () => void): () => void;
 }

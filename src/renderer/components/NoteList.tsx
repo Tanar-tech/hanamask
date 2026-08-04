@@ -19,6 +19,15 @@ export const NoteList = (): JSX.Element => {
     }
   }, []);
 
+  const deleteNote = useCallback(async (note: Note) => {
+    if (!window.confirm(`「${note.title}」を削除しますか?`)) return;
+    try {
+      await window.hanamask.deleteNote(note.id);
+    } catch (cause) {
+      setError(`ノートの削除に失敗しました: ${String(cause)}`);
+    }
+  }, []);
+
   useEffect(() => {
     void reload();
     return window.hanamask.onNotesChanged(() => {
@@ -40,6 +49,14 @@ export const NoteList = (): JSX.Element => {
         <li key={note.id}>
           <h2>{note.title}</h2>
           <p>{toPreview(note.body)}</p>
+          <button
+            type="button"
+            onClick={() => {
+              void deleteNote(note);
+            }}
+          >
+            削除
+          </button>
         </li>
       ))}
     </ul>
