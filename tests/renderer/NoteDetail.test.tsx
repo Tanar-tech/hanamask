@@ -92,6 +92,9 @@ const mockHanamask = (
     listImages: listImagesMock,
     searchNotes: vi.fn(async () => []),
     onNavigate: vi.fn(() => () => {}),
+    listLinks: vi.fn(async () => []),
+    createLink: vi.fn(),
+    deleteLink: vi.fn(async () => true),
   };
   return {
     getNote: getNoteMock,
@@ -603,5 +606,37 @@ describe("NoteDetail の編集履歴", () => {
     expect(await screen.findByText("復元されたタイトル")).toBeTruthy();
     expect(screen.getByText("復元された本文")).toBeTruthy();
     vi.unstubAllGlobals();
+  });
+});
+
+describe("NoteDetail のリンク", () => {
+  const mockLinks = () => {
+    mockHanamask(async () => makeNote());
+    const listLinks = vi.fn(async () => []);
+    window.hanamask.listLinks = listLinks;
+    return { listLinks };
+  };
+
+  it("表示モードではリンクUIを表示する", async () => {
+    const { listLinks } = mockLinks();
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByRole("heading", { name: "リンク" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "リンクする" })).toBeTruthy();
+    await waitFor(() => {
+      expect(listLinks).toHaveBeenCalledWith("note", "note-1");
+    });
+  });
+
+  it("編集モードではリンクUIを表示しない", async () => {
+    mockLinks();
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByRole("heading", { name: "リンク" });
+    await startEditing();
+
+    expect(screen.queryByRole("heading", { name: "リンク" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "リンクする" })).toBeNull();
   });
 });

@@ -40,6 +40,9 @@ const mockHanamask = (searchNotes: () => Promise<Note[]>) => {
     onNavigate: vi.fn(() => () => {}),
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),
+    listLinks: vi.fn(async () => []),
+    createLink: vi.fn(),
+    deleteLink: vi.fn(async () => true),
   };
   return search;
 };

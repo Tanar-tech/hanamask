@@ -47,6 +47,9 @@ const mockHanamask = (notesByCall: Note[][]) => {
     listImages: vi.fn(async () => []),
     searchNotes: vi.fn(async () => []),
     onNavigate: vi.fn(() => () => {}),
+    listLinks: vi.fn(async () => []),
+    createLink: vi.fn(),
+    deleteLink: vi.fn(async () => true),
   };
   return { listNotes, onNotesChanged, deleteNote, listeners, unsubscribe };
 };

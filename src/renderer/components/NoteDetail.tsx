@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type JSX } from "react";
 import type { Image, Note } from "../../shared/preload-api";
+import { EntityLinks } from "./EntityLinks";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { NoteVersionHistory } from "./NoteVersionHistory";
 
@@ -310,6 +311,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
               </li>
             ))}
           </ul>
+          <EntityLinks entityType="note" entityId={noteId} />
           <NoteVersionHistory noteId={noteId} onRestored={setNote} />
         </>
       )}

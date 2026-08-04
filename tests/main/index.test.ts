@@ -1,7 +1,14 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { join } from "node:path";
 import { navigateUi, showUiWindow } from "../../src/main/ui/navigate";
-import type { Image, Note, NoteVersion, Task } from "../../src/shared/preload-api";
+import type {
+  EntityType,
+  Image,
+  Link,
+  Note,
+  NoteVersion,
+  Task,
+} from "../../src/shared/preload-api";
 
 interface FakeWindow {
   webContents: {
@@ -31,6 +38,9 @@ const startMcpServer = vi.fn(async () => ({ port: 39217, close: vi.fn(async () =
 const listTasks = vi.fn();
 const createImage = vi.fn();
 const listImages = vi.fn();
+const createLink = vi.fn();
+const deleteLink = vi.fn();
+const listLinks = vi.fn();
 const writeFileSync = vi.fn();
 const mkdirSync = vi.fn();
 const existsSync = vi.fn(() => false);
@@ -78,6 +88,7 @@ vi.mock("../../src/main/db/notes-repo", () => ({
 vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks, getTask }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords }));
 vi.mock("../../src/main/db/images-repo", () => ({ createImage, listImages }));
+vi.mock("../../src/main/db/links-repo", () => ({ createLink, deleteLink, listLinks }));
 // Only the three calls the image handler makes are faked; the rest of node:fs stays real
 // because other modules loaded in this process still need it.
 vi.mock("node:fs", async (importOriginal) => {
@@ -146,6 +157,20 @@ const findAttachImageHandler =
 const findListImagesHandler = (): ((event: unknown, noteId: string) => Image[]) =>
   findHandler("images:list");
 
+const findListLinksHandler = (): ((
+  event: unknown,
+  entityType: EntityType,
+  entityId: string,
+) => Link[]) => findHandler("links:list");
+
+const findCreateLinkHandler = (): ((
+  event: unknown,
+  input: { fromType: EntityType; fromId: string; toType: EntityType; toId: string },
+) => Link) => findHandler("links:create");
+
+const findDeleteLinkHandler = (): ((event: unknown, id: string) => boolean) =>
+  findHandler("links:delete");
+
 const emitNotesChangedFromMcp = (): void => {
   if (notesChangedListeners.length === 0) {
     throw new Error("no notes-changed listener was registered");
@@ -207,6 +232,14 @@ const sampleImage: Image = {
   mimeType: "image/png",
 };
 
+const sampleLink: Link = {
+  id: "link-1",
+  fromType: "note",
+  fromId: "note-1",
+  toType: "task",
+  toId: "task-1",
+};
+
 const imagesDirPath = join("/tmp/hanamask-userdata", "images");
 const pngDataBase64 = Buffer.from("fake-png-bytes").toString("base64");
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -234,6 +267,9 @@ describe("main process entry", () => {
     getTask.mockReset();
     createImage.mockReset();
     listImages.mockReset();
+    createLink.mockReset();
+    deleteLink.mockReset();
+    listLinks.mockReset();
     writeFileSync.mockReset();
     mkdirSync.mockReset();
     existsSync.mockReset();
@@ -500,6 +536,57 @@ describe("main process entry", () => {
       findAttachImageHandler()(undefined, "note-1", "max.png", maxSizeBase64, "image/png"),
     ).not.toThrow();
     expect(writeFileSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("links:list ハンドラは対象エンティティのリンクを返し通知しない", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("links:list", expect.any(Function));
+    listLinks.mockReturnValue([sampleLink]);
+
+    expect(findListLinksHandler()(undefined, "note", "note-1")).toEqual([sampleLink]);
+    expect(listLinks).toHaveBeenCalledWith("note", "note-1");
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).not.toHaveBeenCalled();
+    });
+  });
+
+  it("links:list ハンドラはリンクが無ければ空配列を返す", () => {
+    listLinks.mockReturnValue([]);
+
+    expect(findListLinksHandler()(undefined, "task", "task-1")).toEqual([]);
+  });
+
+  it("links:create ハンドラはリンクを作成して返し通知しない", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("links:create", expect.any(Function));
+    createLink.mockReturnValue(sampleLink);
+    const input = {
+      fromType: "note",
+      fromId: "note-1",
+      toType: "task",
+      toId: "task-1",
+    } as const;
+
+    expect(findCreateLinkHandler()(undefined, input)).toEqual(sampleLink);
+    expect(createLink).toHaveBeenCalledWith(input);
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).not.toHaveBeenCalled();
+    });
+  });
+
+  it("links:delete ハンドラはリンクを削除し結果を返し通知しない", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("links:delete", expect.any(Function));
+    deleteLink.mockReturnValue(true);
+
+    expect(findDeleteLinkHandler()(undefined, "link-1")).toBe(true);
+    expect(deleteLink).toHaveBeenCalledWith("link-1");
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).not.toHaveBeenCalled();
+    });
+  });
+
+  it("links:delete ハンドラは既に無いリンクではfalseを返す", () => {
+    deleteLink.mockReturnValue(false);
+
+    expect(findDeleteLinkHandler()(undefined, "missing-link")).toBe(false);
   });
 
   it("notes:search ハンドラはクエリに一致するノートを返す", () => {

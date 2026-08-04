@@ -94,4 +94,12 @@ export interface HanamaskPreloadApi {
     mimeType: string,
   ): Promise<Image>;
   listImages(noteId: string): Promise<Image[]>;
+  listLinks(entityType: EntityType, entityId: string): Promise<Link[]>;
+  createLink(input: {
+    fromType: EntityType;
+    fromId: string;
+    toType: EntityType;
+    toId: string;
+  }): Promise<Link>;
+  deleteLink(id: string): Promise<boolean>;
 }
