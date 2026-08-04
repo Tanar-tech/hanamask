@@ -24,6 +24,7 @@ export const NoteVersionHistory = ({
 }: NoteVersionHistoryProps): JSX.Element => {
   const [versions, setVersions] = useState<NoteVersion[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
   const mounted = useRef(true);
 
   // StrictModeの二重マウントで再利用されるため、初期値ではなくマウント時に立て直す。
@@ -60,6 +61,9 @@ export const NoteVersionHistory = ({
 
   const restore = async (versionId: string): Promise<void> => {
     if (!window.confirm(RESTORE_CONFIRM_MESSAGE)) return;
+    // 復元中は全ての復元ボタンを無効化する。多重復元を許すと、先に完了した方の
+    // finallyが親の復元中フラグを倒し、まだ未完了の復元がレースに戻ってしまう。
+    setRestoring(true);
     onRestoringChange(true);
     try {
       setError(null);
@@ -77,6 +81,7 @@ export const NoteVersionHistory = ({
     } catch (cause) {
       if (mounted.current) setError(`バージョンの復元に失敗しました: ${String(cause)}`);
     } finally {
+      if (mounted.current) setRestoring(false);
       // アンマウント済みでも通知する。通知しないと親の復元中フラグが立ったままになる。
       onRestoringChange(false);
     }
@@ -95,6 +100,7 @@ export const NoteVersionHistory = ({
             <span>{toBodyPreview(version.body)}</span>
             <button
               type="button"
+              disabled={restoring}
               onClick={() => {
                 void restore(version.id);
               }}

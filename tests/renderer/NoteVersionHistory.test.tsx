@@ -234,6 +234,44 @@ describe("NoteVersionHistory", () => {
     expect(onRestoringChange.mock.calls).toEqual([[true], [false]]);
   });
 
+  it("復元の応答待ちの間は他のバージョンの復元ボタンも押せない", async () => {
+    let resolveRestore: ((note: Note) => void) | undefined;
+    const { restoreNoteVersion } = mockHanamask({
+      listNoteVersions: async () => [
+        makeVersion({ id: "version-2", title: "2番目" }),
+        makeVersion({ id: "version-1", title: "1番目" }),
+      ],
+      restoreNoteVersion: () =>
+        new Promise<Note | null>((resolve) => {
+          resolveRestore = resolve;
+        }),
+    });
+    stubConfirm(true);
+    const onRestoringChange = vi.fn();
+
+    render(
+      <NoteVersionHistory noteId="note-1" onRestored={vi.fn()} onRestoringChange={onRestoringChange} />,
+    );
+    await screen.findByText("2番目");
+    await clickRestore(0);
+
+    const buttons = screen.getAllByRole("button", { name: "このバージョンに戻す" });
+    expect(buttons.every((button) => (button as HTMLButtonElement).disabled)).toBe(true);
+
+    await clickRestore(1);
+
+    expect(restoreNoteVersion).toHaveBeenCalledTimes(1);
+    expect(onRestoringChange.mock.calls).toEqual([[true]]);
+
+    await act(async () => {
+      resolveRestore?.(makeNote());
+    });
+
+    expect(onRestoringChange.mock.calls).toEqual([[true], [false]]);
+    const afterButtons = screen.getAllByRole("button", { name: "このバージョンに戻す" });
+    expect(afterButtons.every((button) => (button as HTMLButtonElement).disabled)).toBe(false);
+  });
+
   it("復元の応答待ち中にアンマウントされたらonRestoredを呼ばない", async () => {
     let resolveRestore: ((note: Note) => void) | undefined;
     const { listNoteVersions } = mockHanamask({
