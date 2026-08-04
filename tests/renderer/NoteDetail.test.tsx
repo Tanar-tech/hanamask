@@ -47,6 +47,10 @@ interface ImageApiOverrides {
     dataBase64: string,
     mimeType: string,
   ) => Promise<Image>;
+  updateNote?: (
+    id: string,
+    input: { title?: string; body?: string; tags?: string[] },
+  ) => Promise<Note | null>;
 }
 
 const mockHanamask = (
@@ -56,9 +60,11 @@ const mockHanamask = (
   const getNoteMock = vi.fn(getNote);
   const listImagesMock = vi.fn(imageApi.listImages ?? (async () => []));
   const attachImageMock = vi.fn(imageApi.attachImage ?? (async () => makeImage()));
+  const updateNoteMock = vi.fn(imageApi.updateNote ?? (async () => makeNote()));
   window.hanamask = {
     listNotes: vi.fn(async () => []),
     getNote: getNoteMock,
+    updateNote: updateNoteMock,
     deleteNote: vi.fn(async () => {}),
     onNotesChanged: vi.fn(() => () => {}),
     listTasks: vi.fn(async () => []),
@@ -68,8 +74,32 @@ const mockHanamask = (
     attachImage: attachImageMock,
     listImages: listImagesMock,
   };
-  return { getNote: getNoteMock, listImages: listImagesMock, attachImage: attachImageMock };
+  return {
+    getNote: getNoteMock,
+    listImages: listImagesMock,
+    attachImage: attachImageMock,
+    updateNote: updateNoteMock,
+  };
 };
+
+const startEditing = async (): Promise<void> => {
+  await act(async () => {
+    screen.getByRole("button", { name: "編集" }).click();
+  });
+};
+
+const clickButton = async (name: string): Promise<void> => {
+  await act(async () => {
+    screen.getByRole("button", { name }).click();
+  });
+};
+
+const typeInto = (label: string, value: string): void => {
+  fireEvent.change(screen.getByLabelText(label), { target: { value } });
+};
+
+const fieldValue = (label: string): string =>
+  screen.getByLabelText<HTMLInputElement | HTMLTextAreaElement>(label).value;
 
 const selectFile = async (file: File): Promise<void> => {
   const input = screen.getByLabelText("画像を添付");
@@ -369,5 +399,115 @@ describe("NoteDetail", () => {
 
     await waitFor(() => expect(mermaid.render).toHaveBeenCalledTimes(2));
     expect(screen.getByText(/中間/)).toBeTruthy();
+  });
+});
+
+describe("NoteDetail の編集", () => {
+  it("編集ボタンで編集フォームに現在の内容を表示する", async () => {
+    mockHanamask(async () => makeNote());
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+
+    expect(fieldValue("タイトル")).toBe("設計メモ");
+    expect(fieldValue("本文")).toBe("MCPサーバーの設計についてのメモ本文");
+    expect(fieldValue("タグ")).toBe("design, mcp");
+  });
+
+  it("編集モードではMermaidを描画せず生のMarkdownを表示する", async () => {
+    mockMermaidRender();
+    const body = "```mermaid\ngraph TD;\n  A-->B;\n```";
+    mockHanamask(async () => makeNote({ body }));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await waitFor(() => expect(queryRenderedSvg()).not.toBeNull());
+    await startEditing();
+
+    expect(fieldValue("本文")).toBe(body);
+    expect(queryRenderedSvg()).toBeNull();
+  });
+
+  it("保存すると編集内容でupdateNoteを呼ぶ", async () => {
+    const { updateNote } = mockHanamask(async () => makeNote(), {
+      updateNote: async () => makeNote({ title: "改訂版", body: "新しい本文", tags: ["mcp"] }),
+    });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+    typeInto("タイトル", "改訂版");
+    typeInto("本文", "新しい本文");
+    typeInto("タグ", "mcp");
+    await clickButton("保存");
+
+    expect(updateNote).toHaveBeenCalledWith("note-1", {
+      title: "改訂版",
+      body: "新しい本文",
+      tags: ["mcp"],
+    });
+  });
+
+  it("保存に成功すると表示モードに戻り新しい内容を表示する", async () => {
+    mockHanamask(async () => makeNote(), {
+      updateNote: async () => makeNote({ title: "改訂版", body: "新しい本文", tags: ["mcp"] }),
+    });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+    typeInto("タイトル", "改訂版");
+    await clickButton("保存");
+
+    expect(await screen.findByText("改訂版")).toBeTruthy();
+    expect(screen.getByText("新しい本文")).toBeTruthy();
+    expect(screen.queryByLabelText("タイトル")).toBeNull();
+    expect(screen.getByRole("button", { name: "編集" })).toBeTruthy();
+  });
+
+  it("キャンセルすると編集内容を破棄して元の内容に戻る", async () => {
+    const { updateNote } = mockHanamask(async () => makeNote());
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+    typeInto("タイトル", "破棄されるタイトル");
+    await clickButton("キャンセル");
+
+    expect(updateNote).not.toHaveBeenCalled();
+    expect(screen.getByText("設計メモ")).toBeTruthy();
+    expect(screen.queryByText("破棄されるタイトル")).toBeNull();
+
+    await startEditing();
+    expect(fieldValue("タイトル")).toBe("設計メモ");
+  });
+
+  it("保存に失敗したらエラーメッセージを表示し編集内容を保つ", async () => {
+    mockHanamask(async () => makeNote(), {
+      updateNote: async () => {
+        throw new Error("update failed");
+      },
+    });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+    typeInto("タイトル", "改訂版");
+    await clickButton("保存");
+
+    expect((await screen.findByRole("alert")).textContent).toContain("update failed");
+    expect(fieldValue("タイトル")).toBe("改訂版");
+  });
+
+  it("更新対象のノートが存在しない場合はエラーメッセージを表示する", async () => {
+    mockHanamask(async () => makeNote(), { updateNote: async () => null });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+    await clickButton("保存");
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByLabelText("タイトル")).toBeTruthy();
   });
 });
