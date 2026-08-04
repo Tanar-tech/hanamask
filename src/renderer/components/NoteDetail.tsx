@@ -144,6 +144,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
   const [attachError, setAttachError] = useState<string | null>(null);
   const [draft, setDraft] = useState<NoteDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(false);
 
   const reloadImages = useCallback(async (): Promise<void> => {
     setImages(await window.hanamask.listImages(noteId));
@@ -281,6 +282,8 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
           <h2>{note.title}</h2>
           <button
             type="button"
+            // 復元の応答待ち中に編集を始めると、復元前の内容を基にしたフォームの保存で復元結果が失われる。
+            disabled={restoring}
             onClick={() => {
               setDraft(toDraft(note));
             }}
@@ -312,7 +315,12 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
             ))}
           </ul>
           <EntityLinks entityType="note" entityId={noteId} />
-          <NoteVersionHistory noteId={noteId} onRestored={setNote} />
+          <NoteVersionHistory
+            noteId={noteId}
+            onRestored={setNote}
+            onRestoringChange={setRestoring}
+          />
+
         </>
       )}
     </article>
