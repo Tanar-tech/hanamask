@@ -4,7 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { closeDb, openDb } from "../../../src/main/db/db";
-import { createNote, getNote, searchNotes } from "../../../src/main/db/notes-repo";
+import {
+  createNote,
+  getNote,
+  restoreNote,
+  searchNotes,
+  softDeleteNote,
+  updateNote,
+} from "../../../src/main/db/notes-repo";
 
 describe("notes-repo", () => {
   let dbFilePath: string;
@@ -79,5 +86,68 @@ describe("notes-repo", () => {
     const found = searchNotes("100%");
 
     expect(found.map((note) => note.id)).toEqual([literal.id]);
+  });
+
+  it("updates the given fields and bumps updatedAt, leaving createdAt unchanged", () => {
+    const created = createNote({ title: "元タイトル", body: "元本文", tags: ["a"] });
+
+    const updated = updateNote(created.id, { title: "新タイトル" });
+
+    expect(updated).toEqual({
+      ...created,
+      title: "新タイトル",
+      updatedAt: updated?.updatedAt,
+    });
+    expect(updated?.updatedAt).not.toBe(created.updatedAt);
+    expect(updated?.body).toBe("元本文");
+    expect(updated?.tags).toEqual(["a"]);
+  });
+
+  it("updates body and tags independently of title", () => {
+    const created = createNote({ title: "タイトル", body: "元本文", tags: ["a"] });
+
+    const updated = updateNote(created.id, { body: "新本文", tags: ["b", "c"] });
+
+    expect(updated?.title).toBe("タイトル");
+    expect(updated?.body).toBe("新本文");
+    expect(updated?.tags).toEqual(["b", "c"]);
+  });
+
+  it("returns null from updateNote for an unknown id", () => {
+    expect(updateNote(randomUUID(), { title: "x" })).toBeNull();
+  });
+
+  it("soft-deletes a note by setting deletedAt, and excludes it from search by default", () => {
+    const created = createNote({ title: "消す", body: "本文", tags: [] });
+
+    const deleted = softDeleteNote(created.id);
+
+    expect(deleted).toBe(true);
+    expect(searchNotes("")).toEqual([]);
+  });
+
+  it("returns false from softDeleteNote for an unknown id", () => {
+    expect(softDeleteNote(randomUUID())).toBe(false);
+  });
+
+  it("still returns a soft-deleted note through getNote", () => {
+    const created = createNote({ title: "消す", body: "本文", tags: [] });
+    softDeleteNote(created.id);
+
+    expect(getNote(created.id)?.id).toBe(created.id);
+  });
+
+  it("restores a soft-deleted note so it reappears in search", () => {
+    const created = createNote({ title: "戻す", body: "本文", tags: [] });
+    softDeleteNote(created.id);
+
+    const restored = restoreNote(created.id);
+
+    expect(restored?.id).toBe(created.id);
+    expect(searchNotes("戻す")).toHaveLength(1);
+  });
+
+  it("returns null from restoreNote for an unknown id", () => {
+    expect(restoreNote(randomUUID())).toBeNull();
   });
 });
