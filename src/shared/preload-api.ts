@@ -60,8 +60,17 @@ export interface Image {
   mimeType: string;
 }
 
+// Which screen the renderer should show. MCP UI tools (open_note 等) drive this from the
+// main process, so the shape has to stay serializable over IPC.
+export type NavigateTarget =
+  | { kind: "list" }
+  | { kind: "note"; id: string }
+  | { kind: "task"; id: string }
+  | { kind: "search"; query: string };
+
 export interface HanamaskPreloadApi {
   listNotes(): Promise<Note[]>;
+  searchNotes(query: string): Promise<Note[]>;
   getNote(id: string): Promise<Note | null>;
   updateNote(
     id: string,
@@ -73,6 +82,7 @@ export interface HanamaskPreloadApi {
   getTask(id: string): Promise<Task | null>;
   updateTaskStatus(id: string, status: TaskStatus): Promise<void>;
   onTasksChanged(callback: () => void): () => void;
+  onNavigate(callback: (view: NavigateTarget) => void): () => void;
   // The renderer cannot read a picked file from disk under contextIsolation, so it hands
   // the bytes over as Base64 and the main process owns the file copy.
   attachImage(

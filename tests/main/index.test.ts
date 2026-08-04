@@ -1,11 +1,20 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { join } from "node:path";
+import { navigateUi, showUiWindow } from "../../src/main/ui/navigate";
 import type { Image, Note, Task } from "../../src/shared/preload-api";
 
 interface FakeWindow {
-  webContents: { send: ReturnType<typeof vi.fn> };
+  webContents: {
+    send: ReturnType<typeof vi.fn>;
+    isLoading: ReturnType<typeof vi.fn>;
+    once: ReturnType<typeof vi.fn>;
+  };
   loadFile: ReturnType<typeof vi.fn>;
   loadURL: ReturnType<typeof vi.fn>;
+  show: ReturnType<typeof vi.fn>;
+  focus: ReturnType<typeof vi.fn>;
+  isMinimized: ReturnType<typeof vi.fn>;
+  restore: ReturnType<typeof vi.fn>;
 }
 
 const ipcHandle = vi.fn();
@@ -30,9 +39,13 @@ const openWindows: FakeWindow[] = [];
 // Declared as a function expression because the module under test calls it with `new`.
 const BrowserWindowMock = vi.fn(function createFakeWindow(): FakeWindow {
   const window: FakeWindow = {
-    webContents: { send: vi.fn() },
+    webContents: { send: vi.fn(), isLoading: vi.fn(() => false), once: vi.fn() },
     loadFile: vi.fn(() => Promise.resolve()),
     loadURL: vi.fn(() => Promise.resolve()),
+    show: vi.fn(),
+    focus: vi.fn(),
+    isMinimized: vi.fn(() => false),
+    restore: vi.fn(),
   };
   openWindows.push(window);
   return window;
@@ -204,10 +217,23 @@ describe("main process entry", () => {
     mkdirSync.mockReset();
     existsSync.mockReset();
     existsSync.mockReturnValue(false);
+    BrowserWindowMock.mockClear();
     openWindows.forEach((window) => {
       window.webContents.send.mockClear();
+      window.webContents.once.mockClear();
+      window.webContents.isLoading.mockReturnValue(false);
+      window.show.mockClear();
+      window.focus.mockClear();
+      window.restore.mockClear();
+      window.isMinimized.mockReturnValue(false);
     });
   });
+
+  const firstWindow = (): FakeWindow => {
+    const window = openWindows[0];
+    if (window === undefined) throw new Error("no window was created");
+    return window;
+  };
 
   it("registers a notes:list IPC handler", () => {
     expect(ipcHandle).toHaveBeenCalledWith("notes:list", expect.any(Function));
@@ -413,6 +439,73 @@ describe("main process entry", () => {
       findAttachImageHandler()(undefined, "note-1", "max.png", maxSizeBase64, "image/png"),
     ).not.toThrow();
     expect(writeFileSync).toHaveBeenCalledTimes(1);
+  });
+
+  it("notes:search ハンドラはクエリに一致するノートを返す", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("notes:search", expect.any(Function));
+    searchNotes.mockReturnValue([sampleNote]);
+
+    const handler: (event: unknown, query: string) => Note[] = findHandler("notes:search");
+
+    expect(handler(undefined, "title")).toEqual([sampleNote]);
+    expect(searchNotes).toHaveBeenCalledWith("title");
+  });
+
+  it("open_app相当の要求では既存ウィンドウを作り直さず前面化する", () => {
+    showUiWindow();
+
+    expect(BrowserWindowMock).not.toHaveBeenCalled();
+    expect(firstWindow().show).toHaveBeenCalledTimes(1);
+    expect(firstWindow().focus).toHaveBeenCalledTimes(1);
+  });
+
+  it("最小化されたウィンドウは復元してから前面化する", () => {
+    firstWindow().isMinimized.mockReturnValue(true);
+
+    showUiWindow();
+
+    expect(firstWindow().restore).toHaveBeenCalledTimes(1);
+    expect(firstWindow().show).toHaveBeenCalledTimes(1);
+  });
+
+  it("画面遷移の要求ではui:navigateをレンダラーへ送り、ウィンドウを前面化する", () => {
+    navigateUi({ kind: "note", id: "note-1" });
+
+    expect(firstWindow().webContents.send).toHaveBeenCalledWith("ui:navigate", {
+      kind: "note",
+      id: "note-1",
+    });
+    expect(firstWindow().focus).toHaveBeenCalledTimes(1);
+  });
+
+  it("検索画面への遷移要求もそのままレンダラーへ送る", () => {
+    navigateUi({ kind: "search", query: "設計" });
+
+    expect(firstWindow().webContents.send).toHaveBeenCalledWith("ui:navigate", {
+      kind: "search",
+      query: "設計",
+    });
+  });
+
+  it("レンダラー読み込み中は読み込み完了まで遷移の送信を遅らせる", () => {
+    const window = firstWindow();
+    window.webContents.isLoading.mockReturnValue(true);
+
+    navigateUi({ kind: "task", id: "task-1" });
+
+    expect(window.webContents.send).not.toHaveBeenCalled();
+    const [event, listener] = window.webContents.once.mock.calls[0] ?? [];
+    expect(event).toBe("did-finish-load");
+    if (typeof listener !== "function") {
+      throw new Error("did-finish-load listener was not registered");
+    }
+
+    listener();
+
+    expect(window.webContents.send).toHaveBeenCalledWith("ui:navigate", {
+      kind: "task",
+      id: "task-1",
+    });
   });
 
   it("forwards an MCP-triggered change notification to the open window", () => {
