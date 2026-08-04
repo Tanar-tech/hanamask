@@ -6,7 +6,11 @@ const BODY_PREVIEW_LENGTH = 120;
 const toPreview = (body: string): string =>
   body.length > BODY_PREVIEW_LENGTH ? `${body.slice(0, BODY_PREVIEW_LENGTH)}…` : body;
 
-export const NoteList = (): JSX.Element => {
+interface NoteListProps {
+  onSelectNote: (id: string) => void;
+}
+
+export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -47,7 +51,16 @@ export const NoteList = (): JSX.Element => {
     <ul>
       {notes.map((note) => (
         <li key={note.id}>
-          <h2>{note.title}</h2>
+          <h2>
+            <button
+              type="button"
+              onClick={() => {
+                onSelectNote(note.id);
+              }}
+            >
+              {note.title}
+            </button>
+          </h2>
           <p>{toPreview(note.body)}</p>
           <button
             type="button"

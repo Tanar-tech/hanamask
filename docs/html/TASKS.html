@@ -40,8 +40,9 @@
 <thead><tr><th>ウェーブ</th><th>タスク</th><th>必須依存</th></tr></thead>
 <tbody>
 <tr><td>0（完了済み）</td><td>T00, T01, T02</td><td>なし</td></tr>
-<tr><td>1</td><td>T03, T05, T13, T14</td><td>T00（T13, T14は技術的な必須依存は無いが、内容が主要機能に左右されるため実質このウェーブ以降が現実的）</td></tr>
-<tr><td>2</td><td>T04, T06, T07, T08, T09, T10, T12</td><td>T03 および/または T05（詳細は各タスクの「依存」欄）</td></tr>
+<tr><td>1（完了済み）</td><td>T03, T05, T13, T14</td><td>T00（T13, T14は技術的な必須依存は無いが、内容が主要機能に左右されるため実質このウェーブ以降が現実的）</td></tr>
+<tr><td>1.5（完了済み）</td><td>T15（ノート/タスク詳細画面、新規）</td><td>T00／推奨: T03, T05</td></tr>
+<tr><td>2</td><td>T04, T06, T07, T08, T09, T10, T12</td><td>T03 および/または T05（詳細は各タスクの「依存」欄）。T04, T06のUI部分・T07・T09・T11はT15完了により組み込み先が確保された</td></tr>
 <tr><td>3</td><td>T11</td><td>T03, T05, T06</td></tr>
 </tbody>
 </table>
@@ -232,6 +233,18 @@ flowchart LR
 <li>禁止事項: <code>docs/</code>配下の内容変更はこのタスクに含めない（README単体の更新）。</li>
 <li>テスト: 該当なし（ドキュメントのみ）。記載したセットアップ手順（<code>npm install</code>/<code>npm run dev</code>等）が実際に通ることを確認する。</li>
 <li>停止条件: 特になし。</li>
+</ul>
+
+<h3 id="t15">T15: ノート/タスク詳細画面（土台）</h3>
+<ul>
+<li>ステータス: 完了</li>
+<li>依存: 必須: T00（一覧UI）／推奨: T03, T05（詳細取得APIの元になるリポジトリ関数）</li>
+<li>目的: <code>docs/TASKS.md</code>には元々存在しなかった新規タスク。T03（編集・復元UI）・T04（履歴表示UI）・T06（リンク表示UI）・T07（Mermaid表示）・T09（画像添付UI）・T11（open_note/open_task）が共通して必要とする「ノート/タスク詳細画面」が存在しなかったため、これらの前提となる土台として先に追加した（管理者承認済み）。</li>
+<li>変更範囲: <code>src/renderer/components/NoteDetail.tsx</code>（新規）, <code>src/renderer/components/TaskDetail.tsx</code>（新規）, <code>src/renderer/App.tsx</code>（<code>useState</code>ベースのナビゲーション、ルーティングライブラリ不使用）, <code>src/renderer/components/NoteList.tsx</code>/<code>TaskList.tsx</code>（タイトルをクリック可能にする）, <code>src/main/index.ts</code>（<code>notes:get</code>/<code>tasks:get</code> IPCチャンネル新設）, <code>src/preload/index.ts</code>, <code>src/shared/preload-api.ts</code>。</li>
+<li>禁止事項: 編集履歴・リンク表示・Mermaid・画像添付・本文編集UIはこのタスクでは実装しない（別タスクでこの詳細画面に追加される）。</li>
+<li>テスト: <code>NoteDetail</code>/<code>TaskDetail</code>の取得・表示・エラー表示・戻るボタンの単体テスト、<code>App.tsx</code>のナビゲーション遷移テスト、<code>notes:get</code>/<code>tasks:get</code> IPCハンドラのテスト。</li>
+<li>停止条件: 特になし（新規npmパッケージ・ルーティングライブラリを追加しないことを条件に管理者が承認済み）。</li>
+<li>実績: <code>implementer</code>が実装（154テスト全パス）、<code>reviewer</code>が指摘なしと判定、<code>verifier</code>が<code>xvfb-run</code>実機E2Eでノート/タスクそれぞれ作成→クリック→詳細表示→（タスクは）ステータス変更→戻る、の一連の流れと既存E2E（<code>note-flow.spec.ts</code>/<code>task-flow.spec.ts</code>）への非破壊を確認済み。異常系（存在しないIDでの詳細画面エラー表示）の実機確認は未実施（単体テストでは確認済み）。</li>
 </ul>
 
 </main>

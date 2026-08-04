@@ -27,7 +27,9 @@ const mockHanamask = (notesByCall: Note[][]) => {
     listNotes,
     onNotesChanged,
     deleteNote,
+    getNote: vi.fn(async () => null),
     listTasks: vi.fn(async () => []),
+    getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
     onTasksChanged: vi.fn(() => () => {}),
   };
@@ -53,7 +55,7 @@ describe("NoteList", () => {
       [makeNote(), makeNote({ id: "note-2", title: "TODO整理", body: "積み残しタスクの一覧" })],
     ]);
 
-    render(<NoteList />);
+    render(<NoteList onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText("設計メモ")).toBeTruthy();
     expect(screen.getByText("TODO整理")).toBeTruthy();
@@ -67,7 +69,7 @@ describe("NoteList", () => {
       [makeNote(), makeNote({ id: "note-2", title: "追加されたノート" })],
     ]);
 
-    render(<NoteList />);
+    render(<NoteList onSelectNote={vi.fn()} />);
     expect(await screen.findByText("設計メモ")).toBeTruthy();
     expect(listNotes).toHaveBeenCalledTimes(1);
 
@@ -82,7 +84,7 @@ describe("NoteList", () => {
   it("ノートが0件のとき空状態メッセージを表示する", async () => {
     mockHanamask([[]]);
 
-    render(<NoteList />);
+    render(<NoteList onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText("ノートはまだありません")).toBeTruthy();
   });
@@ -91,7 +93,7 @@ describe("NoteList", () => {
     const { deleteNote } = mockHanamask([[makeNote(), makeNote({ id: "note-2", title: "TODO整理" })]]);
     vi.spyOn(window, "confirm").mockReturnValue(true);
 
-    render(<NoteList />);
+    render(<NoteList onSelectNote={vi.fn()} />);
     await clickDeleteButtonOf("TODO整理");
 
     expect(deleteNote).toHaveBeenCalledTimes(1);
@@ -105,7 +107,7 @@ describe("NoteList", () => {
     ]);
     vi.spyOn(window, "confirm").mockReturnValue(true);
 
-    render(<NoteList />);
+    render(<NoteList onSelectNote={vi.fn()} />);
     await clickDeleteButtonOf("TODO整理");
     expect(deleteNote).toHaveBeenCalledWith("note-2");
 
@@ -121,7 +123,7 @@ describe("NoteList", () => {
     const { deleteNote } = mockHanamask([[makeNote()]]);
     vi.spyOn(window, "confirm").mockReturnValue(false);
 
-    render(<NoteList />);
+    render(<NoteList onSelectNote={vi.fn()} />);
     await clickDeleteButtonOf("設計メモ");
 
     expect(deleteNote).not.toHaveBeenCalled();
@@ -132,7 +134,7 @@ describe("NoteList", () => {
     deleteNote.mockRejectedValueOnce(new Error("boom"));
     vi.spyOn(window, "confirm").mockReturnValue(true);
 
-    render(<NoteList />);
+    render(<NoteList onSelectNote={vi.fn()} />);
     await clickDeleteButtonOf("設計メモ");
 
     expect(await screen.findByRole("alert")).toBeTruthy();
@@ -141,7 +143,7 @@ describe("NoteList", () => {
   it("アンマウント時に購読を解除する", async () => {
     const { unsubscribe } = mockHanamask([[makeNote()]]);
 
-    const { unmount } = render(<NoteList />);
+    const { unmount } = render(<NoteList onSelectNote={vi.fn()} />);
     expect(await screen.findByText("設計メモ")).toBeTruthy();
 
     unmount();

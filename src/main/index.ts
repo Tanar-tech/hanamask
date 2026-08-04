@@ -3,9 +3,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
 import { purgeSoftDeletedRecords } from "./db/purge.js";
-import { searchNotes, softDeleteNote } from "./db/notes-repo.js";
-import { listTasks, updateTask } from "./db/tasks-repo.js";
-import type { Note, TaskStatus } from "../shared/preload-api.js";
+import { getNote, searchNotes, softDeleteNote } from "./db/notes-repo.js";
+import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
+import type { Note, Task, TaskStatus } from "../shared/preload-api.js";
 import {
   emitNotesChanged,
   emitTasksChanged,
@@ -22,6 +22,8 @@ const NOTES_LIST_CHANNEL = "notes:list";
 const TASKS_CHANGED_CHANNEL = "tasks:changed";
 const TASKS_LIST_CHANNEL = "tasks:list";
 const NOTES_DELETE_CHANNEL = "notes:delete";
+const NOTES_GET_CHANNEL = "notes:get";
+const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -47,6 +49,10 @@ export const broadcastTasksChanged = (): void => {
 };
 
 const listNotes = (): Note[] => searchNotes("");
+
+const findNote = (_event: IpcMainInvokeEvent, id: string): Note | null => getNote(id);
+
+const findTask = (_event: IpcMainInvokeEvent, id: string): Task | null => getTask(id);
 
 // MCPツール経由の削除と同じ通知経路を通すため、broadcastではなくemitNotesChangedを呼ぶ。
 const deleteNote = (_event: IpcMainInvokeEvent, id: string): void => {
@@ -100,6 +106,8 @@ const start = async (): Promise<void> => {
 
 ipcMain.handle(NOTES_LIST_CHANNEL, listNotes);
 ipcMain.handle(TASKS_LIST_CHANNEL, () => listTasks());
+ipcMain.handle(NOTES_GET_CHANNEL, findNote);
+ipcMain.handle(TASKS_GET_CHANNEL, findTask);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 
