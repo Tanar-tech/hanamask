@@ -10,6 +10,8 @@ interface FakeWindow {
 const ipcHandle = vi.fn();
 const searchNotes = vi.fn();
 const softDeleteNote = vi.fn();
+const getNote = vi.fn();
+const getTask = vi.fn();
 const openDb = vi.fn();
 const purgeSoftDeletedRecords = vi.fn(() => ({ notesPurged: 0, tasksPurged: 0 }));
 const startMcpServer = vi.fn(async () => ({ port: 39217, close: vi.fn(async () => {}) }));
@@ -43,8 +45,8 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
-vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes, softDeleteNote }));
-vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks }));
+vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes, softDeleteNote, getNote }));
+vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks, getTask }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords }));
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
@@ -76,6 +78,12 @@ const findListNotesHandler = (): (() => Note[]) => findHandler("notes:list");
 
 const findDeleteNoteHandler = (): ((event: unknown, id: string) => void) =>
   findHandler("notes:delete");
+
+const findGetNoteHandler = (): ((event: unknown, id: string) => Note | null) =>
+  findHandler("notes:get");
+
+const findGetTaskHandler = (): ((event: unknown, id: string) => Task | null) =>
+  findHandler("tasks:get");
 
 const emitNotesChangedFromMcp = (): void => {
   if (notesChangedListeners.length === 0) {
@@ -137,6 +145,8 @@ describe("main process entry", () => {
     searchNotes.mockReset();
     listTasks.mockReset();
     softDeleteNote.mockReset();
+    getNote.mockReset();
+    getTask.mockReset();
     openWindows.forEach((window) => {
       window.webContents.send.mockClear();
     });
@@ -176,6 +186,34 @@ describe("main process entry", () => {
     openWindows.forEach((window) => {
       expect(window.webContents.send).not.toHaveBeenCalled();
     });
+  });
+
+  it("notes:get ハンドラは指定IDのノートを返す", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("notes:get", expect.any(Function));
+    getNote.mockReturnValue(sampleNote);
+
+    expect(findGetNoteHandler()(undefined, "note-1")).toEqual(sampleNote);
+    expect(getNote).toHaveBeenCalledWith("note-1");
+  });
+
+  it("notes:get ハンドラは存在しないIDに対してnullを返す", () => {
+    getNote.mockReturnValue(null);
+
+    expect(findGetNoteHandler()(undefined, "missing-note")).toBeNull();
+  });
+
+  it("tasks:get ハンドラは指定IDのタスクを返す", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("tasks:get", expect.any(Function));
+    getTask.mockReturnValue(sampleTask);
+
+    expect(findGetTaskHandler()(undefined, "task-1")).toEqual(sampleTask);
+    expect(getTask).toHaveBeenCalledWith("task-1");
+  });
+
+  it("tasks:get ハンドラは存在しないIDに対してnullを返す", () => {
+    getTask.mockReturnValue(null);
+
+    expect(findGetTaskHandler()(undefined, "missing-task")).toBeNull();
   });
 
   it("opens the database and starts the MCP server on startup", () => {

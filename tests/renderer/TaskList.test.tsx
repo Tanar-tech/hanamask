@@ -27,9 +27,11 @@ const mockHanamask = (tasksByCall: Task[][]) => {
   });
   window.hanamask = {
     listNotes: vi.fn(async () => []),
+    getNote: vi.fn(async () => null),
     deleteNote: vi.fn(async () => {}),
     onNotesChanged: vi.fn(() => () => {}),
     listTasks,
+    getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
     onTasksChanged,
   };
@@ -50,7 +52,7 @@ describe("TaskList", () => {
       ],
     ]);
 
-    render(<TaskList />);
+    render(<TaskList onSelectTask={vi.fn()} />);
 
     expect(await screen.findByText("MCPサーバーを実装する")).toBeTruthy();
     expect(screen.getByText("テストを書く")).toBeTruthy();
@@ -65,7 +67,7 @@ describe("TaskList", () => {
       [makeTask(), makeTask({ id: "task-2", title: "追加されたタスク" })],
     ]);
 
-    render(<TaskList />);
+    render(<TaskList onSelectTask={vi.fn()} />);
     expect(await screen.findByText("MCPサーバーを実装する")).toBeTruthy();
     expect(listTasks).toHaveBeenCalledTimes(1);
 
@@ -80,7 +82,7 @@ describe("TaskList", () => {
   it("タスクが0件のとき空状態メッセージを表示する", async () => {
     mockHanamask([[]]);
 
-    render(<TaskList />);
+    render(<TaskList onSelectTask={vi.fn()} />);
 
     expect(await screen.findByText("タスクはまだありません")).toBeTruthy();
   });
@@ -89,7 +91,7 @@ describe("TaskList", () => {
     mockHanamask([[]]);
     window.hanamask.listTasks = vi.fn(() => Promise.reject(new Error("IPC失敗")));
 
-    render(<TaskList />);
+    render(<TaskList onSelectTask={vi.fn()} />);
 
     expect(await screen.findByRole("alert")).toBeTruthy();
   });
@@ -97,7 +99,7 @@ describe("TaskList", () => {
   it("アンマウント時に購読を解除する", async () => {
     const { unsubscribe } = mockHanamask([[makeTask()]]);
 
-    const { unmount } = render(<TaskList />);
+    const { unmount } = render(<TaskList onSelectTask={vi.fn()} />);
     expect(await screen.findByText("MCPサーバーを実装する")).toBeTruthy();
 
     unmount();

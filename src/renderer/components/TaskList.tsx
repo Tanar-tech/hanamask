@@ -7,7 +7,11 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   done: "完了",
 };
 
-export const TaskList = (): JSX.Element => {
+interface TaskListProps {
+  onSelectTask: (id: string) => void;
+}
+
+export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,7 +43,16 @@ export const TaskList = (): JSX.Element => {
     <ul>
       {tasks.map((task) => (
         <li key={task.id}>
-          <h2>{task.title}</h2>
+          <h2>
+            <button
+              type="button"
+              onClick={() => {
+                onSelectTask(task.id);
+              }}
+            >
+              {task.title}
+            </button>
+          </h2>
           <p>{STATUS_LABELS[task.status]}</p>
           {task.dueDate !== null && <p>{task.dueDate}</p>}
         </li>
