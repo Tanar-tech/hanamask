@@ -11,6 +11,7 @@ const ipcHandle = vi.fn();
 const searchNotes = vi.fn();
 const softDeleteNote = vi.fn();
 const openDb = vi.fn();
+const purgeSoftDeletedRecords = vi.fn(() => ({ notesPurged: 0, tasksPurged: 0 }));
 const startMcpServer = vi.fn(async () => ({ port: 39217, close: vi.fn(async () => {}) }));
 const listTasks = vi.fn();
 const notesChangedListeners: Array<() => void> = [];
@@ -44,6 +45,7 @@ vi.mock("electron", () => ({
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
 vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes, softDeleteNote }));
 vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks }));
+vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords }));
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
   emitNotesChanged: () => {
@@ -179,6 +181,14 @@ describe("main process entry", () => {
   it("opens the database and starts the MCP server on startup", () => {
     expect(openDb).toHaveBeenCalledTimes(1);
     expect(startMcpServer).toHaveBeenCalledTimes(1);
+  });
+
+  it("purges expired soft-deleted records on startup, after opening the database", () => {
+    expect(purgeSoftDeletedRecords).toHaveBeenCalledTimes(1);
+    expect(purgeSoftDeletedRecords).toHaveBeenCalledWith(expect.any(Date));
+    expect(openDb.mock.invocationCallOrder[0] ?? Number.NaN).toBeLessThan(
+      purgeSoftDeletedRecords.mock.invocationCallOrder[0] ?? Number.NaN,
+    );
   });
 
   it("broadcasts notes:changed to every open window", () => {

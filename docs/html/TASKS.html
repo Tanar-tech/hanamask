@@ -179,13 +179,14 @@ flowchart LR
 
 <h3 id="t10">T10: 30日パージバッチ</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了</li>
 <li>依存: 必須: T03, T05（両エンティティの<code>deleted_at</code>ソフトデリートが実装済みでないとパージ対象が存在しない）</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.7。ソフトデリートから30日経過したノート・タスクを、アプリ起動時のバッチ処理で完全削除する。</li>
 <li>変更範囲: <code>src/main/db/</code>（パージ関数）, <code>src/main/index.ts</code>（起動時フックへの組み込み）。</li>
 <li>禁止事項: 手動トリガー（UIからの「今すぐ完全削除」ボタン等）は<code>docs/REQUIREMENTS.md</code>に規定が無いため実装しない。起動時の自動実行のみ。</li>
 <li>テスト: <code>deleted_at</code>が30日以上前のレコードのみパージされ、30日未満のレコードは残ることの単体テスト（日時はテスト側で固定値を注入し、暗黙の現在時刻に依存させない。<code>docs/TESTING.md</code>のDesigning for testability方針に従う）。</li>
 <li>停止条件: 特になし。</li>
+<li>実績: <code>purge.ts</code>の<code>purgeSoftDeletedRecords(now: Date)</code>を追加。<code>now</code>を引数として受け取り内部で<code>new Date()</code>を呼ばないテスト容易な設計。30日ちょうどは復元猶予期間内として削除しない（<code>deleted_at &lt; now - 30日</code>の厳密比較）。アプリ起動時（<code>openDb</code>直後・<code>createMainWindow</code>より前）に自動実行。単体テスト（境界値29日/ちょうど30日/31日を含む）を追加。<code>implementer</code>が実装、<code>reviewer</code>・<code>verifier</code>とも指摘なし（境界値の解釈も要求定義と整合していることを確認済み）。</li>
 </ul>
 
 <h3 id="t11">T11: UI連携ツール（open_app/open_note/open_task/open_search）</h3>

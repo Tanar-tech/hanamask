@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
+import { purgeSoftDeletedRecords } from "./db/purge.js";
 import { searchNotes, softDeleteNote } from "./db/notes-repo.js";
 import { listTasks } from "./db/tasks-repo.js";
 import type { Note } from "../shared/preload-api.js";
@@ -78,6 +79,7 @@ const resolveDbFilePath = (): string => {
 
 const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
+  purgeSoftDeletedRecords(new Date());
   createMainWindow();
   onNotesChanged(broadcastNotesChanged);
   onTasksChanged(broadcastTasksChanged);
