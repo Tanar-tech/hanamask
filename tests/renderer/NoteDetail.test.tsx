@@ -556,6 +556,38 @@ describe("NoteDetail の編集履歴", () => {
     expect(screen.queryByRole("button", { name: "このバージョンに戻す" })).toBeNull();
   });
 
+  it("復元の応答待ちの間は編集モードに入れず、復元結果が編集内容に上書きされない", async () => {
+    let resolveRestore: ((note: Note) => void) | undefined;
+    mockHanamask(async () => makeNote(), {
+      listNoteVersions: async () => [makeVersion()],
+      restoreNoteVersion: () =>
+        new Promise<Note | null>((resolve) => {
+          resolveRestore = resolve;
+        }),
+    });
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("旧タイトル");
+    await clickButton("このバージョンに戻す");
+
+    // 応答待ちの間に編集を始めると、復元前の内容を基にしたフォームの保存で復元結果が失われる。
+    expect(screen.getByRole("button", { name: "編集" }).hasAttribute("disabled")).toBe(true);
+    await clickButton("編集");
+    expect(screen.queryByLabelText("タイトル")).toBeNull();
+
+    await act(async () => {
+      resolveRestore?.(makeNote({ title: "復元されたタイトル", body: "復元された本文" }));
+    });
+
+    expect(await screen.findByText("復元されたタイトル")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "編集" }).hasAttribute("disabled")).toBe(false);
+    await startEditing();
+    expect(fieldValue("タイトル")).toBe("復元されたタイトル");
+    expect(fieldValue("本文")).toBe("復元された本文");
+    vi.unstubAllGlobals();
+  });
+
   it("履歴から復元すると表示中の内容が復元後のノートになる", async () => {
     mockHanamask(async () => makeNote(), {
       listNoteVersions: async () => [makeVersion()],

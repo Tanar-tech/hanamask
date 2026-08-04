@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import type { Note, NoteVersion } from "../../shared/preload-api";
 
 interface NoteVersionHistoryProps {
   noteId: string;
   onRestored: (note: Note) => void;
+  onRestoringChange: (restoring: boolean) => void;
 }
 
 const HEADING = "編集履歴";
@@ -19,12 +20,23 @@ const toBodyPreview = (body: string): string =>
 export const NoteVersionHistory = ({
   noteId,
   onRestored,
+  onRestoringChange,
 }: NoteVersionHistoryProps): JSX.Element => {
   const [versions, setVersions] = useState<NoteVersion[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const mounted = useRef(true);
+
+  // StrictModeの二重マウントで再利用されるため、初期値ではなくマウント時に立て直す。
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const reload = useCallback(async (): Promise<void> => {
-    setVersions(await window.hanamask.listNoteVersions(noteId));
+    const loaded = await window.hanamask.listNoteVersions(noteId);
+    if (mounted.current) setVersions(loaded);
   }, [noteId]);
 
   useEffect(() => {
@@ -48,9 +60,13 @@ export const NoteVersionHistory = ({
 
   const restore = async (versionId: string): Promise<void> => {
     if (!window.confirm(RESTORE_CONFIRM_MESSAGE)) return;
+    onRestoringChange(true);
     try {
       setError(null);
       const restored = await window.hanamask.restoreNoteVersion(versionId);
+      // アンマウント後（編集モードへの移行・画面離脱）に復元結果を親へ反映すると、
+      // 復元前の内容を基にした編集フォームの保存で復元結果が失われる。
+      if (!mounted.current) return;
       if (restored === null) {
         setError(VERSION_MISSING_MESSAGE);
         return;
@@ -59,7 +75,10 @@ export const NoteVersionHistory = ({
       // 復元操作自体も新しいバージョンとして積まれるため、履歴を取り直す。
       await reload();
     } catch (cause) {
-      setError(`バージョンの復元に失敗しました: ${String(cause)}`);
+      if (mounted.current) setError(`バージョンの復元に失敗しました: ${String(cause)}`);
+    } finally {
+      // アンマウント済みでも通知する。通知しないと親の復元中フラグが立ったままになる。
+      onRestoringChange(false);
     }
   };
 

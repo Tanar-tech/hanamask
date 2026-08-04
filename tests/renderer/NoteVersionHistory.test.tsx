@@ -83,7 +83,7 @@ describe("NoteVersionHistory", () => {
       ],
     });
 
-    render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} />);
+    render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} onRestoringChange={vi.fn()} />);
 
     expect(await screen.findByText("2番目")).toBeTruthy();
     expect(screen.getByText("1番目")).toBeTruthy();
@@ -95,7 +95,7 @@ describe("NoteVersionHistory", () => {
   it("履歴が0件のときは空状態メッセージを表示する", async () => {
     mockHanamask({ listNoteVersions: async () => [] });
 
-    render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} />);
+    render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} onRestoringChange={vi.fn()} />);
 
     expect(await screen.findByText("編集履歴はありません")).toBeTruthy();
     expect(screen.queryAllByRole("button", { name: "このバージョンに戻す" })).toHaveLength(0);
@@ -108,7 +108,7 @@ describe("NoteVersionHistory", () => {
       },
     });
 
-    render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} />);
+    render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} onRestoringChange={vi.fn()} />);
 
     expect((await screen.findByRole("alert")).textContent).toContain("history boom");
   });
@@ -122,7 +122,7 @@ describe("NoteVersionHistory", () => {
     const confirmMock = stubConfirm(true);
     const onRestored = vi.fn();
 
-    render(<NoteVersionHistory noteId="note-1" onRestored={onRestored} />);
+    render(<NoteVersionHistory noteId="note-1" onRestored={onRestored} onRestoringChange={vi.fn()} />);
     await screen.findByText("旧タイトル");
     await clickRestore();
 
@@ -145,7 +145,7 @@ describe("NoteVersionHistory", () => {
     });
     stubConfirm(true);
 
-    render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} />);
+    render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} onRestoringChange={vi.fn()} />);
     await screen.findByText("旧タイトル");
     await clickRestore();
 
@@ -162,7 +162,7 @@ describe("NoteVersionHistory", () => {
     stubConfirm(false);
     const onRestored = vi.fn();
 
-    render(<NoteVersionHistory noteId="note-1" onRestored={onRestored} />);
+    render(<NoteVersionHistory noteId="note-1" onRestored={onRestored} onRestoringChange={vi.fn()} />);
     await screen.findByText("旧タイトル");
     await clickRestore();
 
@@ -180,7 +180,7 @@ describe("NoteVersionHistory", () => {
     stubConfirm(true);
     const onRestored = vi.fn();
 
-    render(<NoteVersionHistory noteId="note-1" onRestored={onRestored} />);
+    render(<NoteVersionHistory noteId="note-1" onRestored={onRestored} onRestoringChange={vi.fn()} />);
     await screen.findByText("旧タイトル");
     await clickRestore();
 
@@ -196,12 +196,67 @@ describe("NoteVersionHistory", () => {
     stubConfirm(true);
     const onRestored = vi.fn();
 
-    render(<NoteVersionHistory noteId="note-1" onRestored={onRestored} />);
+    render(<NoteVersionHistory noteId="note-1" onRestored={onRestored} onRestoringChange={vi.fn()} />);
     await screen.findByText("旧タイトル");
     await clickRestore();
 
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(onRestored).not.toHaveBeenCalled();
+  });
+
+  it("復元の応答待ちの間はonRestoringChangeで復元中であることを親に通知する", async () => {
+    let resolveRestore: ((note: Note) => void) | undefined;
+    mockHanamask({
+      listNoteVersions: async () => [makeVersion()],
+      restoreNoteVersion: () =>
+        new Promise<Note | null>((resolve) => {
+          resolveRestore = resolve;
+        }),
+    });
+    stubConfirm(true);
+    const onRestoringChange = vi.fn();
+
+    render(
+      <NoteVersionHistory noteId="note-1" onRestored={vi.fn()} onRestoringChange={onRestoringChange} />,
+    );
+    await screen.findByText("旧タイトル");
+    await clickRestore();
+
+    expect(onRestoringChange.mock.calls).toEqual([[true]]);
+
+    await act(async () => {
+      resolveRestore?.(makeNote());
+    });
+
+    expect(onRestoringChange.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it("復元の応答待ち中にアンマウントされたらonRestoredを呼ばない", async () => {
+    let resolveRestore: ((note: Note) => void) | undefined;
+    const { listNoteVersions } = mockHanamask({
+      listNoteVersions: async () => [makeVersion()],
+      restoreNoteVersion: () =>
+        new Promise<Note | null>((resolve) => {
+          resolveRestore = resolve;
+        }),
+    });
+    stubConfirm(true);
+    const onRestored = vi.fn();
+
+    const { unmount } = render(
+      <NoteVersionHistory noteId="note-1" onRestored={onRestored} onRestoringChange={vi.fn()} />,
+    );
+    await screen.findByText("旧タイトル");
+    await clickRestore();
+    unmount();
+
+    await act(async () => {
+      resolveRestore?.(makeNote());
+    });
+
+    expect(onRestored).not.toHaveBeenCalled();
+    // アンマウント後のsetVersionsになるため履歴の取り直しも行わない。
+    expect(listNoteVersions).toHaveBeenCalledTimes(1);
   });
 
   it("noteIdが変わったら履歴を取得し直す", async () => {
@@ -211,10 +266,10 @@ describe("NoteVersionHistory", () => {
       ],
     });
 
-    const { rerender } = render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} />);
+    const { rerender } = render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} onRestoringChange={vi.fn()} />);
     await screen.findByText("旧タイトル");
 
-    rerender(<NoteVersionHistory noteId="note-2" onRestored={vi.fn()} />);
+    rerender(<NoteVersionHistory noteId="note-2" onRestored={vi.fn()} onRestoringChange={vi.fn()} />);
 
     expect(await screen.findByText("別ノートの履歴")).toBeTruthy();
     expect(listNoteVersions).toHaveBeenLastCalledWith("note-2");
@@ -233,8 +288,8 @@ describe("NoteVersionHistory", () => {
       },
     });
 
-    const { rerender } = render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} />);
-    rerender(<NoteVersionHistory noteId="note-2" onRestored={vi.fn()} />);
+    const { rerender } = render(<NoteVersionHistory noteId="note-1" onRestored={vi.fn()} onRestoringChange={vi.fn()} />);
+    rerender(<NoteVersionHistory noteId="note-2" onRestored={vi.fn()} onRestoringChange={vi.fn()} />);
     await screen.findByText("新しいノートの履歴");
 
     await act(async () => {
