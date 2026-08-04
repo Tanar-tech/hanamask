@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { join } from "node:path";
 import { navigateUi, showUiWindow } from "../../src/main/ui/navigate";
-import type { Image, Note, Task } from "../../src/shared/preload-api";
+import type { Image, Note, NoteVersion, Task } from "../../src/shared/preload-api";
 
 interface FakeWindow {
   webContents: {
@@ -22,6 +22,8 @@ const searchNotes = vi.fn();
 const softDeleteNote = vi.fn();
 const getNote = vi.fn();
 const updateNote = vi.fn();
+const listNoteVersions = vi.fn();
+const restoreNoteVersion = vi.fn();
 const getTask = vi.fn();
 const openDb = vi.fn();
 const purgeSoftDeletedRecords = vi.fn(() => ({ notesPurged: 0, tasksPurged: 0 }));
@@ -70,6 +72,8 @@ vi.mock("../../src/main/db/notes-repo", () => ({
   softDeleteNote,
   getNote,
   updateNote,
+  listNoteVersions,
+  restoreNoteVersion,
 }));
 vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks, getTask }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords }));
@@ -119,6 +123,12 @@ const findUpdateNoteHandler = (): ((
   id: string,
   input: { title?: string; body?: string; tags?: string[] },
 ) => Note | null) => findHandler("notes:update");
+
+const findListNoteVersionsHandler = (): ((event: unknown, noteId: string) => NoteVersion[]) =>
+  findHandler("notes:list-versions");
+
+const findRestoreNoteVersionHandler = (): ((event: unknown, versionId: string) => Note | null) =>
+  findHandler("notes:restore-version");
 
 const findGetTaskHandler = (): ((event: unknown, id: string) => Task | null) =>
   findHandler("tasks:get");
@@ -180,6 +190,15 @@ const sampleNote: Note = {
   updatedAt: "2026-08-03T00:00:00.000Z",
 };
 
+const sampleNoteVersion: NoteVersion = {
+  id: "version-1",
+  noteId: "note-1",
+  title: "古いタイトル",
+  body: "古い本文",
+  tags: ["a"],
+  createdAt: "2026-08-03T00:00:00.000Z",
+};
+
 const sampleImage: Image = {
   id: "image-1",
   noteId: "note-1",
@@ -210,6 +229,8 @@ describe("main process entry", () => {
     softDeleteNote.mockReset();
     getNote.mockReset();
     updateNote.mockReset();
+    listNoteVersions.mockReset();
+    restoreNoteVersion.mockReset();
     getTask.mockReset();
     createImage.mockReset();
     listImages.mockReset();
@@ -303,6 +324,46 @@ describe("main process entry", () => {
     updateNote.mockReturnValue(null);
 
     expect(findUpdateNoteHandler()(undefined, "missing-note", { title: "x" })).toBeNull();
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).not.toHaveBeenCalled();
+    });
+  });
+
+  it("notes:list-versions ハンドラは指定ノートの履歴を返し通知しない", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("notes:list-versions", expect.any(Function));
+    listNoteVersions.mockReturnValue([sampleNoteVersion]);
+
+    expect(findListNoteVersionsHandler()(undefined, "note-1")).toEqual([sampleNoteVersion]);
+    expect(listNoteVersions).toHaveBeenCalledWith("note-1");
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).not.toHaveBeenCalled();
+    });
+  });
+
+  it("notes:list-versions ハンドラは履歴が無ければ空配列を返す", () => {
+    listNoteVersions.mockReturnValue([]);
+
+    expect(findListNoteVersionsHandler()(undefined, "note-1")).toEqual([]);
+  });
+
+  it("notes:restore-version ハンドラはノートを復元し全ウィンドウへ通知する", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("notes:restore-version", expect.any(Function));
+    const restored: Note = { ...sampleNote, title: "古いタイトル" };
+    restoreNoteVersion.mockReturnValue(restored);
+
+    const result = findRestoreNoteVersionHandler()(undefined, "version-1");
+
+    expect(result).toEqual(restored);
+    expect(restoreNoteVersion).toHaveBeenCalledWith("version-1");
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).toHaveBeenCalledWith("notes:changed");
+    });
+  });
+
+  it("notes:restore-version ハンドラは存在しないバージョンではnullを返し通知しない", () => {
+    restoreNoteVersion.mockReturnValue(null);
+
+    expect(findRestoreNoteVersionHandler()(undefined, "missing-version")).toBeNull();
     openWindows.forEach((window) => {
       expect(window.webContents.send).not.toHaveBeenCalled();
     });

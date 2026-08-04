@@ -5,6 +5,8 @@ import { openDb } from "./db/db.js";
 import { purgeSoftDeletedRecords } from "./db/purge.js";
 import {
   getNote,
+  listNoteVersions,
+  restoreNoteVersion,
   searchNotes,
   softDeleteNote,
   updateNote,
@@ -13,7 +15,14 @@ import {
 import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
 import { listImages } from "./db/images-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
-import type { Image, NavigateTarget, Note, Task, TaskStatus } from "../shared/preload-api.js";
+import type {
+  Image,
+  NavigateTarget,
+  Note,
+  NoteVersion,
+  Task,
+  TaskStatus,
+} from "../shared/preload-api.js";
 import { setUiNavigator } from "./ui/navigate.js";
 import {
   emitNotesChanged,
@@ -34,6 +43,8 @@ const TASKS_LIST_CHANNEL = "tasks:list";
 const NOTES_DELETE_CHANNEL = "notes:delete";
 const NOTES_GET_CHANNEL = "notes:get";
 const NOTES_UPDATE_CHANNEL = "notes:update";
+const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
+const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
@@ -86,6 +97,16 @@ const editNote = (
   const updated = updateNote(id, input);
   if (updated !== null) emitNotesChanged();
   return updated;
+};
+
+const findNoteVersions = (_event: IpcMainInvokeEvent, noteId: string): NoteVersion[] =>
+  listNoteVersions(noteId);
+
+// 復元は本文の更新なので、MCPツール経由の更新と同じ通知経路（emitNotesChanged）を通す。
+const restoreVersion = (_event: IpcMainInvokeEvent, versionId: string): Note | null => {
+  const restored = restoreNoteVersion(versionId);
+  if (restored !== null) emitNotesChanged();
+  return restored;
 };
 
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
@@ -182,6 +203,8 @@ ipcMain.handle(TASKS_LIST_CHANNEL, () => listTasks());
 ipcMain.handle(NOTES_GET_CHANNEL, findNote);
 ipcMain.handle(TASKS_GET_CHANNEL, findTask);
 ipcMain.handle(NOTES_UPDATE_CHANNEL, editNote);
+ipcMain.handle(NOTES_LIST_VERSIONS_CHANNEL, findNoteVersions);
+ipcMain.handle(NOTES_RESTORE_VERSION_CHANNEL, restoreVersion);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
