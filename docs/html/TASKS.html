@@ -51,17 +51,13 @@
 </table>
 
 <h3 id="remaining">残作業（2026-08-04時点）</h3>
-<p>主要機能タスクはT06のUI分とT12を除きマージ済み。残っているのは以下のみで、いずれも相互に独立して並列着手できる。</p>
+<p>要求定義由来の機能タスクはT12を除きすべてマージ済み。実装済み機能の穴（T16〜T21）もT21を除き解消した。残っているのは以下のみで、いずれも相互に独立して並列着手できる。</p>
 <table>
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th></tr></thead>
 <tbody>
-<tr><td><a href="#t06">T06</a></td><td>リンク表示・作成UIのレビュー完了とマージ（バックエンドは完了済み）</td><td>T03, T05</td></tr>
-<tr><td><a href="#t12">T12</a></td><td>AIチャットパネル（BYO Agent）。未着手・最大の残スコープ</td><td>T03, T05</td></tr>
-<tr><td><a href="#t16">T16</a></td><td>ソフトデリート済みノートの一覧・復元UI（T03から分離）</td><td>T03</td></tr>
-<tr><td><a href="#t17">T17</a></td><td>MCP経由のノート本体更新を、開いている詳細画面へ反映する</td><td>T15</td></tr>
-<tr><td><a href="#t19">T19</a></td><td>Mermaid描画失敗時のエラーSVGのDOM残留（T07の既知の見た目の問題）</td><td>T07</td></tr>
-<tr><td><a href="#t20">T20</a></td><td>リンク操作の変更通知（MCP経由のリンク作成・解除がUIに反映されない）</td><td>T06</td></tr>
+<tr><td><a href="#t12">T12</a></td><td>AIチャットパネル（BYO Agent）。未着手・最大の残スコープ（管理者判断で継続見送り中）</td><td>T03, T05</td></tr>
 <tr><td><a href="#t21">T21</a></td><td>ノート切替時の復元レース（<code>App.tsx</code>の<code>&lt;NoteDetail&gt;</code>に<code>key</code>が無い）</td><td>T15</td></tr>
+<tr><td><a href="#t22">T22</a></td><td>T16/T17で見送ったE2Eシナリオの追加</td><td>T16, T17</td></tr>
 </tbody>
 </table>
 
@@ -86,14 +82,16 @@ flowchart LR
   T04 --> T18["T18 復元レース修正"]
   T07 --> T19["T19 MermaidエラーSVG残留"]
   T06 --> T20["T20 リンク変更通知"]
+  T15 --> T21["T21 ノート切替の復元レース"]
+  T16 --> T22["T22 E2Eシナリオ追加"]
+  T17 --> T22
 
   classDef done fill:#d7ead7,stroke:#4a7a4a,color:#123;
   classDef wip fill:#fdf0c8,stroke:#a08a30,color:#123;
   classDef todo fill:#f6d7d7,stroke:#a05050,color:#123;
-  class T00,T03,T05,T15,T04,T07,T08,T09,T10,T11 done;
-  class T06 wip;
-  class T12,T16,T17,T19,T20,T21 todo;
-  class T18 done;
+  class T00,T03,T05,T15,T04,T06,T07,T08,T09,T10,T11 done;
+  class T16,T17,T18,T19,T20 done;
+  class T12,T21,T22 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -295,24 +293,26 @@ flowchart LR
 
 <h3 id="t16">T16: ソフトデリート済みノートの一覧・復元UI</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #33。E2Eシナリオのみ未実施で<a href="#t22">T22</a>へ分離）</li>
 <li>依存: 必須: T03（<code>restore_note</code> MCPツールとソフトデリートのDB実装）／推奨: なし</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.7（削除は30日間の復元猶予付きソフトデリート）。T03で<code>delete_note</code>/<code>restore_note</code>とノート一覧の削除ボタンまでは実装したが、削除済みノートをデスクトップUIから見る手段が無く、復元は<code>restore_note</code> MCPツール経由でしか行えない。UIだけを使う利用者は誤削除を自力で取り消せず、30日後にパージ（T10）されて失われる。</li>
 <li>変更範囲: <code>src/renderer/components/</code>（削除済みノート一覧・復元操作のUI）, <code>src/renderer/App.tsx</code>（一覧への導線・ナビゲーション追加）, <code>src/main/db/notes-repo.ts</code>（削除済みノートを列挙する取得関数。<code>searchNotes</code>は<code>deleted_at IS NULL</code>が既定のため、別関数または明示オプションが要る）, <code>src/main/index.ts</code>/<code>src/preload/index.ts</code>/<code>src/shared/preload-api.ts</code>（一覧取得・復元のIPCチャンネル）。</li>
 <li>禁止事項: タスク（<code>restore_task</code>）側の復元UIはこのタスクに含めない（ノートで確立してから横展開する）。UIからの物理削除（「完全に削除」ボタン等）は<code>docs/REQUIREMENTS.md</code>に規定が無いため実装しない。パージ猶予期間の変更・T10のバッチへの変更も行わない。</li>
 <li>テスト: 削除済みノートのみを列挙する取得関数の単体テスト（未削除ノートが混ざらないこと、削除済みが0件のとき空配列になること）。復元後に通常のノート一覧へ戻ることのコンポーネントテスト。<code>tests/e2e/</code>に、UI操作での削除→削除済み一覧に出る→復元→通常一覧に戻る、のシナリオを追加する。</li>
 <li>停止条件: 削除済み一覧をどこに置くか（独立した画面か、ノート一覧内のトグルか）は<code>docs/REQUIREMENTS.md</code>に規定が無いため、実装前に管理者へ方針を確認する。新規npmパッケージの追加が必要になった場合は<code>docs/GOVERNANCE.md</code> §6により管理者確認。</li>
+<li>実績（PR #33）: 停止条件どおり管理者に確認し「独立画面」で確定（一度実装者への指示内で開発管理者が独断で決めてしまい、<code>reviewer</code>にMajor指摘されたため管理者へ差し戻して確認した）。<code>listDeletedNotes</code>/<code>restoreNote</code> IPCと<code>TrashView.tsx</code>を追加。<code>reviewer</code>指摘の「復元の応答待ち中に他ノートの復元ボタンが押せる」多重クリック経路に対し、全ボタンを<code>disabled={restoring}</code>にしたうえで、無効化を外すとREDになる回帰テストを追加済み。E2Eシナリオ（削除→ゴミ箱に出る→復元→通常一覧に戻る）は<a href="#t22">T22</a>へ分離。</li>
 </ul>
 
 <h3 id="t17">T17: MCP経由のノート本体更新を開いている詳細画面へ反映する</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #36。E2Eシナリオのみ未実施で<a href="#t22">T22</a>へ分離）</li>
 <li>依存: 必須: T15（ノート詳細画面）／推奨: T03（編集UI・<code>draft</code>ステートの実装。競合設計の対象になるため）</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.6, §1。「MCP経由の操作がデスクトップUIにリアルタイム反映される」ことがhanamaskの中核メカニズムであるにもかかわらず、ノート詳細画面（<code>NoteDetail.tsx</code>）はマウント時と<code>noteId</code>変更時にしか<code>getNote</code>を呼ばない。AIエージェントが<code>update_note</code>/<code>restore_note_version</code>でタイトル・本文・タグを書き換えても、画面を開いたままの利用者には古い内容が表示され続ける（画像一覧の再反映は別途対応中）。仕様との乖離であるため独立タスクとして解消する。</li>
 <li>変更範囲: <code>src/renderer/components/NoteDetail.tsx</code>（<code>notes:changed</code>購読とノート本体の再取得、編集中<code>draft</code>との競合時の挙動）, 必要であれば<code>src/main/mcp/change-emitter.ts</code>/<code>src/main/index.ts</code>（通知に対象ノートIDを含める等の拡張）。</li>
 <li>禁止事項: タスク詳細画面（<code>TaskDetail.tsx</code>）への同種の対応はこのタスクに含めない（ノートで方式を固めてから横展開する）。ポーリングによる定期再取得は実装しない（既存の<code>notes:changed</code>通知経路に乗せる）。競合解消のための自動マージ・差分表示など、要求定義に無い高機能な仕組みは作らない。</li>
 <li>テスト: <code>notes:changed</code>受信でノート本体（タイトル・本文・タグ）が再取得され表示が更新されることのコンポーネントテスト。編集中（<code>draft</code>が非nullのとき）に通知が来た場合に、決定した競合方針どおりに振る舞うこと（編集内容が黙って消えないこと）のテスト。<code>tests/e2e/</code>に、詳細画面を開いたままMCPツールで<code>update_note</code>を実行し表示が更新されるシナリオを追加する。</li>
 <li>停止条件: <strong>編集中の<code>draft</code>と外部更新が競合した場合の扱い（編集中は反映を保留する／通知バナーを出して利用者に選ばせる／編集していない項目だけ更新する等）は<code>docs/REQUIREMENTS.md</code>に規定が無いため、実装前に必ず管理者へ確認する。</strong> 利用者の編集内容を失いうる判断であるため自律的に決めない。</li>
+<li>実績（PR #36）: 停止条件どおり管理者に確認し「編集中は反映せず通知だけ出す」で確定。表示モードでは<code>notes:changed</code>受信で即再取得し、編集モードでは<code>draft</code>に触れず<code>role="status"</code>の通知＋「破棄して最新を読み込む」を出す（保存すれば利用者の編集が勝ち、履歴に残るため復元可能）。復元の応答待ち中（T18の<code>restoring</code>）は再取得をスキップし、復元前の内容が後から届いて復元結果を打ち消すのを防ぐ。<code>reviewer</code>のMajor指摘（ノート切替時に<code>reloadError</code>がリセットされず、無関係な画面にエラーが残る）を回帰テスト付きで修正済み。E2Eシナリオはこのタスクの変更禁止範囲外のため<a href="#t22">T22</a>へ分離。</li>
 </ul>
 
 <h3 id="t18">T18: T04履歴UIの復元レース修正</h3>
@@ -328,24 +328,26 @@ flowchart LR
 
 <h3 id="t19">T19: Mermaid描画失敗時のエラーSVGのDOM残留</h3>
 <ul>
-<li>ステータス: 未着手（要実機確認）</li>
+<li>ステータス: 完了（PR #34。実機で再現を確認したうえで修正）</li>
 <li>依存: 必須: T07（Mermaidレンダリング）／推奨: なし</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.4。T07の<code>verifier</code>検証で判明した既知の見た目の問題。mermaidライブラリは描画に失敗すると自前のエラーSVGを<code>document.body</code>へ直接挿入するため、React管理外の要素として残る。<code>MermaidDiagram</code>側の<code>role="alert"</code>表示と二重になるうえ、Reactが管理していないためノートを切り替えても消えない可能性がある。機能上の破綻ではないが、詳細画面を使い続けると無関係なノートにエラー図が残って見える。</li>
 <li>変更範囲: <code>src/renderer/components/MermaidDiagram.tsx</code>（描画失敗時・アンマウント時に、mermaidが挿入した要素を除去するクリーンアップ）。</li>
 <li>禁止事項: mermaidライブラリのバージョン変更・別ライブラリへの差し替えは行わない（<code>docs/GOVERNANCE.md</code> §6の依存関係変更に該当する）。エラー時の表示内容（<code>role="alert"</code>のメッセージ）の仕様変更は行わない。ライブラリ内部の書き換え（monkey patch）は行わない。</li>
 <li>テスト: まず実機（<code>.claude/skills/e2e-runner/SKILL.md</code>に従い<code>xvfb-run</code>でElectronを起動）で、構文エラーを含むMermaidノート→別ノートへ切替、の操作でエラーSVGが残留することを再現・確認する（再現しない場合は本タスクを「対応不要」として閉じてよい）。再現したら、描画失敗後およびアンマウント後に<code>document.body</code>直下へmermaid由来の要素が残らないことのコンポーネントテストを追加する。正常なMermaid図のレンダリングが壊れていないことの回帰テストも維持する。</li>
 <li>停止条件: クリーンアップのために対象要素を特定する手段がmermaidの内部実装（生成されるid・クラス名）に依存するため、実装が壊れやすいと判断した場合は方針を管理者に確認する。実機で再現しなかった場合は自己判断で実装せず、その結果を報告して止める。</li>
+<li>実績（PR #34）: 停止条件どおりまず実機（<code>xvfb-run</code>）で再現を確認（<code>document.body</code>直下に<code>div#dmermaid-_r_0_</code>が<code>#root</code>の外に残り、ノートを切り替えても消えないことを実測）。根本原因はmermaid本体が<code>parseEncounteredException</code>を投げる経路で<code>removeTempElements()</code>に到達しないこと。<code>removeMermaidBodyLeftovers(diagramId)</code>で<code>diagramId</code>/<code>d{id}</code>/<code>i{id}</code>を、親が<code>document.body</code>のときに限って除去する（他要素を巻き込まないためのガード）。<code>catch</code>冒頭と<code>useEffect</code>のクリーンアップの両方から呼び、修正後に実機で再検証済み。</li>
 </ul>
 
 <h3 id="t20">T20: リンク操作の変更通知（MCP経由のリンク作成・解除をUIへ反映）</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #35）</li>
 <li>依存: 必須: T06（リンク機能）</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.6。T06の<code>reviewer</code>検証で判明した仕様との乖離。<code>link_entities</code>/<code>unlink_entities</code> MCPツールが変更通知を出していないため、AIエージェントがMCP経由でリンクを張っても、開いているノート/タスク詳細画面に反映されない。§4.6は「MCPツールがDB書き込みを行った直後、mainプロセスがレンダラーに変更通知イベントを送る」ことをこのアプリの中核メカニズムと位置づけており、リンクだけが例外になっている状態。</li>
 <li>変更範囲: <code>src/main/mcp/change-emitter.ts</code>（<code>links:changed</code>相当の通知を追加するか、既存の<code>notes:changed</code>/<code>tasks:changed</code>を流用するかを判断）, <code>src/main/mcp/tools.ts</code>（<code>link_entities</code>/<code>unlink_entities</code>の成功時に通知）, <code>src/main/index.ts</code>（ブロードキャスト配線）, <code>src/preload/index.ts</code>, <code>src/shared/preload-api.ts</code>, <code>src/renderer/components/EntityLinks.tsx</code>（購読して再取得）。</li>
 <li>禁止事項: リンクの種類（参照/依存等の意味づけ）の追加はしない。<code>links:create</code>/<code>links:delete</code> IPCハンドラ（UI操作由来）は既にUI側で再取得しているため、そこに二重の通知を足して不要な再取得を増やさないこと。</li>
 <li>テスト: <code>link_entities</code>/<code>unlink_entities</code>の成功時に通知リスナーが呼ばれ、失敗時は呼ばれないことのMCPツールテスト。<code>EntityLinks</code>が通知を受けてリンク一覧を再取得することのコンポーネントテスト。</li>
 <li>停止条件: 通知チャンネルを新設するか既存を流用するかは、エンティティ横断（1つのリンクがノートとタスクの両方に関わる）という性質上、既存の<code>notes:changed</code>/<code>tasks:changed</code>のどちらに載せても不自然になる。新設が妥当と考えられるが、共有コントラクト（<code>src/shared/preload-api.ts</code>）への追加を伴うため、方針を管理者に確認してから着手する。</li>
+<li>実績（PR #35）: 停止条件どおり管理者に確認し<code>links:changed</code>の新設で確定。<code>change-emitter.ts</code>に既存の<code>emitTasksChanged</code>と同型で<code>emitLinksChanged</code>/<code>onLinksChanged</code>を追加し、<code>link_entities</code>/<code>unlink_entities</code>の成功時のみ発火（失敗時は発火しないことをテストで固定）。<code>EntityLinks</code>が購読して再取得する。UI操作由来の<code>links:create</code>/<code>links:delete</code>との二重再取得は発生しない。</li>
 </ul>
 
 <h3 id="t21">T21: ノート切替時の復元レース（<code>NoteDetail</code>が再マウントされない）</h3>
@@ -357,6 +359,17 @@ flowchart LR
 <li>禁止事項: <code>NoteVersionHistory</code>/<code>NoteDetail</code>側のガードロジック（T18で追加した<code>mounted</code> ref・<code>restoring</code>フラグ）を削除しないこと。<code>key</code>追加はこれらを代替するものではなく、アンマウント経路を確実にするための補強である。</li>
 <li>テスト: 復元のIPC応答待ち中に別ノートへ遷移し、応答が解決しても表示中のノートが上書きされないことのテスト（<code>App.test.tsx</code>または<code>NoteDetail.test.tsx</code>）。まずこのレースを再現する失敗テストを書いてから修正すること。<code>key</code>追加で既存のノート切替・タスク切替のテストが壊れないことも確認する。</li>
 <li>停止条件: <code>key</code>追加により詳細画面のstate管理（既存の<code>noteId</code>変更時リセット処理）と重複・競合が生じる場合、どちらを正とするかの方針を管理者に確認する。</li>
+</ul>
+
+<h3 id="t22">T22: T16/T17で見送ったE2Eシナリオの追加</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>依存: 必須: T02（E2Eハーネス）, T16（ゴミ箱UI）, T17（詳細画面のリアルタイム反映）／推奨: なし</li>
+<li>目的: T16・T17はいずれもタスク定義の「テスト」欄でE2Eシナリオの追加を求めていたが、実装時に変更範囲の宣言外だったため見送った（コンポーネントテストのみで、MCP→IPC→UIの結線は未検証）。<code>docs/REQUIREMENTS.md</code> §4.6のリアルタイム反映はこのアプリの中核メカニズムであり、結線が壊れても単体テストでは検出できないため、実機E2Eで固定する。</li>
+<li>変更範囲: <code>tests/e2e/</code>（既存の<code>note-detail-flow.spec.ts</code>への追記、または新規specファイル）のみ。アプリ本体（<code>src/</code>）には手を入れない。</li>
+<li>禁止事項: 実装側の挙動変更は行わない。E2Eを通すためにプロダクトコードへテスト専用の分岐・属性を足さない（既存のロケータで届かない場合は、その旨を報告して止める）。他タスクのE2Eシナリオ（タスク・カンバン等）の拡充はスコープ外。</li>
+<li>テスト: (1) UI操作でノートを削除→ゴミ箱画面に出る→復元→通常一覧に戻る。(2) ノート詳細画面を開いたままMCPツールで<code>update_note</code>を実行し、タイトル・本文・タグの表示が更新される。(3) 編集モード中に同じ更新を行うと、編集内容が保持されたまま変更通知が表示される。既存E2E 6件が壊れないことも確認する。</li>
+<li>停止条件: E2E内からMCPツールを直接叩く手段（既存specはIPC経由のUI操作が中心）が既存ハーネスに無く、新しい仕組み（テスト用MCPクライアントの追加等）が必要になった場合は、<code>docs/GOVERNANCE.md</code> §6の判断を仰ぐため管理者に確認する。</li>
 </ul>
 
 </main>
