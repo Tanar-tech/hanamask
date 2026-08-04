@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type JSX } from "react";
 import type { Image, Note } from "../../shared/preload-api";
 import { MermaidDiagram } from "./MermaidDiagram";
+import { NoteVersionHistory } from "./NoteVersionHistory";
 
 interface NoteDetailProps {
   noteId: string;
@@ -298,6 +299,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
               </li>
             ))}
           </ul>
+          <NoteVersionHistory noteId={noteId} onRestored={setNote} />
         </>
       )}
     </article>

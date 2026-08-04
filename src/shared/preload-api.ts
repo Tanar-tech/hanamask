@@ -69,6 +69,8 @@ export interface HanamaskPreloadApi {
   ): Promise<Note | null>;
   deleteNote(id: string): Promise<void>;
   onNotesChanged(callback: () => void): () => void;
+  listNoteVersions(noteId: string): Promise<NoteVersion[]>;
+  restoreNoteVersion(versionId: string): Promise<Note | null>;
   listTasks(): Promise<Task[]>;
   getTask(id: string): Promise<Task | null>;
   updateTaskStatus(id: string, status: TaskStatus): Promise<void>;

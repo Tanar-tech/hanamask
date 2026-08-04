@@ -37,6 +37,8 @@ const mockHanamask = (notesByCall: Note[][]) => {
     deleteNote,
     getNote: vi.fn(async () => null),
     updateNote: vi.fn(async () => null),
+    listNoteVersions: vi.fn(async () => []),
+    restoreNoteVersion: vi.fn(async () => null),
     listTasks: vi.fn(async () => []),
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
