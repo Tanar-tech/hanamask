@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>配布パッケージング手順（Windowsインストーラー）</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../PACKAGING.md">docs/PACKAGING.md</a></p>
+
+<h1>配布パッケージング手順（Windowsインストーラー）</h1>
+
+<p>hanamask を Windows 向けインストーラー（<code>.exe</code>）としてビルドする手順と、<code>electron-builder.yml</code> の設定意図をまとめる。対象読者は管理者・開発管理者。要求定義上の位置づけは <a href="REQUIREMENTS.html">REQUIREMENTS.md</a> §5（配布形態）、運用上の位置づけは <a href="GOVERNANCE.html#3-1">GOVERNANCE.md</a> §3.1（デプロイ・配布）を参照。</p>
+
+<h2 id="1">1. 前提: ビルドは Windows のツールチェーンで行う（WSL からでも可）</h2>
+
+<p><strong>パッケージングには Windows 側の Node.js と Visual Studio Build Tools（C++ ワークロード）が必要。WSL を使っている場合、WSL から Windows 側の <code>npm</code> を呼び出す形でビルドできる（Windows 実機に移動する必要はない）。</strong></p>
+
+<p><code>better-sqlite3</code> がネイティブアドオン（<code>.node</code>）であることが制約の理由。以下は 2026-08-04 に実測した結果である。</p>
+
+<table>
+<thead><tr><th>実行環境</th><th>結果</th></tr></thead>
+<tbody>
+<tr><td>WSL(Linux) の Node で <code>electron-builder --win</code></td><td>❌ <code>node-gyp does not support cross-compiling native modules from source</code>。Linux → Windows のクロスコンパイルは <code>node-gyp</code> が非対応で、Linux 側での回避策はない</td></tr>
+<tr><td>Windows の Node（VS Build Tools なし）</td><td>❌ <code>Could not find any Visual Studio installation to use</code></td></tr>
+<tr><td>Windows の Node（VS Build Tools あり）</td><td>✅ <code>.exe</code> の生成に成功</td></tr>
+</tbody>
+</table>
+
+<p>補足:</p>
+<ul>
+<li><code>npm ci --ignore-scripts</code> でソースコンパイルを回避しても解決しない。<code>electron-builder</code> は <code>@electron/rebuild</code> で Electron の ABI に合わせたリビルドを行うため、そこで結局 <code>node-gyp</code> が動く。<code>buildFromSource=false</code> でも <code>better-sqlite3</code> には Electron 43 向けの prebuilt バイナリが存在しないため、必ずソースコンパイルにフォールバックする。</li>
+<li>開発・テスト（<code>npm run dev</code> / <code>npm test</code> / <code>npm run test:e2e</code>）は WSL 上の Linux ネイティブで問題なく動く。Windows 側のツールチェーンが要るのはインストーラー生成のときだけ。</li>
+</ul>
+
+<h3 id="1-requirements">必要なもの</h3>
+<ul>
+<li><strong>Windows 側の Node.js</strong>（実測: v24.15.0 / npm 11.12.1）</li>
+<li><strong>Visual Studio Build Tools 2022 の C++ ワークロード</strong>。未導入なら管理者権限で以下を実行する（実測: 17.14.37516.0、MSVC 14.44.35207、Windows SDK 10.0.26100）:
+<pre><code>winget install --id Microsoft.VisualStudio.2022.BuildTools --override "--quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"</code></pre>
+ダウンロード完了後もインストール処理がしばらく続く。<code>vswhere.exe -all -products * -format json</code> の <code>isComplete</code> が <code>true</code> になるまで待つこと。<code>false</code> の間は <code>node-gyp</code> が VS を見つけられず失敗する。</li>
+</ul>
+
+<h2 id="2">2. ビルド手順</h2>
+
+<p>Windows のリポジトリ作業ツリーで実行する。WSL で開発している場合は、<strong>ソースを Windows ネイティブパス（例: <code>C:\Users\&lt;user&gt;\hanamask-build</code>）にコピーしてから実行すること。</strong> <code>\\wsl$</code> / <code>\\wsl.localhost</code> の UNC パス上では <code>npm</code> や <code>electron-builder</code> が正しく動作しない。</p>
+
+<ol>
+<li>依存をインストールする。
+<pre><code>npm ci</code></pre>
+<p><code>better-sqlite3</code> の Windows 向けバイナリはこの時点で取得・ビルドされる。</p>
+</li>
+<li>インストーラーをビルドする。
+<pre><code>npm run package:win</code></pre>
+<p><code>package:win</code> は <code>package.json</code> に定義されており、実体は <code>npm run build &amp;&amp; electron-builder --win</code>。<code>build</code> はさらに次の2段階に分かれる。</p>
+<ul>
+<li><code>build:renderer</code>: <code>vite build</code>。レンダラー（React）を <code>dist/renderer</code> に出力する。</li>
+<li><code>build:main</code>: <code>tsc -p tsconfig.main.json &amp;&amp; tsc -p tsconfig.preload.json &amp;&amp; node scripts/copy-main-assets.mjs</code>。main / preload プロセスを <code>dist/main</code>・<code>dist/preload</code> にコンパイルし、その後 <code>scripts/copy-main-assets.mjs</code> が (a) <code>tsc</code> がコピーしない <code>src/main/db/schema.sql</code> を <code>dist/main/db/</code> に複製し、(b) <code>dist/preload/index.js</code> を <code>index.cjs</code> にリネームする（<code>package.json</code> の <code>"type": "module"</code> 下で、Electron のサンドボックス preload ローダーが CommonJS として確実に読めるようにするため）。</li>
+</ul>
+</li>
+<li>生成物は <code>release/</code> 配下に出力される（<code>electron-builder.yml</code> の <code>directories.output</code>）。<code>release/</code> は <code>.gitignore</code> 済みでリポジトリには入らない。</li>
+</ol>
+
+<pre class="mermaid">
+flowchart LR
+  A["npm ci<br/>(better-sqlite3 の<br/>Windowsバイナリ取得)"] --> B["npm run package:win"]
+  B --> C["build:renderer<br/>vite build"]
+  B --> D["build:main<br/>tsc main / preload"]
+  D --> E["copy-main-assets.mjs<br/>schema.sql 複製<br/>preload を .cjs 化"]
+  C --> F["dist/"]
+  E --> F
+  F --> G["electron-builder --win<br/>(NSIS)"]
+  G --> H["release/*.exe"]
+</pre>
+
+<h2 id="3">3. <code>electron-builder.yml</code> の設定内容</h2>
+
+<table>
+<thead>
+<tr><th>項目</th><th>値</th><th>意図</th></tr>
+</thead>
+<tbody>
+<tr><td><code>appId</code></td><td><code>dev.tanar.hanamask</code></td><td>Windows でのアプリ識別子。</td></tr>
+<tr><td><code>productName</code></td><td><code>hanamask</code></td><td>インストーラー名・インストール先ディレクトリ名・スタートメニュー表示名の元になる。</td></tr>
+<tr><td><code>directories.output</code></td><td><code>release</code></td><td>ビルド成果物の出力先。</td></tr>
+<tr><td><code>win.target</code></td><td><code>nsis</code></td><td>NSIS 形式のインストーラー（<code>.exe</code>）を生成する。</td></tr>
+</tbody>
+</table>
+
+<h3 id="3-files"><code>files</code></h3>
+
+<p>同梱対象は <code>dist/**</code> と <code>package.json</code> のみを列挙している。<code>node_modules</code> の本番依存は <code>electron-builder</code> が <code>package.json</code> の <code>dependencies</code> から自動的に同梱するため、明示的な列挙はしていない。</p>
+
+<p>その上で <code>react</code> / <code>react-dom</code> / <code>mermaid</code> を <code>!node_modules/...</code> で除外している。これらはレンダラーのバンドル（<code>dist/renderer</code>）に取り込み済みで実行時に <code>node_modules</code> から解決されることがなく、そのまま同梱するとインストーラーサイズを無駄に増やすだけであるため。</p>
+
+<h3 id="3-asarunpack"><code>asarUnpack</code></h3>
+
+<pre><code>asarUnpack:
+  - "**/node_modules/better-sqlite3/**"</code></pre>
+
+<p>Electron は既定でアプリのファイルを <code>app.asar</code> という単一アーカイブにまとめるが、ネイティブアドオンの <code>.node</code> はアーカイブ内から <code>dlopen</code> できない。<code>better-sqlite3</code> を <code>asarUnpack</code> で <code>app.asar.unpacked/</code> 側に展開して同梱することで、パッケージ後も SQLite が読み込める状態にしている。</p>
+
+<h3 id="3-nsis"><code>nsis</code></h3>
+
+<table>
+<thead>
+<tr><th>設定</th><th>値</th><th>意味</th></tr>
+</thead>
+<tbody>
+<tr><td><code>oneClick</code></td><td><code>false</code></td><td>ワンクリックインストールではなく、ウィザード形式のインストーラーにする。</td></tr>
+<tr><td><code>perMachine</code></td><td><code>false</code></td><td>ユーザー単位のインストール（管理者権限を要求しない）。単一利用者のローカルアプリという前提（REQUIREMENTS.md §5）に合わせている。</td></tr>
+<tr><td><code>allowToChangeInstallationDirectory</code></td><td><code>true</code></td><td>インストール先をユーザーが変更できるようにする。</td></tr>
+</tbody>
+</table>
+
+<h3 id="3-userdata">インストール後のデータ配置</h3>
+
+<p>DB（<code>hanamask.sqlite3</code>）と画像ファイル（<code>images/</code>）は、インストール先ではなく Electron の <code>userData</code> ディレクトリ（Windows では <code>%APPDATA%\hanamask\</code>）配下に作られる。したがってアプリを上書きインストール・アンインストールしてもユーザーデータは保持される。</p>
+
+<h2 id="4">4. スコープ外の事項</h2>
+
+<p>自動更新機構とOS対応方針は <a href="REQUIREMENTS.html">REQUIREMENTS.md</a> §5 で確定済み。コード署名は要求定義に記載がないが、証明書を用意していないため現時点では未対応とする。</p>
+
+<ul>
+<li><strong>自動更新機構なし</strong>: <code>electron-updater</code> 等は導入していない。更新は新しいインストーラーを配布し、利用者が再インストールする運用とする。</li>
+<li><strong>コード署名なし</strong>: 署名証明書を用意していないため、生成した <code>.exe</code> は署名されない。ダウンロード実行時に Windows SmartScreen の警告（「WindowsによってPCが保護されました」）が表示される可能性があり、利用者は「詳細情報」→「実行」で進める必要がある。</li>
+<li><strong>macOS / Linux 非対応</strong>: 対応OSはWindows優先の方針に従い、<code>win</code> ターゲットのみを設定している。他OSは将来必要になった時点で追加する。</li>
+</ul>
+
+<h2 id="5">5. 検証済み事項と未検証事項</h2>
+
+<h3 id="5-verified">検証済み（2026-08-04）</h3>
+
+<p>WSL から Windows 側のツールチェーンを使い、<code>npm ci &amp;&amp; npm run package:win</code> が完走することを確認した。生成物:</p>
+
+<pre><code>release/hanamask Setup 0.1.0.exe            約 118 MB
+release/hanamask Setup 0.1.0.exe.blockmap
+release/win-unpacked/</code></pre>
+
+<p><code>better-sqlite3</code> のネイティブビルド、<code>@electron/rebuild</code> による Electron ABI へのリビルド、NSIS インストーラーの生成まで一通り通っている。</p>
+
+<h3 id="5-unverified">未検証</h3>
+
+<p><strong>生成した <code>.exe</code> を実際にインストールして動作させる検証は未実施。</strong> 初回配布前に以下を確認すること。</p>
+
+<ul>
+<li>生成されたインストーラーでインストールし、アプリが起動すること</li>
+<li>パッケージ後の状態で SQLite（<code>better-sqlite3</code>）が正しく読み込まれ、ノートの作成・参照ができること（<code>asarUnpack</code> 設定が効いているかの確認）</li>
+<li>MCPサーバーがパッケージ後も起動し、外部AIエージェントから接続できること</li>
+<li>コード署名が無いため、初回起動時に SmartScreen の警告が出る想定。その挙動の確認</li>
+</ul>
+
+<p>確認手順は <code>.claude/skills/e2e-runner/SKILL.md</code> の方針に従い手動で行う（インストーラー検証の自動化は行わない）。</p>
+
+<h2 id="6">6. リリース時の注意</h2>
+
+<p><a href="GOVERNANCE.html#6">GOVERNANCE.md</a> §6 により、<strong>リリース・タグ付け・公開リポジトリへの push は管理者の承認が必要</strong>である。ビルド設定の整備やローカルでのインストーラー生成・動作確認はここまでの手順で進めてよいが、生成物を配布物として公開する行為は開発管理者の裁量では行わず、必ず事前に管理者の承認を得ること。</p>
+
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+  });
+</script>
+</body>
+</html>
