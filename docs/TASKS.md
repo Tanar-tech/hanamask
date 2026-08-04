@@ -100,13 +100,14 @@
 
 ### T06: リンク機能（ノート-タスク、ノート-ノート、タスク-タスク）
 
-- ステータス: 未着手
+- ステータス: 進行中（バックエンド完了。ノート/タスク詳細画面が未実装のため、リンク表示・作成UIは組み込み先が無く未着手のまま残す）
 - 依存: 必須: T03, T05（リンク対象となるノート/タスクの更新・詳細画面が無いとリンク表示・作成UIを組み込む先が無い）
 - 目的: `docs/REQUIREMENTS.md` §3-8（相互リンクの探索）, §4.2, §4.3, §7.1。`link_entities`/`unlink_entities`/`list_links`と、ノート/タスク詳細画面でのリンク表示・作成UIを実装する。
 - 変更範囲: `src/main/db/links-repo.ts`（新規）, `src/main/mcp/tools.ts`（3ツール追加）, `src/renderer/components/`（リンク表示・作成UI、ノート/タスク詳細画面への組み込み）。
 - 禁止事項: リンクの種類（参照/依存等の意味づけ）は`docs/REQUIREMENTS.md`に規定が無いため、単純な相互参照のみ実装する（意味づけの拡張は行わない）。
 - テスト: `links-repo`の作成・解除・一覧取得の単体テスト、双方向に取得できること（`from`側・`to`側どちらからでも`list_links`で見えること）のテスト。
 - 停止条件: 特になし。
+- 実績: `links-repo.ts`（`createLink`/`deleteLink`（物理削除）/`listLinks`）、`tools.ts`に`link_entities`/`unlink_entities`/`list_links`を追加し`server.ts`で配線。外部キー制約は張っていない（`from`/`to`がnote/taskいずれも取りうるため単一FKで表現できず、参照整合性は要求定義にも規定が無いため今回は許容する判断とした。理由は`schema.sql`のコメントに明記）。単体テスト（`links-repo`9件・MCPツール12件）を追加。`implementer`が実装、`reviewer`がレビュー（Major指摘2件=本ドキュメント更新漏れとFK根拠コメント不足、いずれも本コミットで対応済み）、`verifier`がツールハンドラ直接呼び出しでlink_entities→list_links（from/to双方向）→unlink_entitiesの一連の流れを実データで確認済み。ノート/タスク詳細画面でのUI表示・作成は別途対応する。
 
 ### T07: Mermaid図のレンダリング表示
 
