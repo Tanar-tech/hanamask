@@ -51,6 +51,21 @@ codex --version
 </ul>
 <p>Codexへの指示は、<code>../.cursor/agents/implementer.md</code> と同等の方針（タスクの範囲厳守、YAGN、コメント最小限、<code>main</code>への破壊的操作をしない等）を踏まえて行う。ツールが異なるだけで、開発要員として遵守すべきルールはGOVERNANCE.md §7に準ずる。</p>
 
+<pre class="mermaid">
+sequenceDiagram
+  participant Manager as 開発管理者(Claude Code)
+  participant Codex as 開発要員(Codex CLI)
+  Manager->>Codex: herdr経由でタスクを指示<br/>(目的・背景・完了条件を明示)
+  Codex->>Codex: 実装・テスト
+  Codex-->>Manager: 完了を報告
+  Manager->>Manager: 実際の差分・動作を確認<br/>(申告を鵜呑みにしない)
+  alt 問題なし
+    Manager->>Manager: mainへマージ判断
+  else 問題あり
+    Manager->>Codex: 差し戻し
+  end
+</pre>
+
 <h2 id="herdr-launch">herdr経由での起動</h2>
 <pre><code>git worktree add ../work-manager-&lt;task-name&gt; -b feature/&lt;task-name&gt;
 herdr agent start &lt;task-name&gt; --cwd ..\work-manager-&lt;task-name&gt; --split right -- codex
@@ -68,5 +83,12 @@ herdr agent start &lt;task-name&gt; --cwd ..\work-manager-&lt;task-name&gt; --sp
 </ul>
 
 </main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+  });
+</script>
 </body>
 </html>

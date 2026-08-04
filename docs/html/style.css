@@ -164,3 +164,16 @@ hr {
 .source-note a {
   color: inherit;
 }
+
+pre.mermaid {
+  background: none;
+  border: none;
+  padding: 0.5rem 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+pre.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}

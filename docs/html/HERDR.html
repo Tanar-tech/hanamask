@@ -40,6 +40,13 @@ herdr integration install claude  # Claude Code CLIセッションを直接使�
 <p>不要になった場合はそれぞれ <code>herdr integration uninstall codex</code> / <code>herdr integration uninstall claude</code> で削除できる。</p>
 
 <h2 id="flow">基本ワークフロー</h2>
+<pre class="mermaid">
+flowchart TD
+  A["1. git worktree add<br/>タスクごとに作業ツリー作成"] --> B["2. herdr agent start<br/>-- codex (または claude)"]
+  B --> C["3. ダッシュボードで状態確認<br/>(idle/working/blocked)"]
+  C --> D["4. 開発管理者が差分をレビュー"]
+  D --> E["5. PR経由でmainへマージ<br/>git worktree remove"]
+</pre>
 <ol>
 <li>
 <p>タスクごとに独立した worktree を作成する。</p>
@@ -69,5 +76,12 @@ herdr integration install claude  # Claude Code CLIセッションを直接使�
 </ul>
 
 </main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+  });
+</script>
 </body>
 </html>

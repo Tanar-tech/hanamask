@@ -38,6 +38,19 @@
 <li>並列実行は <a href="https://herdr.dev">herdr</a>（複数AIエージェントセッションをターミナル上で並行管理するツール。VSCodeの統合ターミナル内で動作する）を主手段とする。開発管理者（Claude Code）がherdr上で各セッションを統括し、実装は主にCodexセッションが担う。セットアップ・運用方法は <a href="HERDR.html">docs/HERDR.md</a>・<a href="CODEX.html">docs/CODEX.md</a> を参照。</li>
 </ul>
 
+<pre class="mermaid">
+flowchart TD
+  Admin["管理者<br/>(ユーザー本人)"]
+  Manager["開発管理者<br/>(Claude Code)"]
+  Worker["開発要員<br/>(主にCodex CLI)"]
+
+  Admin -- "要件定義・優先順位決定・最終承認" --> Manager
+  Manager -- "タスク委任" --> Worker
+  Worker -- "実装・テスト・報告" --> Manager
+  Manager -- "差分レビュー・mainへマージ判断" --> Manager2["main"]
+  Manager -. "§6該当操作は事前に確認" .-> Admin
+</pre>
+
 <h2 id="3">3. ブランチ戦略</h2>
 <ul>
 <li><code>main</code>: 保護ブランチ。常にビルド可能・動作する状態を維持する。直接コミットは行わない。</li>
@@ -115,6 +128,15 @@
 <li>herdr・Codex自体の設定（<code>~/.claude/settings.json</code>・<code>~/.codex/config.toml</code> 等へのフック追加等）を変更する操作は、<a href="#6">6. 管理者の承認が必要な操作</a>には該当しないが、各ツールの権限・監督面に関わるため、変更前に管理者へ確認する。</li>
 </ol>
 
+<pre class="mermaid">
+flowchart TD
+  A["1. タスクを分解し<br/>git worktree add"] --> B["2. herdr agent start<br/>--cwd &lt;worktree&gt; -- codex"]
+  B --> C["3. herdrダッシュボードで<br/>状態を監視 (idle/working/blocked)"]
+  C --> D["4. idleになったセッションの<br/>差分を開発管理者がレビュー"]
+  D -- 問題あり --> B
+  D -- 問題なし --> E["5. PR経由でmainへマージ<br/>worktreeを削除"]
+</pre>
+
 <h3 id="7-2">7.2 Parallel Subagent Framework（1機能内の並列実行フロー）</h3>
 <p>herdr（7.1）が複数の独立したタスクをworktree単位で並列化する仕組みであるのに対し、こちらは<strong>1つの機能の実装</strong>を、単一のClaude Codeセッション内でフェーズ単位・サブエージェント単位に並列化する仕組みである。Docker・追加worktreeを必要とせず、開発管理者のセッション内で完結する。両者は併用可能（例: herdrで複数機能を並行させつつ、各worktree内で本フローを使う）。</p>
 <p>骨格・フェーズ定義・呼び出すスキル・停止ポイントの詳細は <code>../CLAUDE.md</code> の「Parallel Subagent Framework」節を正とする（本規約とCLAUDE.mdの記載が食い違った場合はCLAUDE.mdを都度更新し一致させる）。要点のみ以下に記す。</p>
@@ -125,6 +147,16 @@
 <li>テストの削除・無効化やアサーションを緩めることで「グリーンにする」ことは、開発管理者・開発要員のいずれであっても禁止する（<a href="#5">5. レビュー運用</a>の趣旨を機械的なごまかしから守るための明文化）。</li>
 <li>フロー起動時は完了条件と上限ターン数を明示し、無条件に自走させない（セーフティ機構の詳細はCLAUDE.md参照）。</li>
 </ol>
+
+<pre class="mermaid">
+flowchart LR
+  P1["Phase1<br/>調査(並列)"] --> P2["Phase2<br/>仕様書生成"]
+  P2 --> S1{{"停止①<br/>管理者レビュー・承認"}}
+  S1 --> P3["Phase3<br/>実装(TDD・並列)"]
+  P3 --> P4["Phase4<br/>統合ゲート"]
+  P4 --> P5["Phase5<br/>検証(並列)"]
+  P5 --> S2{{"停止②<br/>構造化レビュー"}}
+</pre>
 
 <h2 id="8">8. コーディング規約</h2>
 <p>一般的なコーディングスタイル・コメント方針（YAGNI、コメントは「なぜ」のみ等）は <code>~/.claude/CLAUDE.md</code>（グローバル規約）の Coding Style / Comments 節に従う。本プロジェクト固有の規約のみ以下に記す。</p>
@@ -181,5 +213,12 @@
 </ul>
 
 </main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+  });
+</script>
 </body>
 </html>
