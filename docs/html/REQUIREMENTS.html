@@ -31,6 +31,27 @@
 <li><strong>図はコードとして生成・編集可能</strong>: Mermaidのようなテキスト記法を中心に据え、AIエージェントが差分単位で図を生成・修正できる。</li>
 </ul>
 
+<pre class="mermaid">
+flowchart LR
+  subgraph Agents["利用者のAIエージェント（BYO Agent）"]
+    CLI["CLIエージェント<br/>（Claude Code等）"]
+    Chat["デスクトップUIの<br/>AIチャットパネル"]
+  end
+  subgraph App["hanamask（Electronアプリ）"]
+    MCP["MCPサーバー<br/>（mainプロセスに内蔵）"]
+    UI["デスクトップUI<br/>（レンダラープロセス）"]
+    DB[("SQLite +<br/>ローカル画像ファイル")]
+  end
+  ClaudeAPI["Claude API<br/>（Messages API）"]
+
+  CLI -- "MCPツール呼び出し<br/>(localhost HTTP)" --> MCP
+  Chat -- "MCPツール呼び出し" --> MCP
+  Chat -. "モデル推論のみ委譲" .-> ClaudeAPI
+  MCP -- "ノート/タスクCRUD" --> DB
+  MCP -- "変更通知 (ipc)" --> UI
+  UI -- "手動編集・閲覧" --> MCP
+</pre>
+
 <h3>想定ユーザー</h3>
 <p>管理者本人による個人利用のみ。マルチテナント・厳密な認証・課金機能は想定しない（詳細は §5, §8）。</p>
 
@@ -58,6 +79,23 @@
 <li><strong>デスクトップUIでの画像取り込み</strong>: ノート編集画面でファイル選択/クリップボード貼り付けにより画像を添付する。</li>
 <li><strong>相互リンクの探索</strong>: デスクトップUI上でノートに紐づくタスク、タスクに紐づくノートをたどりながら文脈を把握する。</li>
 </ol>
+
+<pre class="mermaid">
+sequenceDiagram
+  participant Dev as 利用者
+  participant Agent as CLIエージェント
+  participant MCP as MCPサーバー(main)
+  participant DB as SQLite
+  participant UI as デスクトップUI(renderer)
+
+  Dev->>Agent: 開発作業を依頼
+  Agent->>MCP: create_note / create_task
+  MCP->>DB: 書き込み
+  DB-->>MCP: OK
+  MCP-->>UI: 変更通知 (ipcMain/webContents.send)
+  UI->>UI: 画面全体を再取得
+  Note over Dev,UI: 利用者はUIを開いたまま<br/>記録が自動で反映される様子を見られる（シナリオ1・5）
+</pre>
 
 <h2 id="4">4. 機能要件</h2>
 
@@ -120,6 +158,15 @@
 <li><strong>確認フラグ必須化</strong>: <code>delete_note</code>/<code>delete_task</code>は<code>confirm: true</code>を明示的に渡さない限りエラーを返す。AIエージェントが文脈を読み違えて一発で削除してしまう事故を防ぐ。</li>
 </ul>
 
+<pre class="mermaid">
+stateDiagram-v2
+  [*] --> Active: create_note / create_task
+  Active --> SoftDeleted: delete_note / delete_task<br/>(confirm:true 必須)
+  SoftDeleted --> Active: restore_note / restore_task<br/>(30日以内)
+  SoftDeleted --> Purged: 30日経過<br/>(起動時バッチで自動パージ)
+  Purged --> [*]
+</pre>
+
 <h2 id="5">5. 非機能要件</h2>
 <ul>
 <li><strong>想定利用者数</strong>: 管理者本人のみ（1ユーザー）。</li>
@@ -139,6 +186,54 @@
 <li><strong>Image</strong>: <code>id</code>, <code>note_id</code>, <code>file_path</code>, <code>mime_type</code></li>
 </ul>
 <p>各レコードに <code>created_at</code>/<code>updated_at</code> を持たせる。</p>
+
+<pre class="mermaid">
+erDiagram
+  NOTE ||--o{ NOTE_VERSION : "更新前スナップショット"
+  NOTE ||--o{ IMAGE : "添付"
+  NOTE ||..o{ LINK : "from/to (note側)"
+  TASK ||..o{ LINK : "from/to (task側)"
+
+  NOTE {
+    string id PK
+    string title
+    string body
+    string tags
+    datetime deleted_at
+    datetime created_at
+    datetime updated_at
+  }
+  NOTE_VERSION {
+    string id PK
+    string note_id FK
+    string title
+    string body
+    string tags
+    datetime created_at
+  }
+  TASK {
+    string id PK
+    string title
+    string status
+    date due_date
+    datetime deleted_at
+    datetime created_at
+    datetime updated_at
+  }
+  LINK {
+    string id PK
+    string from_type
+    string from_id
+    string to_type
+    string to_id
+  }
+  IMAGE {
+    string id PK
+    string note_id FK
+    string file_path
+    string mime_type
+  }
+</pre>
 
 <h2 id="7">7. MCPツール一覧（確定）</h2>
 <p>Diagramは独立エンティティにせず、Mermaidコードをノート本文にMarkdownのコードフェンス（<code>```mermaid</code>）としてインライン埋め込みする方式とする。これにより専用の図操作ツールは持たず、<code>update_note</code>が本文の一部として図の追加・更新を兼ねる。データモデル（§6）の<code>Diagram</code>エンティティは廃止する。</p>
@@ -199,5 +294,12 @@
 </ul>
 
 </main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+  });
+</script>
 </body>
 </html>
