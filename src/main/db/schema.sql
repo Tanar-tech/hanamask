@@ -29,6 +29,15 @@ CREATE TABLE IF NOT EXISTS tasks (
   updated_at TEXT NOT NULL
 );
 
+-- file_path points at a copy stored under the app's user-data directory, so the
+-- attachment survives the user moving or deleting the file they picked.
+CREATE TABLE IF NOT EXISTS images (
+  id TEXT PRIMARY KEY,
+  note_id TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  mime_type TEXT NOT NULL
+);
+
 -- No foreign keys to notes/tasks: a link's endpoints can be either entity type,
 -- so a single FK column can't target both tables. Orphaned links (endpoint
 -- deleted) are tolerated for now; docs/REQUIREMENTS.md doesn't require

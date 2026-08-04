@@ -2,7 +2,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { NoteList } from "../../src/renderer/components/NoteList";
-import type { Note } from "../../src/shared/preload-api";
+import type { Image, Note } from "../../src/shared/preload-api";
+
+const stubImage: Image = {
+  id: "image-1",
+  noteId: "note-1",
+  filePath: "/data/images/a.png",
+  mimeType: "image/png",
+};
 
 const makeNote = (overrides: Partial<Note> = {}): Note => ({
   id: "note-1",
@@ -32,6 +39,8 @@ const mockHanamask = (notesByCall: Note[][]) => {
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
     onTasksChanged: vi.fn(() => () => {}),
+    attachImage: vi.fn(async () => stubImage),
+    listImages: vi.fn(async () => []),
   };
   return { listNotes, onNotesChanged, deleteNote, listeners, unsubscribe };
 };

@@ -50,6 +50,13 @@ export interface Link {
   toId: string;
 }
 
+export interface Image {
+  id: string;
+  noteId: string;
+  filePath: string;
+  mimeType: string;
+}
+
 export interface HanamaskPreloadApi {
   listNotes(): Promise<Note[]>;
   getNote(id: string): Promise<Note | null>;
@@ -59,4 +66,13 @@ export interface HanamaskPreloadApi {
   getTask(id: string): Promise<Task | null>;
   updateTaskStatus(id: string, status: TaskStatus): Promise<void>;
   onTasksChanged(callback: () => void): () => void;
+  // The renderer cannot read a picked file from disk under contextIsolation, so it hands
+  // the bytes over as Base64 and the main process owns the file copy.
+  attachImage(
+    noteId: string,
+    fileName: string,
+    dataBase64: string,
+    mimeType: string,
+  ): Promise<Image>;
+  listImages(noteId: string): Promise<Image[]>;
 }
