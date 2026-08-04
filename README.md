@@ -1,18 +1,107 @@
 # hanamask
 
-AI開発（AIエージェントとの協働）に最適化された、ローカル完結のノート・タスク管理アプリ。MCPサーバーとして自身のツール群を公開し、Claude Code等のCLIエージェントが直接ノート・タスクを読み書きできる。詳細な要求定義は [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) を参照。
+AI開発（AIエージェントとの協働）に最適化された、ローカル完結のノート・タスク管理デスクトップアプリ。
 
-現在は要求定義確定直後の段階で、実装（Electron本体・MCPサーバー・SQLiteスキーマ・デスクトップUI）はこれから行う。基盤実装のセットアップ手順・コマンドは実装着手後にここへ追記する。
+**MCPサーバーとして自身のツール群を公開し、利用者が普段使っているAIエージェント（Claude Code等のCLIエージェント）が直接ノート・タスクを読み書きする**ことを主要な操作経路とする。データはローカル（SQLite + ローカルファイル）に閉じ、クラウド同期を持たない。搭載予定のAIチャットも、hanamask自前のAIモデルではなく利用者自身が管理するAIエージェント（BYO Agent）を接続して使う設計とする。
 
-## 技術スタック（確定）
+詳細なコンセプト・機能要件は [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) を参照。
 
-- 実行形態: Electron製ネイティブデスクトップアプリ（ローカル動作、ネットワーク接続なしでノート・タスク管理が完結）
-- MCPサーバー: Electronのmainプロセスに内蔵、localhost向けHTTPトランスポートで待ち受け
-- データ保存: SQLite（メタデータ）+ ローカルファイルシステム（画像）
-- AIチャット: 利用者自身のAnthropic APIキーでClaude APIを直接呼び出す（BYO Agent、hanamask自前のAIモデルは持たない）
+## 技術スタック
+
+- **アプリ本体**: Electron（ネイティブデスクトップアプリ、ローカル動作）
+- **UI（レンダラープロセス）**: React + Vite / Mermaid（図のレンダリング）
+- **MCPサーバー**: `@modelcontextprotocol/sdk`（Node.js製）をmainプロセスに内蔵、localhost向けHTTPトランスポート（Streamable HTTP）で待ち受け
+- **データ保存**: SQLite（`better-sqlite3`、メタデータ）+ ローカルファイルシステム（画像）
+- **テスト**: Vitest（単体・レンダラー）+ Playwrightの `_electron` API（E2E）
+
+## セットアップ
+
+Node.js 22以上が必要（`package.json` の `engines` 参照）。
+
+```bash
+npm install
+```
+
+`better-sqlite3` はネイティブモジュールのため、インストール時にビルドが走ることがある。Linuxではビルドツール（`build-essential`、`python3` 等）が必要になる場合がある。
+
+## 開発コマンド
+
+| コマンド | 内容 |
+|---|---|
+| `npm run dev` | ビルドしてElectronアプリを起動する（`npm run build && electron .`） |
+| `npm run build` | レンダラー（Vite）とmain/preload（tsc）を `dist/` にビルドする |
+| `npm test` | Vitestで単体テストを実行する（`npm run test:watch` でウォッチ） |
+| `npm run test:e2e` | ビルド後、Electronアプリを実際に起動してE2Eテストを実行する |
+| `npm run lint` | ESLintを実行する |
+| `npm run typecheck` | `tsc --noEmit` で型チェックする |
+
+E2Eテストはウィンドウ描画にディスプレイを必要とする。ヘッドレス環境（WSL・CI）では `xvfb-run npm run test:e2e` のようにXvfb配下で実行する。テスト方針の詳細は [docs/TESTING.md](docs/TESTING.md)、GUI検証手順は `.claude/skills/e2e-runner/SKILL.md` を参照。
+
+## MCPサーバーへの接続
+
+MCPサーバーはElectronのmainプロセスに内蔵されており、アプリ起動と同時に待ち受けを開始する。
+
+- エンドポイント: `http://127.0.0.1:39217/mcp`（Streamable HTTPトランスポート）
+- ポートの上書き: 環境変数 `HANAMASK_MCP_PORT`
+- DBファイルパスの上書き: 環境変数 `HANAMASK_DB_PATH`（既定はElectronの `userData` ディレクトリ配下の `hanamask.sqlite3`）
+
+AIエージェントからは、MCPクライアント（例: SDKの `Client` + `StreamableHTTPClientTransport`）でこのURLに接続する。
+
+## 実装済みのMCPツール
+
+### ノート
+
+| ツール | 内容 |
+|---|---|
+| `create_note` | ノートを作成する（`title`, `body`, 任意の `tags`） |
+| `get_note` | idで1件取得する（存在しなければ `null`） |
+| `search_notes` | タイトル・本文の部分一致検索（空文字で全件） |
+| `update_note` | タイトル・本文・タグを更新する（省略した項目は据え置き） |
+| `delete_note` | ソフトデリートする（`confirm: true` 必須） |
+| `restore_note` | ソフトデリートしたノートを復元する |
+| `list_note_versions` | 編集履歴を新しい順に取得する |
+| `restore_note_version` | 過去バージョンに戻す（戻す操作自体も履歴に積まれる） |
+| `attach_image` | Base64の画像をノートに添付する（png/jpeg/gif/webp、10MBまで） |
+
+Mermaid図は専用ツールを持たず、ノート本文へのインライン記述として `update_note` で追加・更新する。
+
+### タスク
+
+| ツール | 内容 |
+|---|---|
+| `create_task` | タスクを作成する（`title`, 任意の `status`・`due_date`） |
+| `update_task` | タイトル・ステータス・期限を更新する（`due_date: null` で期限クリア） |
+| `list_tasks` | タスク一覧を取得する（ソフトデリート済みは除外） |
+| `delete_task` | ソフトデリートする（`confirm: true` 必須） |
+| `restore_task` | ソフトデリートしたタスクを復元する |
+
+ステータスは `todo` / `in_progress` / `done`。
+
+### リンク
+
+| ツール | 内容 |
+|---|---|
+| `link_entities` | ノート/タスク同士をリンクする（`from_type`, `from_id`, `to_type`, `to_id`） |
+| `unlink_entities` | リンクをidで削除する（リンク先の実体は消さない） |
+| `list_links` | あるエンティティに紐づくリンクを取得する（from/to どちら側も） |
+
+### 未実装
+
+- UI連携ツール（`open_app` / `open_note` / `open_task` / `open_search`）は未実装（[docs/TASKS.md](docs/TASKS.md) T11）。
+- AIチャットパネル（BYO Agent）は未実装（同 T12）。
+
+## 破壊的操作のガードレール
+
+- 削除はすべてソフトデリート（`deleted_at` を立てる）で、物理削除は行わない。`delete_note` / `delete_task` は `confirm: true` を必須とする。
+- ソフトデリートから30日を過ぎたレコードはアプリ起動時のパージで物理削除される。
+- ノートの更新前スナップショットは自動で履歴に保存され、`restore_note_version` で戻せる。
 
 ## ドキュメント
 
 - [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md): 機能要件・非機能要件・データモデル・MCPツール一覧
+- [docs/TASKS.md](docs/TASKS.md): 実装タスクの分解・依存関係・進捗
+- [docs/TESTING.md](docs/TESTING.md): テストケース作成方針
 - [docs/GOVERNANCE.md](docs/GOVERNANCE.md): 体制・運用ルール
+- [docs/HERDR.md](docs/HERDR.md) / [docs/CODEX.md](docs/CODEX.md): 並列開発（herdr・Codex CLI）のセットアップ
+- [docs/safety.md](docs/safety.md): 自律ループに許可する範囲
 - [CLAUDE.md](CLAUDE.md): 開発時のセッション指示
