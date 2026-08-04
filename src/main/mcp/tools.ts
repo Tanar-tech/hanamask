@@ -2,7 +2,9 @@ import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 import {
   createNote,
   getNote,
+  listNoteVersions,
   restoreNote,
+  restoreNoteVersion,
   searchNotes,
   softDeleteNote,
   updateNote,
@@ -227,6 +229,48 @@ const restoreNoteTool: NoteTool = {
   }),
 };
 
+const listNoteVersionsTool: NoteTool = {
+  definition: {
+    name: "list_note_versions",
+    description:
+      "List a note's edit history, newest first. Each version is the content as it was just before an update.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Note id (uuid)" },
+      },
+      required: ["id"],
+    },
+  },
+  handler: toToolHandler((args) =>
+    jsonResult({ versions: listNoteVersions(readString(args, "id")) }),
+  ),
+};
+
+const restoreNoteVersionTool: NoteTool = {
+  definition: {
+    name: "restore_note_version",
+    description:
+      "Restore a note to a past version. The content being replaced is kept as a new version, so the restore itself can be undone.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        version_id: { type: "string", description: "Note version id (uuid)" },
+      },
+      required: ["version_id"],
+    },
+  },
+  handler: toToolHandler((args) => {
+    const versionId = readString(args, "version_id");
+    const note = restoreNoteVersion(versionId);
+    if (note === null) {
+      return errorResult(`Note version not found: ${versionId}`);
+    }
+    emitNotesChanged();
+    return jsonResult({ note });
+  }),
+};
+
 export const noteTools: readonly NoteTool[] = [
   createNoteTool,
   getNoteTool,
@@ -234,6 +278,8 @@ export const noteTools: readonly NoteTool[] = [
   updateNoteTool,
   deleteNoteTool,
   restoreNoteTool,
+  listNoteVersionsTool,
+  restoreNoteVersionTool,
 ];
 
 export const findNoteTool = (name: string): NoteTool | undefined =>

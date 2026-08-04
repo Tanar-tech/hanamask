@@ -37,6 +37,22 @@ const readNoteId = (result: CallToolResult): string => {
   return id;
 };
 
+const readVersionId = (result: CallToolResult): string => {
+  const payload = readJsonPayload(result);
+  if (typeof payload !== "object" || payload === null || !("versions" in payload)) {
+    throw new Error("payload has no versions");
+  }
+  const { versions } = payload;
+  if (!Array.isArray(versions)) throw new Error("payload versions is not an array");
+  const [version] = versions;
+  if (typeof version !== "object" || version === null || !("id" in version)) {
+    throw new Error("version has no id");
+  }
+  const { id } = version;
+  if (typeof id !== "string") throw new Error("version id is not a string");
+  return id;
+};
+
 const readNoteCount = (result: CallToolResult): number => {
   const payload = readJsonPayload(result);
   if (typeof payload !== "object" || payload === null || !("notes" in payload)) {
@@ -179,10 +195,64 @@ describe("mcp note tools", () => {
       "create_note",
       "delete_note",
       "get_note",
+      "list_note_versions",
       "restore_note",
+      "restore_note_version",
       "search_notes",
       "update_note",
     ]);
+  });
+
+  it("lists the snapshots taken by update_note through list_note_versions", async () => {
+    const id = readNoteId(await callTool("create_note", { title: "v1", body: "本文1", tags: [] }));
+    await callTool("update_note", { id, body: "本文2" });
+
+    const result = await callTool("list_note_versions", { id });
+
+    expect(result.isError).toBeFalsy();
+    expect(readJsonPayload(result)).toEqual({
+      versions: [expect.objectContaining({ noteId: id, title: "v1", body: "本文1", tags: [] })],
+    });
+  });
+
+  it("returns an empty version list for a note that was never updated", async () => {
+    const id = readNoteId(await callTool("create_note", { title: "v1", body: "本文", tags: [] }));
+
+    const result = await callTool("list_note_versions", { id });
+
+    expect(result.isError).toBeFalsy();
+    expect(readJsonPayload(result)).toEqual({ versions: [] });
+  });
+
+  it("returns an MCP error from list_note_versions for invalid arguments", async () => {
+    const result = await callTool("list_note_versions", { id: 42 });
+
+    expect(result.isError).toBe(true);
+  });
+
+  it("restores a past version through restore_note_version and notifies listeners", async () => {
+    const id = readNoteId(await callTool("create_note", { title: "v1", body: "本文1", tags: [] }));
+    await callTool("update_note", { id, body: "本文2" });
+    const versionId = readVersionId(await callTool("list_note_versions", { id }));
+
+    const listener = vi.fn();
+    const unsubscribe = onNotesChanged(listener);
+
+    const result = await callTool("restore_note_version", { version_id: versionId });
+
+    expect(result.isError).toBeFalsy();
+    expect(readJsonPayload(result)).toEqual({
+      note: expect.objectContaining({ id, body: "本文1" }),
+    });
+    expect(getNote(id)?.body).toBe("本文1");
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
+  });
+
+  it("returns an MCP error from restore_note_version for an unknown version id", async () => {
+    const result = await callTool("restore_note_version", { version_id: randomUUID() });
+
+    expect(result.isError).toBe(true);
   });
 
   it("updates a note's title through update_note and notifies listeners", async () => {
