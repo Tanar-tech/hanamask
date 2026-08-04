@@ -1,8 +1,21 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import mermaid from "mermaid";
 import { NoteDetail } from "../../src/renderer/components/NoteDetail";
 import type { Image, Note } from "../../src/shared/preload-api";
+
+vi.mock("mermaid", () => ({
+  default: { initialize: vi.fn(), render: vi.fn() },
+}));
+
+const MERMAID_SVG = '<svg data-name="rendered"></svg>';
+
+const mockMermaidRender = () => {
+  vi.mocked(mermaid.render).mockResolvedValue({ svg: MERMAID_SVG, diagramType: "flowchart" });
+};
+
+const queryRenderedSvg = (): SVGElement | null => document.querySelector("svg[data-name='rendered']");
 
 const makeNote = (overrides: Partial<Note> = {}): Note => ({
   id: "note-1",
@@ -78,6 +91,8 @@ const pasteFile = async (file: File): Promise<void> => {
 
 afterEach(() => {
   cleanup();
+  // vi.mockのファクトリで作ったvi.fnはrestoreAllMocksでは呼び出し履歴が消えないため明示的にクリアする。
+  vi.clearAllMocks();
   vi.restoreAllMocks();
 });
 
@@ -309,5 +324,50 @@ describe("NoteDetail", () => {
 
     expect(await screen.findByText("別のノート")).toBeTruthy();
     expect(getNote).toHaveBeenCalledTimes(2);
+  });
+
+  it("本文中のMermaidコードフェンスは図として描画し、フェンスのテキストは出力しない", async () => {
+    mockMermaidRender();
+    const body = "前書き\n\n```mermaid\ngraph TD;\n  A-->B;\n```\n\n後書き";
+    mockHanamask(async () => makeNote({ body }));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+
+    await waitFor(() => expect(queryRenderedSvg()).not.toBeNull());
+    expect(vi.mocked(mermaid.render).mock.calls[0]?.[1]).toBe("graph TD;\n  A-->B;");
+    expect(screen.queryByText(/```mermaid/)).toBeNull();
+    expect(screen.queryByText(/graph TD;/)).toBeNull();
+  });
+
+  it("Mermaidコードフェンスの前後のプレーンテキストはそのまま表示する", async () => {
+    mockMermaidRender();
+    const body = "前書き\n\n```mermaid\ngraph TD;\n  A-->B;\n```\n\n後書き";
+    mockHanamask(async () => makeNote({ body }));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByText(/前書き/)).toBeTruthy();
+    expect(screen.getByText(/後書き/)).toBeTruthy();
+  });
+
+  it("Mermaid以外のコードフェンスは図にせずプレーンテキストのまま表示する", async () => {
+    mockMermaidRender();
+    mockHanamask(async () => makeNote({ body: "```ts\nconst a = 1;\n```" }));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByText(/const a = 1;/)).toBeTruthy();
+    expect(mermaid.render).not.toHaveBeenCalled();
+  });
+
+  it("Mermaidコードフェンスが複数ある場合はそれぞれを図として描画する", async () => {
+    mockMermaidRender();
+    const body = "```mermaid\ngraph TD;\n  A-->B;\n```\n中間\n```mermaid\ngraph LR;\n  C-->D;\n```";
+    mockHanamask(async () => makeNote({ body }));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+
+    await waitFor(() => expect(mermaid.render).toHaveBeenCalledTimes(2));
+    expect(screen.getByText(/中間/)).toBeTruthy();
   });
 });

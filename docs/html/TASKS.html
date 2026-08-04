@@ -148,13 +148,14 @@ flowchart LR
 
 <h3 id="t07">T07: Mermaid図のレンダリング表示</h3>
 <ul>
-<li>ステータス: 未着手</li>
-<li>依存: 必須: T03（ノート詳細/編集画面はT03で新設されるため。T00のノート一覧のみではMermaidを埋め込む本文編集・全文表示の場が無い）</li>
+<li>ステータス: 完了</li>
+<li>依存: 必須: T03（ノート詳細/編集画面はT03で新設されるため。T00のノート一覧のみではMermaidを埋め込む本文編集・全文表示の場が無い）→ 実際にはT15（ノート/タスク詳細画面）に依存</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.4。ノート本文中の <code>```mermaid</code> コードフェンスをデスクトップUIでレンダリング表示する（データモデル上は独立エンティティを持たず、既存の<code>body</code>フィールドのMarkdown内に既に保存可能）。</li>
 <li>変更範囲: <code>src/renderer/components/</code>（ノート詳細/編集画面へのMermaidレンダラー組み込み）, <code>package.json</code>（レンダリングライブラリの追加要否を検討）。</li>
 <li>禁止事項: フリーハンド図（Excalidraw等）は対象外（<code>docs/REQUIREMENTS.md</code> §9で明示的にスコープ外）。図の編集用GUI（ドラッグでノードを動かす等）は作らない。テキスト編集のみ。</li>
 <li>テスト: Mermaidコードフェンスを含むノート本文が正しくレンダリングされることのコンポーネントテスト（<code>tests/renderer/</code>）。構文エラーのあるMermaidコードでもUIがクラッシュしないことのテスト。</li>
-<li>停止条件: レンダリングライブラリの新規追加（<code>docs/GOVERNANCE.md</code> §6「依存関係の大幅な追加」に該当しうる）は、選定理由（バンドルサイズ・オフライン動作可否）を添えて管理者に確認してから追加する。<code>docs/html/</code>のMermaid運用（CDN読み込み、<code>docs-html-sync</code> skill）はドキュメント閲覧専用でありElectronアプリ本体には流用しない方針である点に注意。</li>
+<li>停止条件: レンダリングライブラリの新規追加（<code>docs/GOVERNANCE.md</code> §6「依存関係の大幅な追加」に該当しうる）は、選定理由（バンドルサイズ・オフライン動作可否）を添えて管理者に確認してから追加する。→ 管理者確認済み（<code>mermaid</code>パッケージ追加を承認）。<code>docs/html/</code>のMermaid運用（CDN読み込み、<code>docs-html-sync</code> skill）はドキュメント閲覧専用でありElectronアプリ本体には流用しない方針である点に注意。</li>
+<li>実績: <code>mermaid</code>パッケージを追加。<code>MermaidDiagram.tsx</code>（新規）で<code>mermaid.render()</code>をラップし、構文エラー時は<code>role="alert"</code>表示（クラッシュしない）。<code>NoteDetail.tsx</code>で本文をMermaidコードフェンス部分とプレーンテキスト部分に分割して表示。単体テスト（<code>MermaidDiagram</code>6件・<code>NoteDetail</code>追加4件）を追加。<code>implementer</code>が実装、<code>reviewer</code>がレビュー（Minor指摘2件=バンドルサイズと多層防御の余地、いずれも許容範囲として対応不要）、<code>verifier</code>が<code>xvfb-run</code>実機E2Eで正常なMermaid図のSVGレンダリング・構文エラー時のクラッシュ耐性を確認済み（mermaidライブラリ自体がエラー時にSVGを直接DOM挿入する既知の挙動により、エラー表示が視覚的に二重になる軽微な見た目の問題があるが機能上の問題ではない）。</li>
 </ul>
 
 <h3 id="t08">T08: タスクのカンバン表示</h3>
