@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Note } from "../../src/shared/preload-api";
+import type { Note, Task } from "../../src/shared/preload-api";
 
 interface FakeWindow {
   webContents: { send: ReturnType<typeof vi.fn> };
@@ -12,7 +12,9 @@ const searchNotes = vi.fn();
 const softDeleteNote = vi.fn();
 const openDb = vi.fn();
 const startMcpServer = vi.fn(async () => ({ port: 39217, close: vi.fn(async () => {}) }));
+const listTasks = vi.fn();
 const notesChangedListeners: Array<() => void> = [];
+const tasksChangedListeners: Array<() => void> = [];
 const openWindows: FakeWindow[] = [];
 
 // Declared as a function expression because the module under test calls it with `new`.
@@ -41,6 +43,7 @@ vi.mock("electron", () => ({
 
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
 vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes, softDeleteNote }));
+vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks }));
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
   emitNotesChanged: () => {
@@ -50,6 +53,11 @@ vi.mock("../../src/main/mcp/change-emitter", () => ({
   },
   onNotesChanged: (listener: () => void) => {
     notesChangedListeners.push(listener);
+    return () => {};
+  },
+  emitTasksChanged: vi.fn(),
+  onTasksChanged: (listener: () => void) => {
+    tasksChangedListeners.push(listener);
     return () => {};
   },
 }));
@@ -76,6 +84,32 @@ const emitNotesChangedFromMcp = (): void => {
   });
 };
 
+const findListTasksHandler = (): (() => Task[]) => {
+  const registration = ipcHandle.mock.calls.find((call) => call[0] === "tasks:list");
+  if (registration === undefined) {
+    throw new Error("tasks:list handler was not registered");
+  }
+  return registration[1];
+};
+
+const emitTasksChangedFromMcp = (): void => {
+  if (tasksChangedListeners.length === 0) {
+    throw new Error("no tasks-changed listener was registered");
+  }
+  tasksChangedListeners.forEach((listener) => {
+    listener();
+  });
+};
+
+const sampleTask: Task = {
+  id: "task-1",
+  title: "タスク",
+  status: "todo",
+  dueDate: null,
+  createdAt: "2026-08-03T00:00:00.000Z",
+  updatedAt: "2026-08-03T00:00:00.000Z",
+};
+
 const sampleNote: Note = {
   id: "note-1",
   title: "title",
@@ -99,6 +133,7 @@ describe("main process entry", () => {
 
   beforeEach(() => {
     searchNotes.mockReset();
+    listTasks.mockReset();
     softDeleteNote.mockReset();
     openWindows.forEach((window) => {
       window.webContents.send.mockClear();
@@ -152,6 +187,24 @@ describe("main process entry", () => {
     openWindows.forEach((window) => {
       expect(window.webContents.send).toHaveBeenCalledWith("notes:changed");
     });
+  });
+
+  it("registers a tasks:list IPC handler that returns every task", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("tasks:list", expect.any(Function));
+    listTasks.mockReturnValue([sampleTask]);
+
+    expect(findListTasksHandler()()).toEqual([sampleTask]);
+  });
+
+  it("broadcasts tasks:changed to every open window", () => {
+    const window = openWindows[0];
+    if (window === undefined) throw new Error("no window was created");
+    window.webContents.send.mockClear();
+
+    emitTasksChangedFromMcp();
+
+    expect(window.webContents.send).toHaveBeenCalledTimes(1);
+    expect(window.webContents.send).toHaveBeenCalledWith("tasks:changed");
   });
 
   it("forwards an MCP-triggered change notification to the open window", () => {

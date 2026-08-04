@@ -23,7 +23,13 @@ const mockHanamask = (notesByCall: Note[][]) => {
     return unsubscribe;
   });
   const deleteNote = vi.fn(async () => {});
-  window.hanamask = { listNotes, onNotesChanged, deleteNote };
+  window.hanamask = {
+    listNotes,
+    onNotesChanged,
+    deleteNote,
+    listTasks: vi.fn(async () => []),
+    onTasksChanged: vi.fn(() => () => {}),
+  };
   return { listNotes, onNotesChanged, deleteNote, listeners, unsubscribe };
 };
 

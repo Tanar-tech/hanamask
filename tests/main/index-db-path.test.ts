@@ -26,10 +26,13 @@ vi.mock("electron", () => ({
 
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
 vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes: vi.fn() }));
+vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks: vi.fn() }));
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
   emitNotesChanged: vi.fn(),
   onNotesChanged: vi.fn(() => () => {}),
+  emitTasksChanged: vi.fn(),
+  onTasksChanged: vi.fn(() => () => {}),
 }));
 
 describe("main process HANAMASK_DB_PATH override", () => {

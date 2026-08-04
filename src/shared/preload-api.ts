@@ -14,8 +14,27 @@ export interface NoteInput {
   tags: string[];
 }
 
+export type TaskStatus = "todo" | "in_progress" | "done";
+
+export interface Task {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  dueDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskInput {
+  title: string;
+  status: TaskStatus;
+  dueDate: string | null;
+}
+
 export interface HanamaskPreloadApi {
   listNotes(): Promise<Note[]>;
   deleteNote(id: string): Promise<void>;
   onNotesChanged(callback: () => void): () => void;
+  listTasks(): Promise<Task[]>;
+  onTasksChanged(callback: () => void): () => void;
 }

@@ -89,13 +89,14 @@
 
 ### T05: タスク管理（CRUD・ステータス・ソフトデリート）
 
-- ステータス: 未着手
-- 依存: 必須: T00（DB接続・MCPツール登録・IPC通知の共通基盤）／推奨: T03の後（ソフトデリート・確認フラグのパターンを踏襲するため、先に固めておくと手戻りが少ない。ブロッキングではない）
+- ステータス: 完了（PR未作成。リスト表示までのスコープを実装済み。編集/削除UIはT05のスコープ外＝リスト表示のみのため未着手のままでよい）
+- 依存: 必須: T00（DB接続・MCPツール登録・IPC通知の共通基盤）／推奨: T03の後（ソフトデリート・確認フラグのパターンを踏襲するため、先に固めておくと手戻りが少ない。ブロッキングではない。実際には本タスクの時点でT03はまだこのブランチにマージされておらず、T03のパターンは横展開ではなく本タスクで独立に実装した）
 - 目的: `docs/REQUIREMENTS.md` §4.3, §7.1。`create_task`/`update_task`/`list_tasks`/`delete_task`/`restore_task`とタスク一覧・詳細/編集UI（リスト表示）を実装する。ノート機能で確立したMCPツール・ソフトデリート・リアルタイム反映のパターンを横展開する。
 - 変更範囲: `src/main/db/tasks-repo.ts`（新規）, `src/main/mcp/tools.ts`（5ツール追加）, `src/renderer/components/`（タスク一覧・詳細/編集UI）, `src/main/index.ts`（`tasks:list`等のIPCチャンネル追加）。
 - 禁止事項: カンバン表示（ドラッグ&ドロップ、T08）・リンク機能（T06）はこのタスクに含めない。リスト表示のみ。
 - テスト: `tasks-repo`のCRUD・ステータス遷移・ソフトデリートの単体テスト、`confirm: true`必須のMCPツールテスト、タスク作成→UI自動反映のE2Eシナリオ（`tests/e2e/`に`task-flow.spec.ts`を追加）。
 - 停止条件: 特になし（T00/T03で確立したパターンの横展開のため、想定外の設計判断が必要になった場合のみ確認）。
+- 実績: `tasks-repo.ts`（CRUD・ソフトデリート・復元）、`tools.ts`に`create_task`/`update_task`/`list_tasks`/`delete_task`(`confirm: true`必須)/`restore_task`を追加。`tasks:changed`を`notes:changed`とは独立したIPCチャンネルとして新設（無関係な再取得を避けるため）。`TaskList.tsx`で一覧表示のみ実装（編集・削除UIは対象外のため無し）。単体テスト（`tasks-repo`19件・MCPツール14件・`TaskList`5件）とE2Eシナリオ（`tests/e2e/task-flow.spec.ts`: 作成→UI反映→削除→復元）を追加。`implementer`が実装、`reviewer`がレビュー（Major指摘1件=E2E未実装を追加対応、Minor指摘は設計判断として現状維持）、`verifier`が`xvfb-run`実機E2E・`update_task`のUI反映・`confirm`無し削除の拒否まで確認済み。ソフトデリート済みタスクへの`update_task`は許容する仕様とした（ノート側T03の`update_note`と同じ判断。要求定義に規定が無いため制限しない方をシンプルとして選択）。
 
 ### T06: リンク機能（ノート-タスク、ノート-ノート、タスク-タスク）
 

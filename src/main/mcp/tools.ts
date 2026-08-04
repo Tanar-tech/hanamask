@@ -7,12 +7,23 @@ import {
   softDeleteNote,
   updateNote,
 } from "../db/notes-repo.js";
-import { emitNotesChanged } from "./change-emitter.js";
+import {
+  createTask,
+  listTasks,
+  restoreTask,
+  softDeleteTask,
+  toTaskStatus,
+  updateTask,
+} from "../db/tasks-repo.js";
+import { emitNotesChanged, emitTasksChanged } from "./change-emitter.js";
+import type { TaskStatus } from "../../shared/preload-api.js";
 
-export interface NoteTool {
+export interface McpTool {
   definition: Tool;
   handler: (args: unknown) => CallToolResult;
 }
+
+export type NoteTool = McpTool;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -226,3 +237,156 @@ export const noteTools: readonly NoteTool[] = [
 
 export const findNoteTool = (name: string): NoteTool | undefined =>
   noteTools.find((tool) => tool.definition.name === name);
+
+const DEFAULT_TASK_STATUS: TaskStatus = "todo";
+
+// due_date accepts null explicitly so a caller can clear an existing deadline.
+const readOptionalDueDate = (args: Record<string, unknown>): string | null | undefined => {
+  const value = args.due_date;
+  if (value === undefined || value === null) return value;
+  if (typeof value !== "string") {
+    throw new Error('"due_date" must be a string or null');
+  }
+  return value;
+};
+
+const readOptionalStatus = (args: Record<string, unknown>): TaskStatus | undefined => {
+  const value = args.status;
+  if (value === undefined) return undefined;
+  return toTaskStatus(value);
+};
+
+const TASK_STATUS_SCHEMA = {
+  type: "string",
+  enum: ["todo", "in_progress", "done"],
+  description: "Task status",
+} as const;
+
+const createTaskTool: McpTool = {
+  definition: {
+    name: "create_task",
+    description: "Create a task in the local hanamask database.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Task title" },
+        status: TASK_STATUS_SCHEMA,
+        due_date: { type: "string", description: "Due date (ISO date), omitted when there is none" },
+      },
+      required: ["title"],
+    },
+  },
+  handler: toToolHandler((args) => {
+    const task = createTask({
+      title: readString(args, "title"),
+      status: readOptionalStatus(args) ?? DEFAULT_TASK_STATUS,
+      dueDate: readOptionalDueDate(args) ?? null,
+    });
+    emitTasksChanged();
+    return jsonResult({ task });
+  }),
+};
+
+const updateTaskTool: McpTool = {
+  definition: {
+    name: "update_task",
+    description: "Update a task's title, status and/or due date. Omitted fields are left unchanged.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Task id (uuid)" },
+        title: { type: "string", description: "New title" },
+        status: TASK_STATUS_SCHEMA,
+        due_date: { type: ["string", "null"], description: "New due date, or null to clear it" },
+      },
+      required: ["id"],
+    },
+  },
+  handler: toToolHandler((args) => {
+    const id = readString(args, "id");
+    const task = updateTask(id, {
+      title: readOptionalString(args, "title"),
+      status: readOptionalStatus(args),
+      dueDate: readOptionalDueDate(args),
+    });
+    if (task === null) {
+      return errorResult(`Task not found: ${id}`);
+    }
+    emitTasksChanged();
+    return jsonResult({ task });
+  }),
+};
+
+const listTasksTool: McpTool = {
+  definition: {
+    name: "list_tasks",
+    description: "List tasks. Soft-deleted tasks are excluded.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  handler: toToolHandler(() => jsonResult({ tasks: listTasks() })),
+};
+
+const deleteTaskTool: McpTool = {
+  definition: {
+    name: "delete_task",
+    description:
+      "Soft-delete a task (sets deletedAt; the task stops appearing in list_tasks and can be restored). Requires confirm: true.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Task id (uuid)" },
+        confirm: { type: "boolean", description: "Must be true to actually delete" },
+      },
+      required: ["id", "confirm"],
+    },
+  },
+  handler: toToolHandler((args) => {
+    const id = readString(args, "id");
+    if (args.confirm !== true) {
+      throw new Error('delete_task requires "confirm: true"');
+    }
+    const deleted = softDeleteTask(id);
+    if (!deleted) {
+      return errorResult(`Task not found or already deleted: ${id}`);
+    }
+    emitTasksChanged();
+    return jsonResult({ deleted: true });
+  }),
+};
+
+const restoreTaskTool: McpTool = {
+  definition: {
+    name: "restore_task",
+    description: "Restore a soft-deleted task so it reappears in list_tasks.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Task id (uuid)" },
+      },
+      required: ["id"],
+    },
+  },
+  handler: toToolHandler((args) => {
+    const id = readString(args, "id");
+    const task = restoreTask(id);
+    if (task === null) {
+      return errorResult(`Task not found or not deleted: ${id}`);
+    }
+    emitTasksChanged();
+    return jsonResult({ task });
+  }),
+};
+
+export const taskTools: readonly McpTool[] = [
+  createTaskTool,
+  updateTaskTool,
+  listTasksTool,
+  deleteTaskTool,
+  restoreTaskTool,
+];
+
+export const findTaskTool = (name: string): McpTool | undefined =>
+  taskTools.find((tool) => tool.definition.name === name);

@@ -11,7 +11,7 @@ import {
   ListToolsRequestSchema,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { findNoteTool, noteTools } from "./tools.js";
+import { noteTools, taskTools, type McpTool } from "./tools.js";
 
 const DEFAULT_PORT = 39217;
 const MAX_PORT = 65535;
@@ -35,8 +35,10 @@ const resolvePort = (): number => {
   return port;
 };
 
+const allTools: readonly McpTool[] = [...noteTools, ...taskTools];
+
 const callTool = (name: string, args: unknown): CallToolResult => {
-  const tool = findNoteTool(name);
+  const tool = allTools.find((candidate) => candidate.definition.name === name);
   if (tool === undefined) {
     return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
   }
@@ -49,7 +51,7 @@ const createNoteMcpServer = (): Server => {
     { capabilities: { tools: {} } },
   );
   server.setRequestHandler(ListToolsRequestSchema, () => ({
-    tools: noteTools.map((tool) => tool.definition),
+    tools: allTools.map((tool) => tool.definition),
   }));
   server.setRequestHandler(CallToolRequestSchema, (request) =>
     callTool(request.params.name, request.params.arguments),
