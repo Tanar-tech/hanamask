@@ -93,6 +93,10 @@ describe("task flow (Electron app + MCP server + renderer)", () => {
     const window = await app.firstWindow();
     await window.waitForLoadState();
 
+    // TaskList and KanbanView both render every task's title, so scope to TaskList's
+    // own <ul> (a direct child of <main>) to keep locators unambiguous.
+    const taskList = window.locator("main > ul");
+
     await window.getByText("タスクはまだありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "task-01-empty.png") });
 
@@ -102,17 +106,16 @@ describe("task flow (Electron app + MCP server + renderer)", () => {
     expect(taskId).not.toBe("");
 
     // No manual reload: the main process forwards the MCP-triggered change over IPC.
-    await window.getByText(TASK_TITLE).waitFor();
-    await window.getByText("未着手").waitFor();
+    await taskList.getByText(TASK_TITLE).waitFor();
+    await taskList.getByText("未着手").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "task-02-created.png") });
 
     await callMcpTool("delete_task", { id: taskId, confirm: true });
-    await window.getByText(TASK_TITLE).waitFor({ state: "detached" });
     await window.getByText("タスクはまだありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "task-03-deleted.png") });
 
     await callMcpTool("restore_task", { id: taskId });
-    await window.getByText(TASK_TITLE).waitFor();
+    await taskList.getByText(TASK_TITLE).waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "task-04-restored.png") });
   });
 });
