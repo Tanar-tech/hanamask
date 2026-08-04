@@ -63,6 +63,10 @@ export interface Image {
 export interface HanamaskPreloadApi {
   listNotes(): Promise<Note[]>;
   getNote(id: string): Promise<Note | null>;
+  updateNote(
+    id: string,
+    input: { title?: string; body?: string; tags?: string[] },
+  ): Promise<Note | null>;
   deleteNote(id: string): Promise<void>;
   onNotesChanged(callback: () => void): () => void;
   listTasks(): Promise<Task[]>;

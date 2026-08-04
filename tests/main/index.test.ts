@@ -12,6 +12,7 @@ const ipcHandle = vi.fn();
 const searchNotes = vi.fn();
 const softDeleteNote = vi.fn();
 const getNote = vi.fn();
+const updateNote = vi.fn();
 const getTask = vi.fn();
 const openDb = vi.fn();
 const purgeSoftDeletedRecords = vi.fn(() => ({ notesPurged: 0, tasksPurged: 0 }));
@@ -51,7 +52,12 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
-vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes, softDeleteNote, getNote }));
+vi.mock("../../src/main/db/notes-repo", () => ({
+  searchNotes,
+  softDeleteNote,
+  getNote,
+  updateNote,
+}));
 vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks, getTask }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords }));
 vi.mock("../../src/main/db/images-repo", () => ({ createImage, listImages }));
@@ -94,6 +100,12 @@ const findDeleteNoteHandler = (): ((event: unknown, id: string) => void) =>
 
 const findGetNoteHandler = (): ((event: unknown, id: string) => Note | null) =>
   findHandler("notes:get");
+
+const findUpdateNoteHandler = (): ((
+  event: unknown,
+  id: string,
+  input: { title?: string; body?: string; tags?: string[] },
+) => Note | null) => findHandler("notes:update");
 
 const findGetTaskHandler = (): ((event: unknown, id: string) => Task | null) =>
   findHandler("tasks:get");
@@ -184,6 +196,7 @@ describe("main process entry", () => {
     listTasks.mockReset();
     softDeleteNote.mockReset();
     getNote.mockReset();
+    updateNote.mockReset();
     getTask.mockReset();
     createImage.mockReset();
     listImages.mockReset();
@@ -244,6 +257,29 @@ describe("main process entry", () => {
     getNote.mockReturnValue(null);
 
     expect(findGetNoteHandler()(undefined, "missing-note")).toBeNull();
+  });
+
+  it("notes:update ハンドラはノートを更新し全ウィンドウへ通知する", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("notes:update", expect.any(Function));
+    const updated: Note = { ...sampleNote, title: "新しいタイトル" };
+    updateNote.mockReturnValue(updated);
+
+    const result = findUpdateNoteHandler()(undefined, "note-1", { title: "新しいタイトル" });
+
+    expect(result).toEqual(updated);
+    expect(updateNote).toHaveBeenCalledWith("note-1", { title: "新しいタイトル" });
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).toHaveBeenCalledWith("notes:changed");
+    });
+  });
+
+  it("notes:update ハンドラは存在しないノートではnullを返し通知しない", () => {
+    updateNote.mockReturnValue(null);
+
+    expect(findUpdateNoteHandler()(undefined, "missing-note", { title: "x" })).toBeNull();
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).not.toHaveBeenCalled();
+    });
   });
 
   it("tasks:get ハンドラは指定IDのタスクを返す", () => {

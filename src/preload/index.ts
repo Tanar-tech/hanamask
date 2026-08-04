@@ -5,6 +5,7 @@ const NOTES_CHANGED_CHANNEL = "notes:changed";
 const NOTES_LIST_CHANNEL = "notes:list";
 const NOTES_DELETE_CHANNEL = "notes:delete";
 const NOTES_GET_CHANNEL = "notes:get";
+const NOTES_UPDATE_CHANNEL = "notes:update";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_CHANGED_CHANNEL = "tasks:changed";
 const TASKS_LIST_CHANNEL = "tasks:list";
@@ -23,6 +24,7 @@ const subscribe = (channel: string, callback: () => void): (() => void) => {
 const api: HanamaskPreloadApi = {
   listNotes: () => ipcRenderer.invoke(NOTES_LIST_CHANNEL),
   getNote: (id) => ipcRenderer.invoke(NOTES_GET_CHANNEL, id),
+  updateNote: (id, input) => ipcRenderer.invoke(NOTES_UPDATE_CHANNEL, id, input),
   deleteNote: (id) => ipcRenderer.invoke(NOTES_DELETE_CHANNEL, id),
   onNotesChanged: (callback) => subscribe(NOTES_CHANGED_CHANNEL, callback),
   listTasks: () => ipcRenderer.invoke(TASKS_LIST_CHANNEL),

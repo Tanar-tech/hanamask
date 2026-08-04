@@ -3,7 +3,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
 import { purgeSoftDeletedRecords } from "./db/purge.js";
-import { getNote, searchNotes, softDeleteNote } from "./db/notes-repo.js";
+import {
+  getNote,
+  searchNotes,
+  softDeleteNote,
+  updateNote,
+  type NoteUpdateInput,
+} from "./db/notes-repo.js";
 import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
 import { listImages } from "./db/images-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
@@ -25,6 +31,7 @@ const TASKS_CHANGED_CHANNEL = "tasks:changed";
 const TASKS_LIST_CHANNEL = "tasks:list";
 const NOTES_DELETE_CHANNEL = "notes:delete";
 const NOTES_GET_CHANNEL = "notes:get";
+const NOTES_UPDATE_CHANNEL = "notes:update";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
@@ -62,6 +69,17 @@ const findTask = (_event: IpcMainInvokeEvent, id: string): Task | null => getTas
 // MCPツール経由の削除と同じ通知経路を通すため、broadcastではなくemitNotesChangedを呼ぶ。
 const deleteNote = (_event: IpcMainInvokeEvent, id: string): void => {
   if (softDeleteNote(id)) emitNotesChanged();
+};
+
+// MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitNotesChangedを呼ぶ。
+const editNote = (
+  _event: IpcMainInvokeEvent,
+  id: string,
+  input: NoteUpdateInput,
+): Note | null => {
+  const updated = updateNote(id, input);
+  if (updated !== null) emitNotesChanged();
+  return updated;
 };
 
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
@@ -124,6 +142,7 @@ ipcMain.handle(NOTES_LIST_CHANNEL, listNotes);
 ipcMain.handle(TASKS_LIST_CHANNEL, () => listTasks());
 ipcMain.handle(NOTES_GET_CHANNEL, findNote);
 ipcMain.handle(TASKS_GET_CHANNEL, findTask);
+ipcMain.handle(NOTES_UPDATE_CHANNEL, editNote);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);

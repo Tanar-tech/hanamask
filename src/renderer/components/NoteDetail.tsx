@@ -12,7 +12,16 @@ interface BodySegment {
   content: string;
 }
 
+interface NoteDraft {
+  title: string;
+  body: string;
+  tagsText: string;
+}
+
 const NOT_FOUND_MESSAGE = "ノートが見つかりません";
+const UPDATE_FAILED_MESSAGE = "ノートの更新に失敗しました";
+const TAG_SEPARATOR = ",";
+const BODY_TEXTAREA_ROWS = 12;
 const ATTACH_LABEL = "画像を添付";
 const ACCEPTED_IMAGE_TYPES = "image/png,image/jpeg,image/gif,image/webp";
 const PREVIEW_MAX_WIDTH_PX = 320;
@@ -66,11 +75,73 @@ const renderSegment = (segment: BodySegment, index: number): JSX.Element =>
     </p>
   );
 
+const toDraft = (note: Note): NoteDraft => ({
+  title: note.title,
+  body: note.body,
+  tagsText: note.tags.join(`${TAG_SEPARATOR} `),
+});
+
+const parseTags = (tagsText: string): string[] =>
+  tagsText
+    .split(TAG_SEPARATOR)
+    .map((tag) => tag.trim())
+    .filter((tag) => tag !== "");
+
+interface NoteEditFormProps {
+  draft: NoteDraft;
+  error: string | null;
+  onChange: (patch: Partial<NoteDraft>) => void;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
+const NoteEditForm = ({
+  draft,
+  error,
+  onChange,
+  onSave,
+  onCancel,
+}: NoteEditFormProps): JSX.Element => (
+  <>
+    <input
+      aria-label="タイトル"
+      value={draft.title}
+      onChange={(event) => {
+        onChange({ title: event.target.value });
+      }}
+    />
+    <textarea
+      aria-label="本文"
+      rows={BODY_TEXTAREA_ROWS}
+      value={draft.body}
+      onChange={(event) => {
+        onChange({ body: event.target.value });
+      }}
+    />
+    <input
+      aria-label="タグ"
+      value={draft.tagsText}
+      onChange={(event) => {
+        onChange({ tagsText: event.target.value });
+      }}
+    />
+    <button type="button" onClick={onSave}>
+      保存
+    </button>
+    <button type="button" onClick={onCancel}>
+      キャンセル
+    </button>
+    {error !== null && <p role="alert">{error}</p>}
+  </>
+);
+
 export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => {
   const [note, setNote] = useState<Note | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<Image[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
+  const [draft, setDraft] = useState<NoteDraft | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const reloadImages = useCallback(async (): Promise<void> => {
     setImages(await window.hanamask.listImages(noteId));
@@ -84,6 +155,8 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
         const loaded = await window.hanamask.getNote(noteId);
         if (!current) return;
         setNote(loaded);
+        setDraft(null);
+        setSaveError(null);
         setError(loaded === null ? NOT_FOUND_MESSAGE : null);
       } catch (cause) {
         if (current) setError(`ノートの読み込みに失敗しました: ${String(cause)}`);
@@ -125,6 +198,30 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
     [noteId, reloadImages],
   );
 
+  const patchDraft = (patch: Partial<NoteDraft>): void => {
+    setDraft((current) => (current === null ? null : { ...current, ...patch }));
+  };
+
+  const saveDraft = async (): Promise<void> => {
+    if (draft === null) return;
+    try {
+      setSaveError(null);
+      const updated = await window.hanamask.updateNote(noteId, {
+        title: draft.title,
+        body: draft.body,
+        tags: parseTags(draft.tagsText),
+      });
+      if (updated === null) {
+        setSaveError(NOT_FOUND_MESSAGE);
+        return;
+      }
+      setNote(updated);
+      setDraft(null);
+    } catch (cause) {
+      setSaveError(`${UPDATE_FAILED_MESSAGE}: ${String(cause)}`);
+    }
+  };
+
   const handleFileSelected = (event: ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0];
     if (file === undefined) return;
@@ -152,9 +249,31 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
         戻る
       </button>
       {error !== null && <p role="alert">{error}</p>}
-      {note !== null && error === null && (
+      {note !== null && error === null && draft !== null && (
+        <NoteEditForm
+          draft={draft}
+          error={saveError}
+          onChange={patchDraft}
+          onSave={() => {
+            void saveDraft();
+          }}
+          onCancel={() => {
+            setDraft(null);
+            setSaveError(null);
+          }}
+        />
+      )}
+      {note !== null && error === null && draft === null && (
         <>
           <h2>{note.title}</h2>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(toDraft(note));
+            }}
+          >
+            編集
+          </button>
           {splitByMermaidFence(note.body).map(renderSegment)}
           <ul>
             {note.tags.map((tag) => (
