@@ -644,6 +644,155 @@ describe("NoteDetail の編集履歴", () => {
   });
 });
 
+describe("NoteDetail の外部更新反映", () => {
+  const EXTERNAL_NOTICE = /別の場所で更新されました/;
+
+  const mockChangingNote = () => {
+    let current = makeNote();
+    const api = mockHanamask(async () => current);
+    const updateExternally = (overrides: Partial<Note>): void => {
+      current = makeNote({ ...current, ...overrides });
+    };
+    return { ...api, updateExternally };
+  };
+
+  it("表示モードで変更通知を受けるとタイトル・本文・タグを最新に更新する", async () => {
+    const { onNotesChanged, updateExternally } = mockChangingNote();
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    updateExternally({ title: "MCPが書き換えた", body: "MCPが書き換えた本文", tags: ["ai"] });
+    await emitNotesChanged(onNotesChanged);
+
+    expect(await screen.findByText("MCPが書き換えた")).toBeTruthy();
+    expect(screen.getByText("MCPが書き換えた本文")).toBeTruthy();
+    expect(screen.getByText("ai")).toBeTruthy();
+    expect(screen.queryByText("設計メモ")).toBeNull();
+  });
+
+  it("編集中に変更通知を受けても編集内容を上書きしない", async () => {
+    const { onNotesChanged, updateExternally } = mockChangingNote();
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+    typeInto("タイトル", "編集中のタイトル");
+    typeInto("本文", "編集中の本文");
+
+    updateExternally({ title: "MCPが書き換えた", body: "MCPが書き換えた本文" });
+    await emitNotesChanged(onNotesChanged);
+
+    expect(fieldValue("タイトル")).toBe("編集中のタイトル");
+    expect(fieldValue("本文")).toBe("編集中の本文");
+  });
+
+  it("編集中に変更通知を受けると通知を表示し、破棄して最新を読み込める", async () => {
+    const { onNotesChanged, updateExternally } = mockChangingNote();
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+    typeInto("タイトル", "編集中のタイトル");
+
+    updateExternally({ title: "MCPが書き換えた", body: "MCPが書き換えた本文", tags: ["ai"] });
+    await emitNotesChanged(onNotesChanged);
+
+    expect(await screen.findByText(EXTERNAL_NOTICE)).toBeTruthy();
+
+    await clickButton("破棄して最新を読み込む");
+
+    expect(screen.getByText("MCPが書き換えた")).toBeTruthy();
+    expect(screen.getByText("MCPが書き換えた本文")).toBeTruthy();
+    expect(screen.queryByLabelText("タイトル")).toBeNull();
+    expect(screen.queryByText(EXTERNAL_NOTICE)).toBeNull();
+  });
+
+  it("編集をキャンセルすると通知が消え最新の内容を表示する", async () => {
+    const { onNotesChanged, updateExternally } = mockChangingNote();
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+
+    updateExternally({ title: "MCPが書き換えた" });
+    await emitNotesChanged(onNotesChanged);
+    await screen.findByText(EXTERNAL_NOTICE);
+    await clickButton("キャンセル");
+
+    expect(screen.queryByText(EXTERNAL_NOTICE)).toBeNull();
+    expect(screen.getByText("MCPが書き換えた")).toBeTruthy();
+  });
+
+  it("編集中の保存後は通知が残らない", async () => {
+    const { onNotesChanged, updateExternally } = mockChangingNote();
+    window.hanamask.updateNote = vi.fn(async () => makeNote({ title: "利用者の保存結果" }));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+    typeInto("タイトル", "利用者の保存結果");
+
+    updateExternally({ title: "MCPが書き換えた" });
+    await emitNotesChanged(onNotesChanged);
+    await screen.findByText(EXTERNAL_NOTICE);
+    await clickButton("保存");
+
+    expect(await screen.findByText("利用者の保存結果")).toBeTruthy();
+    expect(screen.queryByText(EXTERNAL_NOTICE)).toBeNull();
+  });
+
+  it("復元の応答待ち中の変更通知では表示中のノートを取り直さない", async () => {
+    let resolveRestore: ((note: Note) => void) | undefined;
+    const { getNote, onNotesChanged } = mockHanamask(async () => makeNote(), {
+      listNoteVersions: async () => [makeVersion()],
+      restoreNoteVersion: () =>
+        new Promise<Note | null>((resolve) => {
+          resolveRestore = resolve;
+        }),
+    });
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("旧タイトル");
+    await clickButton("このバージョンに戻す");
+    await emitNotesChanged(onNotesChanged);
+
+    // 復元前の内容が後から届くと復元結果を打ち消すため、応答待ち中は取り直さない。
+    expect(getNote).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveRestore?.(makeNote({ title: "復元されたタイトル" }));
+    });
+
+    expect(await screen.findByText("復元されたタイトル")).toBeTruthy();
+    vi.unstubAllGlobals();
+  });
+
+  it("背景リロードの失敗はノートを切り替えると消える", async () => {
+    let failReload = false;
+    const { onNotesChanged } = mockHanamask(async (id) => {
+      if (failReload) throw new Error("boom");
+      return makeNote({ id, title: id === "note-1" ? "設計メモ" : "別のメモ" });
+    });
+
+    const { rerender } = render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    failReload = true;
+    await emitNotesChanged(onNotesChanged);
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "最新の内容の取得に失敗しました",
+    );
+
+    failReload = false;
+    rerender(<NoteDetail noteId="note-2" onBack={vi.fn()} />);
+
+    expect(await screen.findByText("別のメモ")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
+
 describe("NoteDetail のリンク", () => {
   const mockLinks = () => {
     mockHanamask(async () => makeNote());
