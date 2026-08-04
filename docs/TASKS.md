@@ -140,13 +140,14 @@
 
 ### T10: 30日パージバッチ
 
-- ステータス: 未着手
+- ステータス: 完了
 - 依存: 必須: T03, T05（両エンティティの`deleted_at`ソフトデリートが実装済みでないとパージ対象が存在しない）
 - 目的: `docs/REQUIREMENTS.md` §4.7。ソフトデリートから30日経過したノート・タスクを、アプリ起動時のバッチ処理で完全削除する。
 - 変更範囲: `src/main/db/`（パージ関数）, `src/main/index.ts`（起動時フックへの組み込み）。
 - 禁止事項: 手動トリガー（UIからの「今すぐ完全削除」ボタン等）は`docs/REQUIREMENTS.md`に規定が無いため実装しない。起動時の自動実行のみ。
 - テスト: `deleted_at`が30日以上前のレコードのみパージされ、30日未満のレコードは残ることの単体テスト（日時はテスト側で固定値を注入し、暗黙の現在時刻に依存させない。`docs/TESTING.md`のDesigning for testability方針に従う）。
 - 停止条件: 特になし。
+- 実績: `purge.ts`の`purgeSoftDeletedRecords(now: Date)`を追加。`now`を引数として受け取り内部で`new Date()`を呼ばないテスト容易な設計。30日ちょうどは復元猶予期間内として削除しない（`deleted_at < now - 30日`の厳密比較）。アプリ起動時（`openDb`直後・`createMainWindow`より前）に自動実行。単体テスト（境界値29日/ちょうど30日/31日を含む）を追加。`implementer`が実装、`reviewer`・`verifier`とも指摘なし（境界値の解釈も要求定義と整合していることを確認済み）。
 
 ### T11: UI連携ツール（open_app/open_note/open_task/open_search）
 
