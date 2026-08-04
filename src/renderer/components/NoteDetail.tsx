@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ChangeEvent, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type JSX } from "react";
 import type { Image, Note } from "../../shared/preload-api";
 import { EntityLinks } from "./EntityLinks";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -25,6 +25,8 @@ const UPDATE_FAILED_MESSAGE = "ノートの更新に失敗しました";
 const TAG_SEPARATOR = ",";
 const BODY_TEXTAREA_ROWS = 12;
 const ATTACH_LABEL = "画像を添付";
+const EXTERNAL_UPDATE_MESSAGE = "このノートは別の場所で更新されました";
+const DISCARD_LABEL = "破棄して最新を読み込む";
 const ACCEPTED_IMAGE_TYPES = "image/png,image/jpeg,image/gif,image/webp";
 const PREVIEW_MAX_WIDTH_PX = 320;
 
@@ -89,6 +91,15 @@ const parseTags = (tagsText: string): string[] =>
     .map((tag) => tag.trim())
     .filter((tag) => tag !== "");
 
+const ExternalUpdateNotice = ({ onDiscard }: { onDiscard: () => void }): JSX.Element => (
+  <div role="status">
+    <p>{EXTERNAL_UPDATE_MESSAGE}</p>
+    <button type="button" onClick={onDiscard}>
+      {DISCARD_LABEL}
+    </button>
+  </div>
+);
+
 interface NoteEditFormProps {
   draft: NoteDraft;
   error: string | null;
@@ -145,10 +156,37 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
   const [draft, setDraft] = useState<NoteDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
+  const [externalNote, setExternalNote] = useState<Note | null>(null);
+  const [reloadError, setReloadError] = useState<string | null>(null);
+
+  const editing = draft !== null;
+  // 変更通知のコールバックは購読時のstateを閉じ込めてしまうため、判断材料は都度refから読む。
+  const liveStateRef = useRef({ editing, restoring });
+  useEffect(() => {
+    liveStateRef.current = { editing, restoring };
+  }, [editing, restoring]);
 
   const reloadImages = useCallback(async (): Promise<void> => {
     setImages(await window.hanamask.listImages(noteId));
   }, [noteId]);
+
+  const reloadNote = useCallback(async (): Promise<void> => {
+    // 復元の応答待ち中に取得すると復元前の内容が後から届き、復元結果を打ち消しうる。
+    if (liveStateRef.current.restoring) return;
+    const latest = await window.hanamask.getNote(noteId);
+    setReloadError(null);
+    if (latest === null) return;
+    // 編集中の入力を失わせないため、反映せず通知だけ出して利用者に選ばせる。
+    if (liveStateRef.current.editing) setExternalNote(latest);
+    else setNote(latest);
+  }, [noteId]);
+
+  const discardDraft = (): void => {
+    if (externalNote !== null) setNote(externalNote);
+    setExternalNote(null);
+    setDraft(null);
+    setSaveError(null);
+  };
 
   useEffect(() => {
     // ノート切替時に古い取得結果が後から届いて上書きするのを防ぐ。
@@ -160,6 +198,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
         setNote(loaded);
         setDraft(null);
         setSaveError(null);
+        setExternalNote(null);
         setError(loaded === null ? NOT_FOUND_MESSAGE : null);
       } catch (cause) {
         if (current) setError(`ノートの読み込みに失敗しました: ${String(cause)}`);
@@ -187,15 +226,18 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
     };
   }, [noteId]);
 
-  // MCPツール経由の添付は同じ画面を開いたまま起きるため、変更通知で一覧を取り直す。
+  // MCPツール経由の更新・添付は同じ画面を開いたまま起きるため、変更通知で取り直す。
   useEffect(
     () =>
       window.hanamask.onNotesChanged(() => {
         void reloadImages().catch((cause: unknown) => {
           setAttachError(`画像の読み込みに失敗しました: ${String(cause)}`);
         });
+        void reloadNote().catch((cause: unknown) => {
+          setReloadError(`最新の内容の取得に失敗しました: ${String(cause)}`);
+        });
       }),
-    [reloadImages],
+    [reloadImages, reloadNote],
   );
 
   const attachFile = useCallback(
@@ -231,6 +273,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
       }
       setNote(updated);
       setDraft(null);
+      setExternalNote(null);
     } catch (cause) {
       setSaveError(`${UPDATE_FAILED_MESSAGE}: ${String(cause)}`);
     }
@@ -263,19 +306,20 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
         戻る
       </button>
       {error !== null && <p role="alert">{error}</p>}
+      {reloadError !== null && <p role="alert">{reloadError}</p>}
       {note !== null && error === null && draft !== null && (
-        <NoteEditForm
-          draft={draft}
-          error={saveError}
-          onChange={patchDraft}
-          onSave={() => {
-            void saveDraft();
-          }}
-          onCancel={() => {
-            setDraft(null);
-            setSaveError(null);
-          }}
-        />
+        <>
+          {externalNote !== null && <ExternalUpdateNotice onDiscard={discardDraft} />}
+          <NoteEditForm
+            draft={draft}
+            error={saveError}
+            onChange={patchDraft}
+            onSave={() => {
+              void saveDraft();
+            }}
+            onCancel={discardDraft}
+          />
+        </>
       )}
       {note !== null && error === null && draft === null && (
         <>
