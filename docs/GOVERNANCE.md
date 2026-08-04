@@ -122,6 +122,7 @@ herdr（7.1）が複数の独立したタスクをworktree単位で並列化す�
 - `CLAUDE.md`: Claude Code セッション向けのプロジェクト固有指示（本規約の要点を参照する形で維持）
 - `docs/HERDR.md`: herdrによる並列サブエージェント運用のセットアップ・使い方
 - `docs/CODEX.md`: OpenAI Codex CLIのセットアップ・herdr連携・開発要員としての運用方法
+- `docs/TASKS.md`: `docs/REQUIREMENTS.md`を実装単位に分解したタスク一覧（目的・変更範囲・禁止事項・テスト・停止条件）。整備・更新手順は skill「task-breakdown」を参照。
 - `.claude/agents/`: Claude Codeサブエージェント定義（`implementer`/`reviewer`/`verifier`）。7.2のフローで使用する。
 - `.claude/skills/`: Claude Codeスキル定義（`feature-spec`/`structured-review`/`e2e-runner`）。7.2のフローで使用する。
 - 変更履歴が必要になった場合は `CHANGELOG.md` を別途導入する。

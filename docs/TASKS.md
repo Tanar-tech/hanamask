@@ -1,0 +1,156 @@
+# hanamask タスク一覧
+
+`docs/REQUIREMENTS.md`（確定済み要求定義）を実装単位に分解したバックログ。各タスクは概ね1本の `SPEC.md`（skill「feature-spec」）に相当する粒度で、Parallel Subagent Framework（`CLAUDE.md`）のPhase 1〜5フローに1つずつ投入することを想定する。
+
+本ファイルの整備・更新手順は skill「task-breakdown」に従う。要求定義（`docs/REQUIREMENTS.md`）が変更されたとき、または既存タスクの完了・スコープ変更があったときは、このskillを使って本ファイルを更新する。
+
+## 読み方
+
+各タスクは以下5項目を明文化する。
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | このタスクが無いと何ができないか。`docs/REQUIREMENTS.md`の該当節を根拠として引く。 |
+| 変更範囲 | 触ってよい層・ディレクトリの見積もり（ファイル単位の確定はタスク着手時の`SPEC.md` Part 2で行う）。他タスクとの並列実行時に競合しないかの目安。 |
+| 禁止事項 | このタスクではやらないこと。スコープ拡張・後続タスクの先取りを防ぐ。 |
+| テスト | `docs/TESTING.md`（単体テスト方針）・`.claude/skills/e2e-runner/SKILL.md`（GUI/E2E検証）に基づき、このタスクで最低限満たすべきテスト。 |
+| 停止条件 | 管理者に確認せず自律的に進めてよい範囲の境界。`docs/GOVERNANCE.md` §6（管理者承認が必要な操作）に該当する事態、`docs/REQUIREMENTS.md` §8の未決定事項に触れる場合、自己修正3回超過などはここで止める。 |
+
+ステータス: `未着手` / `進行中` / `完了`。依存関係がある場合は「依存」に前提タスクIDを記す。
+
+---
+
+## 基盤・プロセス（要求定義そのものではなく開発基盤の整備）
+
+### T00: 基盤(1) ノート機能の垂直スライス
+
+- ステータス: 完了（PR #5, `SPEC.md`）
+- 目的: MCP経由の操作がデスクトップUIにリアルタイム反映される、というhanamaskの中核メカニズム（§1, §4.6）が成立することの技術検証。
+- 変更範囲: `src/main/`, `src/preload/`, `src/renderer/`, `src/shared/`, ビルド設定一式。
+- 実績: `create_note`/`get_note`/`search_notes`、ノート一覧UI、IPCによる自動反映、SQLite永続化。
+
+### T01: テストケース作成方針の整備
+
+- ステータス: レビュー待ち（PR #7, `docs/TESTING.md`）
+- 目的: 単体テストの書き方（ディレクトリ構成・I/O境界の扱い）を明文化し、以降のタスクで揺れなく踏襲できるようにする。
+- 変更範囲: `docs/TESTING.md`, `docs/GOVERNANCE.md`, `docs/html/`。
+- テスト: 該当なし（ドキュメントのみ）。
+
+### T02: GUI/E2E検証ハーネスの整備
+
+- ステータス: レビュー待ち（PR #8, `tests/e2e/`, `.claude/skills/e2e-runner/SKILL.md`）
+- 目的: MCP経由の操作がデスクトップUIに実際に反映されることを、Electronアプリを本当に起動して自動検証できるようにする。
+- 変更範囲: `tests/e2e/`, `vitest.e2e.config.ts`, `.claude/skills/e2e-runner/SKILL.md`, `src/main/index.ts`（テスト用DBパス上書き）, `tsconfig.preload.json`。
+- 実績: 副産物としてpreloadスクリプトのCommonJSコンパイル不備（画面が真っ白になる実害バグ）を発見・修正済み。
+
+---
+
+## 機能タスク（`docs/REQUIREMENTS.md` 由来）
+
+### T03: ノートの更新・ソフトデリート・復元
+
+- ステータス: 未着手（依存: T00）
+- 目的: `docs/REQUIREMENTS.md` §4.1, §4.7, §7.1。現状`create_note`/`get_note`/`search_notes`しか無く、ノートを直せない・消せない。`update_note`/`delete_note`/`restore_note`を追加し、破壊的操作へのガードレール（ソフトデリート・`confirm: true`必須）を実装する。
+- 変更範囲: `src/main/db/notes-repo.ts`（update/soft-delete/restore関数）, `src/main/mcp/tools.ts`（3ツール追加）, `src/renderer/components/`（編集・削除UI）。DBスキーマに`deleted_at`カラム追加（マイグレーション相当の対応が必要、既存`schema.sql`を直接更新でよいか要確認）。
+- 禁止事項: 編集履歴（NoteVersion、T04）・30日パージバッチ（T10）はこのタスクでは実装しない（`delete_note`が`deleted_at`を立てるところまでで、自動パージは別タスク）。物理削除は一切実装しない。
+- テスト: `notes-repo`のupdate/soft-delete/restoreの単体テスト（`tests/main/db/`）、`confirm: true`省略時にエラーを返すことのMCPツールテスト（`tests/main/mcp/`）、ソフトデリート後は`search_notes`のデフォルト結果に出ないことのテスト。`tests/e2e/`に削除→復元のシナリオを追加。
+- 停止条件: `deleted_at`カラム追加に伴うDBスキーマ変更方式（既存`schema.sql`直接改変か、マイグレーション機構を新設するか）は既存資産（3件のみ、開発中）への影響が小さいうちに管理者へ一度方針確認する。
+
+### T04: ノート編集履歴（バージョニング）
+
+- ステータス: 未着手（依存: T03）
+- 目的: `docs/REQUIREMENTS.md` §4.7, §6, §7.1。`update_note`実行直前の内容をスナップショットし、`list_note_versions`/`restore_note_version`で辿れるようにする。
+- 変更範囲: `src/main/db/`（`NoteVersion`テーブル・リポジトリ関数）, `src/main/mcp/tools.ts`（2ツール追加）, `src/renderer/components/`（履歴表示UI）。
+- 禁止事項: バージョン数の上限・自動間引きは`docs/REQUIREMENTS.md`に規定が無いため実装しない（無制限保存のまま。上限が必要になったら別タスクで管理者に提案する）。
+- テスト: `update_note`呼び出しごとにスナップショットが1件増えることの単体テスト、`restore_note_version`で本文が過去バージョンに戻ることのテスト（戻す操作自体もスナップショットを積むか、`docs/REQUIREMENTS.md`に明記が無いため実装前に停止条件で確認）。
+- 停止条件: 「過去バージョンへの復元」がさらに新しいバージョンとして積まれるか、単純上書きかは要求定義に記載が無いため、実装前に管理者へ確認する。
+
+### T05: タスク管理（CRUD・ステータス・ソフトデリート）
+
+- ステータス: 未着手（依存: T00, T03のソフトデリートパターンを踏襲）
+- 目的: `docs/REQUIREMENTS.md` §4.3, §7.1。`create_task`/`update_task`/`list_tasks`/`delete_task`/`restore_task`とタスク一覧・詳細/編集UI（リスト表示）を実装する。ノート機能で確立したMCPツール・ソフトデリート・リアルタイム反映のパターンを横展開する。
+- 変更範囲: `src/main/db/tasks-repo.ts`（新規）, `src/main/mcp/tools.ts`（5ツール追加）, `src/renderer/components/`（タスク一覧・詳細/編集UI）, `src/main/index.ts`（`tasks:list`等のIPCチャンネル追加）。
+- 禁止事項: カンバン表示（ドラッグ&ドロップ、T08）・リンク機能（T06）はこのタスクに含めない。リスト表示のみ。
+- テスト: `tasks-repo`のCRUD・ステータス遷移・ソフトデリートの単体テスト、`confirm: true`必須のMCPツールテスト、タスク作成→UI自動反映のE2Eシナリオ（`tests/e2e/`に`task-flow.spec.ts`を追加）。
+- 停止条件: 特になし（T00/T03で確立したパターンの横展開のため、想定外の設計判断が必要になった場合のみ確認）。
+
+### T06: リンク機能（ノート-タスク、ノート-ノート、タスク-タスク）
+
+- ステータス: 未着手（依存: T03, T05）
+- 目的: `docs/REQUIREMENTS.md` §3-8（相互リンクの探索）, §4.2, §4.3, §7.1。`link_entities`/`unlink_entities`/`list_links`と、ノート/タスク詳細画面でのリンク表示・作成UIを実装する。
+- 変更範囲: `src/main/db/links-repo.ts`（新規）, `src/main/mcp/tools.ts`（3ツール追加）, `src/renderer/components/`（リンク表示・作成UI、ノート/タスク詳細画面への組み込み）。
+- 禁止事項: リンクの種類（参照/依存等の意味づけ）は`docs/REQUIREMENTS.md`に規定が無いため、単純な相互参照のみ実装する（意味づけの拡張は行わない）。
+- テスト: `links-repo`の作成・解除・一覧取得の単体テスト、双方向に取得できること（`from`側・`to`側どちらからでも`list_links`で見えること）のテスト。
+- 停止条件: 特になし。
+
+### T07: Mermaid図のレンダリング表示
+
+- ステータス: 未着手（依存: T00）
+- 目的: `docs/REQUIREMENTS.md` §4.4。ノート本文中の ```` ```mermaid ```` コードフェンスをデスクトップUIでレンダリング表示する（データモデル上は独立エンティティを持たず、既存の`body`フィールドのMarkdown内に既に保存可能）。
+- 変更範囲: `src/renderer/components/`（ノート詳細/編集画面へのMermaidレンダラー組み込み）, `package.json`（レンダリングライブラリの追加要否を検討）。
+- 禁止事項: フリーハンド図（Excalidraw等）は対象外（`docs/REQUIREMENTS.md` §9で明示的にスコープ外）。図の編集用GUI（ドラッグでノードを動かす等）は作らない。テキスト編集のみ。
+- テスト: Mermaidコードフェンスを含むノート本文が正しくレンダリングされることのコンポーネントテスト（`tests/renderer/`）。構文エラーのあるMermaidコードでもUIがクラッシュしないことのテスト。
+- 停止条件: レンダリングライブラリの新規追加（`docs/GOVERNANCE.md` §6「依存関係の大幅な追加」に該当しうる）は、選定理由（バンドルサイズ・オフライン動作可否）を添えて管理者に確認してから追加する。`docs/html/`のMermaid運用（CDN読み込み、`docs-html-sync` skill）はドキュメント閲覧専用でありElectronアプリ本体には流用しない方針である点に注意。
+
+### T08: タスクのカンバン表示
+
+- ステータス: 未着手（依存: T05）
+- 目的: `docs/REQUIREMENTS.md` §4.3（リスト表示とカンバン表示の両方が初期スコープ）。ステータス別の列にドラッグ&ドロップでタスクを移動できるUIを追加する。
+- 変更範囲: `src/renderer/components/`（カンバンビュー新規コンポーネント）。既存のリスト表示・タスクMCPツール（T05）には手を入れない（表示切替のみ）。
+- 禁止事項: カンバンの列構成（ステータス以外の軸での分類等）はスコープ外。`docs/REQUIREMENTS.md`が定める`todo`/`in_progress`/`done`の3列のみ。
+- テスト: ドラッグ&ドロップでステータスが更新され、`update_task`が呼ばれることのコンポーネントテスト。
+- 停止条件: 特になし。
+
+### T09: 画像添付
+
+- ステータス: 未着手（依存: T00, T03）
+- 目的: `docs/REQUIREMENTS.md` §4.5, §5, §6, §7.1。ファイル選択/クリップボード貼り付けによる画像添付、`attach_image`ツール、プレビュー表示を実装する。画像はローカルファイルシステム（アプリのデータディレクトリ配下）に保存し、DBには`file_path`のみ持つ。
+- 変更範囲: `src/main/db/images-repo.ts`（新規）, `src/main/mcp/tools.ts`（`attach_image`追加）, `src/main/index.ts`（画像ファイルの保存先ディレクトリ管理）, `src/renderer/components/`（添付UI・プレビュー表示）。
+- 禁止事項: OCR等の画像内テキスト検索対象化は`docs/REQUIREMENTS.md` §9で明示的にスコープ外。
+- テスト: 画像ファイルがデータディレクトリ配下に保存され、`file_path`がDBに記録されることの単体テスト。不正な形式のファイルを渡した場合のエラーハンドリングのテスト。
+- 停止条件: 対応画像形式・サイズ上限は`docs/REQUIREMENTS.md`に規定が無いため、実装前に管理者へ確認する。
+
+### T10: 30日パージバッチ
+
+- ステータス: 未着手（依存: T03, T05）
+- 目的: `docs/REQUIREMENTS.md` §4.7。ソフトデリートから30日経過したノート・タスクを、アプリ起動時のバッチ処理で完全削除する。
+- 変更範囲: `src/main/db/`（パージ関数）, `src/main/index.ts`（起動時フックへの組み込み）。
+- 禁止事項: 手動トリガー（UIからの「今すぐ完全削除」ボタン等）は`docs/REQUIREMENTS.md`に規定が無いため実装しない。起動時の自動実行のみ。
+- テスト: `deleted_at`が30日以上前のレコードのみパージされ、30日未満のレコードは残ることの単体テスト（日時はテスト側で固定値を注入し、暗黙の現在時刻に依存させない。`docs/TESTING.md`のDesigning for testability方針に従う）。
+- 停止条件: 特になし。
+
+### T11: UI連携ツール（open_app/open_note/open_task/open_search）
+
+- ステータス: 未着手（依存: T03, T05, T06）
+- 目的: `docs/REQUIREMENTS.md` §4.1, §7.2。AIエージェントがMCP経由でデスクトップUIの起動・画面遷移を行えるようにする。
+- 変更範囲: `src/main/mcp/tools.ts`（4ツール追加）, `src/main/index.ts`（ウィンドウ制御・画面遷移のIPC）, `src/renderer/`（ルーティング機構が未整備の場合は導入を検討）。
+- 禁止事項: このタスクで新しい画面は作らない（既存のノート/タスク詳細・検索結果画面への遷移のみ）。
+- テスト: 各ツール呼び出しでウィンドウが起動/前面化し、指定した画面に遷移することのE2Eシナリオ（`tests/e2e/`）。
+- 停止条件: レンダラー側にルーティング機構（React Router等）が無い場合、新規導入は`docs/GOVERNANCE.md` §6の依存関係追加に該当しうるため管理者に確認する。
+
+### T12: AIチャットパネル（BYO Agent）
+
+- ステータス: 未着手（依存: T00〜T11のMCPツール一式が出揃っていることが望ましい。最低限T03/T05までで着手は可能）
+- 目的: `docs/REQUIREMENTS.md` §4.6, §1。利用者が自身のAnthropic APIキーを設定し、hanamask内蔵の簡易エージェントループ経由でClaude API（Messages API, tool use）を呼び出し、§7のMCPツール群を使ってノート/タスクを操作できるチャットUIを実装する。
+- 変更範囲: `src/main/`（APIキーの`safeStorage`暗号化保存, Claude APIクライアント, エージェントループ, tool呼び出しの仲介）, `src/renderer/components/`（チャットUI、設定画面でのAPIキー入力・モデル選択）, `package.json`（Anthropic SDK追加）。
+- 禁止事項: hanamask独自のAIロジック・モデルは持たない（BYO Agent方針、`docs/REQUIREMENTS.md` §1, §9）。既存のClaude Codeセッションとの直接連携は行わない（§9で明示的にスコープ外）。使用量集計・上限設定等の課金管理機能は持たない。
+- テスト: APIキーが平文でDB・設定ファイルに保存されないことのテスト（`safeStorage`経由の暗号化を確認）。Claude APIクライアントはモックし、実APIキー無しでテストが通ることを担保する（グローバル規約の「外部APIはモックする」に従う）。tool use経由でMCPツールが正しく呼び出されることの結合テスト。
+- 停止条件: Anthropic SDK（`@anthropic-ai/sdk`）の追加は`docs/GOVERNANCE.md` §6の依存関係追加に該当するため管理者に確認する。APIキーの`safeStorage`実装は秘密情報の取り扱いに直結するため、実装方針（保存先ファイルパス・暗号化失敗時のフォールバック挙動）を管理者にレビューしてもらってから本実装に入る。
+
+### T13: 配布パッケージング（Windowsインストーラー）
+
+- ステータス: 未着手（依存: 主要機能タスクの完了後が望ましい）
+- 目的: `docs/REQUIREMENTS.md` §5。`electron-builder`でWindows向けインストーラー（.exe）を作成できるようにする。
+- 変更範囲: `package.json`（`electron-builder`設定）, ビルドスクリプト。
+- 禁止事項: 自動更新機構は`docs/REQUIREMENTS.md`で初期スコープ外と明記されているため実装しない。macOS/Linux向けパッケージングも対応OS優先順位（Windows優先）に従い、このタスクでは行わない。
+- テスト: `.claude/skills/e2e-runner/SKILL.md`に従い、実際にビルドしたインストーラーからのインストール・起動を手動確認する（自動テスト化は困難なため手動検証を基本とする）。
+- 停止条件: リリース・タグ付け・公開リポジトリへのpushは`docs/GOVERNANCE.md` §6により管理者の承認が必要。ビルド設定の作成まではここで進めてよいが、実際のリリース物公開は別途確認する。
+
+### T14: READMEの hanamask 向け更新
+
+- ステータス: 未着手
+- 目的: `docs/REQUIREMENTS.md` §0。`README.md`に残る旧work-manager向けの記述をhanamask向けに書き換える。
+- 変更範囲: `README.md`のみ。
+- 禁止事項: `docs/`配下の内容変更はこのタスクに含めない（README単体の更新）。
+- テスト: 該当なし（ドキュメントのみ）。記載したセットアップ手順（`npm install`/`npm run dev`等）が実際に通ることを確認する。
+- 停止条件: 特になし。他タスクの完了によって記述すべき内容が変わるため、主要機能タスク（T03〜T12）が一巡した後に着手するのが望ましい。

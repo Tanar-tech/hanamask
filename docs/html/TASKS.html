@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hanamask タスク一覧</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../TASKS.md">docs/TASKS.md</a></p>
+
+<h1>hanamask タスク一覧</h1>
+
+<p><code>docs/REQUIREMENTS.md</code>（確定済み要求定義）を実装単位に分解したバックログ。各タスクは概ね1本の <code>SPEC.md</code>（skill「feature-spec」）に相当する粒度で、Parallel Subagent Framework（<code>CLAUDE.md</code>）のPhase 1〜5フローに1つずつ投入することを想定する。</p>
+
+<p>本ファイルの整備・更新手順は skill「task-breakdown」に従う。要求定義（<code>docs/REQUIREMENTS.md</code>）が変更されたとき、または既存タスクの完了・スコープ変更があったときは、このskillを使って本ファイルを更新する。</p>
+
+<h2 id="how-to-read">読み方</h2>
+<p>各タスクは以下5項目を明文化する。</p>
+<table>
+<thead><tr><th>項目</th><th>内容</th></tr></thead>
+<tbody>
+<tr><td>目的</td><td>このタスクが無いと何ができないか。<code>docs/REQUIREMENTS.md</code>の該当節を根拠として引く。</td></tr>
+<tr><td>変更範囲</td><td>触ってよい層・ディレクトリの見積もり（ファイル単位の確定はタスク着手時の<code>SPEC.md</code> Part 2で行う）。他タスクとの並列実行時に競合しないかの目安。</td></tr>
+<tr><td>禁止事項</td><td>このタスクではやらないこと。スコープ拡張・後続タスクの先取りを防ぐ。</td></tr>
+<tr><td>テスト</td><td><code>docs/TESTING.md</code>（単体テスト方針）・<code>.claude/skills/e2e-runner/SKILL.md</code>（GUI/E2E検証）に基づき、このタスクで最低限満たすべきテスト。</td></tr>
+<tr><td>停止条件</td><td>管理者に確認せず自律的に進めてよい範囲の境界。<code>docs/GOVERNANCE.md</code> §6（管理者承認が必要な操作）に該当する事態、<code>docs/REQUIREMENTS.md</code> §8の未決定事項に触れる場合、自己修正3回超過などはここで止める。</td></tr>
+</tbody>
+</table>
+<p>ステータス: <code>未着手</code> / <code>進行中</code> / <code>完了</code>。依存関係がある場合は「依存」に前提タスクIDを記す。</p>
+
+<h2 id="foundation">基盤・プロセス（要求定義そのものではなく開発基盤の整備）</h2>
+
+<h3 id="t00">T00: 基盤(1) ノート機能の垂直スライス</h3>
+<ul>
+<li>ステータス: 完了（PR #5, <code>SPEC.md</code>）</li>
+<li>目的: MCP経由の操作がデスクトップUIにリアルタイム反映される、というhanamaskの中核メカニズム（§1, §4.6）が成立することの技術検証。</li>
+<li>変更範囲: <code>src/main/</code>, <code>src/preload/</code>, <code>src/renderer/</code>, <code>src/shared/</code>, ビルド設定一式。</li>
+<li>実績: <code>create_note</code>/<code>get_note</code>/<code>search_notes</code>、ノート一覧UI、IPCによる自動反映、SQLite永続化。</li>
+</ul>
+
+<h3 id="t01">T01: テストケース作成方針の整備</h3>
+<ul>
+<li>ステータス: レビュー待ち（PR #7, <code>docs/TESTING.md</code>）</li>
+<li>目的: 単体テストの書き方（ディレクトリ構成・I/O境界の扱い）を明文化し、以降のタスクで揺れなく踏襲できるようにする。</li>
+<li>変更範囲: <code>docs/TESTING.md</code>, <code>docs/GOVERNANCE.md</code>, <code>docs/html/</code>。</li>
+<li>テスト: 該当なし（ドキュメントのみ）。</li>
+</ul>
+
+<h3 id="t02">T02: GUI/E2E検証ハーネスの整備</h3>
+<ul>
+<li>ステータス: レビュー待ち（PR #8, <code>tests/e2e/</code>, <code>.claude/skills/e2e-runner/SKILL.md</code>）</li>
+<li>目的: MCP経由の操作がデスクトップUIに実際に反映されることを、Electronアプリを本当に起動して自動検証できるようにする。</li>
+<li>変更範囲: <code>tests/e2e/</code>, <code>vitest.e2e.config.ts</code>, <code>.claude/skills/e2e-runner/SKILL.md</code>, <code>src/main/index.ts</code>（テスト用DBパス上書き）, <code>tsconfig.preload.json</code>。</li>
+<li>実績: 副産物としてpreloadスクリプトのCommonJSコンパイル不備（画面が真っ白になる実害バグ）を発見・修正済み。</li>
+</ul>
+
+<h2 id="features">機能タスク（<code>docs/REQUIREMENTS.md</code> 由来）</h2>
+
+<h3 id="t03">T03: ノートの更新・ソフトデリート・復元</h3>
+<ul>
+<li>ステータス: 未着手（依存: T00）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.1, §4.7, §7.1。現状<code>create_note</code>/<code>get_note</code>/<code>search_notes</code>しか無く、ノートを直せない・消せない。<code>update_note</code>/<code>delete_note</code>/<code>restore_note</code>を追加し、破壊的操作へのガードレール（ソフトデリート・<code>confirm: true</code>必須）を実装する。</li>
+<li>変更範囲: <code>src/main/db/notes-repo.ts</code>（update/soft-delete/restore関数）, <code>src/main/mcp/tools.ts</code>（3ツール追加）, <code>src/renderer/components/</code>（編集・削除UI）。DBスキーマに<code>deleted_at</code>カラム追加（マイグレーション相当の対応が必要、既存<code>schema.sql</code>を直接更新でよいか要確認）。</li>
+<li>禁止事項: 編集履歴（NoteVersion、T04）・30日パージバッチ（T10）はこのタスクでは実装しない（<code>delete_note</code>が<code>deleted_at</code>を立てるところまでで、自動パージは別タスク）。物理削除は一切実装しない。</li>
+<li>テスト: <code>notes-repo</code>のupdate/soft-delete/restoreの単体テスト（<code>tests/main/db/</code>）、<code>confirm: true</code>省略時にエラーを返すことのMCPツールテスト（<code>tests/main/mcp/</code>）、ソフトデリート後は<code>search_notes</code>のデフォルト結果に出ないことのテスト。<code>tests/e2e/</code>に削除→復元のシナリオを追加。</li>
+<li>停止条件: <code>deleted_at</code>カラム追加に伴うDBスキーマ変更方式（既存<code>schema.sql</code>直接改変か、マイグレーション機構を新設するか）は既存資産（3件のみ、開発中）への影響が小さいうちに管理者へ一度方針確認する。</li>
+</ul>
+
+<h3 id="t04">T04: ノート編集履歴（バージョニング）</h3>
+<ul>
+<li>ステータス: 未着手（依存: T03）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.7, §6, §7.1。<code>update_note</code>実行直前の内容をスナップショットし、<code>list_note_versions</code>/<code>restore_note_version</code>で辿れるようにする。</li>
+<li>変更範囲: <code>src/main/db/</code>（<code>NoteVersion</code>テーブル・リポジトリ関数）, <code>src/main/mcp/tools.ts</code>（2ツール追加）, <code>src/renderer/components/</code>（履歴表示UI）。</li>
+<li>禁止事項: バージョン数の上限・自動間引きは<code>docs/REQUIREMENTS.md</code>に規定が無いため実装しない（無制限保存のまま。上限が必要になったら別タスクで管理者に提案する）。</li>
+<li>テスト: <code>update_note</code>呼び出しごとにスナップショットが1件増えることの単体テスト、<code>restore_note_version</code>で本文が過去バージョンに戻ることのテスト（戻す操作自体もスナップショットを積むか、<code>docs/REQUIREMENTS.md</code>に明記が無いため実装前に停止条件で確認）。</li>
+<li>停止条件: 「過去バージョンへの復元」がさらに新しいバージョンとして積まれるか、単純上書きかは要求定義に記載が無いため、実装前に管理者へ確認する。</li>
+</ul>
+
+<h3 id="t05">T05: タスク管理（CRUD・ステータス・ソフトデリート）</h3>
+<ul>
+<li>ステータス: 未着手（依存: T00, T03のソフトデリートパターンを踏襲）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.3, §7.1。<code>create_task</code>/<code>update_task</code>/<code>list_tasks</code>/<code>delete_task</code>/<code>restore_task</code>とタスク一覧・詳細/編集UI（リスト表示）を実装する。ノート機能で確立したMCPツール・ソフトデリート・リアルタイム反映のパターンを横展開する。</li>
+<li>変更範囲: <code>src/main/db/tasks-repo.ts</code>（新規）, <code>src/main/mcp/tools.ts</code>（5ツール追加）, <code>src/renderer/components/</code>（タスク一覧・詳細/編集UI）, <code>src/main/index.ts</code>（<code>tasks:list</code>等のIPCチャンネル追加）。</li>
+<li>禁止事項: カンバン表示（ドラッグ&ドロップ、T08）・リンク機能（T06）はこのタスクに含めない。リスト表示のみ。</li>
+<li>テスト: <code>tasks-repo</code>のCRUD・ステータス遷移・ソフトデリートの単体テスト、<code>confirm: true</code>必須のMCPツールテスト、タスク作成→UI自動反映のE2Eシナリオ（<code>tests/e2e/</code>に<code>task-flow.spec.ts</code>を追加）。</li>
+<li>停止条件: 特になし（T00/T03で確立したパターンの横展開のため、想定外の設計判断が必要になった場合のみ確認）。</li>
+</ul>
+
+<h3 id="t06">T06: リンク機能（ノート-タスク、ノート-ノート、タスク-タスク）</h3>
+<ul>
+<li>ステータス: 未着手（依存: T03, T05）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §3-8（相互リンクの探索）, §4.2, §4.3, §7.1。<code>link_entities</code>/<code>unlink_entities</code>/<code>list_links</code>と、ノート/タスク詳細画面でのリンク表示・作成UIを実装する。</li>
+<li>変更範囲: <code>src/main/db/links-repo.ts</code>（新規）, <code>src/main/mcp/tools.ts</code>（3ツール追加）, <code>src/renderer/components/</code>（リンク表示・作成UI、ノート/タスク詳細画面への組み込み）。</li>
+<li>禁止事項: リンクの種類（参照/依存等の意味づけ）は<code>docs/REQUIREMENTS.md</code>に規定が無いため、単純な相互参照のみ実装する（意味づけの拡張は行わない）。</li>
+<li>テスト: <code>links-repo</code>の作成・解除・一覧取得の単体テスト、双方向に取得できること（<code>from</code>側・<code>to</code>側どちらからでも<code>list_links</code>で見えること）のテスト。</li>
+<li>停止条件: 特になし。</li>
+</ul>
+
+<h3 id="t07">T07: Mermaid図のレンダリング表示</h3>
+<ul>
+<li>ステータス: 未着手（依存: T00）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.4。ノート本文中の <code>```mermaid</code> コードフェンスをデスクトップUIでレンダリング表示する（データモデル上は独立エンティティを持たず、既存の<code>body</code>フィールドのMarkdown内に既に保存可能）。</li>
+<li>変更範囲: <code>src/renderer/components/</code>（ノート詳細/編集画面へのMermaidレンダラー組み込み）, <code>package.json</code>（レンダリングライブラリの追加要否を検討）。</li>
+<li>禁止事項: フリーハンド図（Excalidraw等）は対象外（<code>docs/REQUIREMENTS.md</code> §9で明示的にスコープ外）。図の編集用GUI（ドラッグでノードを動かす等）は作らない。テキスト編集のみ。</li>
+<li>テスト: Mermaidコードフェンスを含むノート本文が正しくレンダリングされることのコンポーネントテスト（<code>tests/renderer/</code>）。構文エラーのあるMermaidコードでもUIがクラッシュしないことのテスト。</li>
+<li>停止条件: レンダリングライブラリの新規追加（<code>docs/GOVERNANCE.md</code> §6「依存関係の大幅な追加」に該当しうる）は、選定理由（バンドルサイズ・オフライン動作可否）を添えて管理者に確認してから追加する。<code>docs/html/</code>のMermaid運用（CDN読み込み、<code>docs-html-sync</code> skill）はドキュメント閲覧専用でありElectronアプリ本体には流用しない方針である点に注意。</li>
+</ul>
+
+<h3 id="t08">T08: タスクのカンバン表示</h3>
+<ul>
+<li>ステータス: 未着手（依存: T05）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.3（リスト表示とカンバン表示の両方が初期スコープ）。ステータス別の列にドラッグ&ドロップでタスクを移動できるUIを追加する。</li>
+<li>変更範囲: <code>src/renderer/components/</code>（カンバンビュー新規コンポーネント）。既存のリスト表示・タスクMCPツール（T05）には手を入れない（表示切替のみ）。</li>
+<li>禁止事項: カンバンの列構成（ステータス以外の軸での分類等）はスコープ外。<code>docs/REQUIREMENTS.md</code>が定める<code>todo</code>/<code>in_progress</code>/<code>done</code>の3列のみ。</li>
+<li>テスト: ドラッグ&ドロップでステータスが更新され、<code>update_task</code>が呼ばれることのコンポーネントテスト。</li>
+<li>停止条件: 特になし。</li>
+</ul>
+
+<h3 id="t09">T09: 画像添付</h3>
+<ul>
+<li>ステータス: 未着手（依存: T00, T03）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.5, §5, §6, §7.1。ファイル選択/クリップボード貼り付けによる画像添付、<code>attach_image</code>ツール、プレビュー表示を実装する。画像はローカルファイルシステム（アプリのデータディレクトリ配下）に保存し、DBには<code>file_path</code>のみ持つ。</li>
+<li>変更範囲: <code>src/main/db/images-repo.ts</code>（新規）, <code>src/main/mcp/tools.ts</code>（<code>attach_image</code>追加）, <code>src/main/index.ts</code>（画像ファイルの保存先ディレクトリ管理）, <code>src/renderer/components/</code>（添付UI・プレビュー表示）。</li>
+<li>禁止事項: OCR等の画像内テキスト検索対象化は<code>docs/REQUIREMENTS.md</code> §9で明示的にスコープ外。</li>
+<li>テスト: 画像ファイルがデータディレクトリ配下に保存され、<code>file_path</code>がDBに記録されることの単体テスト。不正な形式のファイルを渡した場合のエラーハンドリングのテスト。</li>
+<li>停止条件: 対応画像形式・サイズ上限は<code>docs/REQUIREMENTS.md</code>に規定が無いため、実装前に管理者へ確認する。</li>
+</ul>
+
+<h3 id="t10">T10: 30日パージバッチ</h3>
+<ul>
+<li>ステータス: 未着手（依存: T03, T05）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.7。ソフトデリートから30日経過したノート・タスクを、アプリ起動時のバッチ処理で完全削除する。</li>
+<li>変更範囲: <code>src/main/db/</code>（パージ関数）, <code>src/main/index.ts</code>（起動時フックへの組み込み）。</li>
+<li>禁止事項: 手動トリガー（UIからの「今すぐ完全削除」ボタン等）は<code>docs/REQUIREMENTS.md</code>に規定が無いため実装しない。起動時の自動実行のみ。</li>
+<li>テスト: <code>deleted_at</code>が30日以上前のレコードのみパージされ、30日未満のレコードは残ることの単体テスト（日時はテスト側で固定値を注入し、暗黙の現在時刻に依存させない。<code>docs/TESTING.md</code>のDesigning for testability方針に従う）。</li>
+<li>停止条件: 特になし。</li>
+</ul>
+
+<h3 id="t11">T11: UI連携ツール（open_app/open_note/open_task/open_search）</h3>
+<ul>
+<li>ステータス: 未着手（依存: T03, T05, T06）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.1, §7.2。AIエージェントがMCP経由でデスクトップUIの起動・画面遷移を行えるようにする。</li>
+<li>変更範囲: <code>src/main/mcp/tools.ts</code>（4ツール追加）, <code>src/main/index.ts</code>（ウィンドウ制御・画面遷移のIPC）, <code>src/renderer/</code>（ルーティング機構が未整備の場合は導入を検討）。</li>
+<li>禁止事項: このタスクで新しい画面は作らない（既存のノート/タスク詳細・検索結果画面への遷移のみ）。</li>
+<li>テスト: 各ツール呼び出しでウィンドウが起動/前面化し、指定した画面に遷移することのE2Eシナリオ（<code>tests/e2e/</code>）。</li>
+<li>停止条件: レンダラー側にルーティング機構（React Router等）が無い場合、新規導入は<code>docs/GOVERNANCE.md</code> §6の依存関係追加に該当しうるため管理者に確認する。</li>
+</ul>
+
+<h3 id="t12">T12: AIチャットパネル（BYO Agent）</h3>
+<ul>
+<li>ステータス: 未着手（依存: T00〜T11のMCPツール一式が出揃っていることが望ましい。最低限T03/T05までで着手は可能）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.6, §1。利用者が自身のAnthropic APIキーを設定し、hanamask内蔵の簡易エージェントループ経由でClaude API（Messages API, tool use）を呼び出し、§7のMCPツール群を使ってノート/タスクを操作できるチャットUIを実装する。</li>
+<li>変更範囲: <code>src/main/</code>（APIキーの<code>safeStorage</code>暗号化保存, Claude APIクライアント, エージェントループ, tool呼び出しの仲介）, <code>src/renderer/components/</code>（チャットUI、設定画面でのAPIキー入力・モデル選択）, <code>package.json</code>（Anthropic SDK追加）。</li>
+<li>禁止事項: hanamask独自のAIロジック・モデルは持たない（BYO Agent方針、<code>docs/REQUIREMENTS.md</code> §1, §9）。既存のClaude Codeセッションとの直接連携は行わない（§9で明示的にスコープ外）。使用量集計・上限設定等の課金管理機能は持たない。</li>
+<li>テスト: APIキーが平文でDB・設定ファイルに保存されないことのテスト（<code>safeStorage</code>経由の暗号化を確認）。Claude APIクライアントはモックし、実APIキー無しでテストが通ることを担保する（グローバル規約の「外部APIはモックする」に従う）。tool use経由でMCPツールが正しく呼び出されることの結合テスト。</li>
+<li>停止条件: Anthropic SDK（<code>@anthropic-ai/sdk</code>）の追加は<code>docs/GOVERNANCE.md</code> §6の依存関係追加に該当するため管理者に確認する。APIキーの<code>safeStorage</code>実装は秘密情報の取り扱いに直結するため、実装方針（保存先ファイルパス・暗号化失敗時のフォールバック挙動）を管理者にレビューしてもらってから本実装に入る。</li>
+</ul>
+
+<h3 id="t13">T13: 配布パッケージング（Windowsインストーラー）</h3>
+<ul>
+<li>ステータス: 未着手（依存: 主要機能タスクの完了後が望ましい）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §5。<code>electron-builder</code>でWindows向けインストーラー（.exe）を作成できるようにする。</li>
+<li>変更範囲: <code>package.json</code>（<code>electron-builder</code>設定）, ビルドスクリプト。</li>
+<li>禁止事項: 自動更新機構は<code>docs/REQUIREMENTS.md</code>で初期スコープ外と明記されているため実装しない。macOS/Linux向けパッケージングも対応OS優先順位（Windows優先）に従い、このタスクでは行わない。</li>
+<li>テスト: <code>.claude/skills/e2e-runner/SKILL.md</code>に従い、実際にビルドしたインストーラーからのインストール・起動を手動確認する（自動テスト化は困難なため手動検証を基本とする）。</li>
+<li>停止条件: リリース・タグ付け・公開リポジトリへのpushは<code>docs/GOVERNANCE.md</code> §6により管理者の承認が必要。ビルド設定の作成まではここで進めてよいが、実際のリリース物公開は別途確認する。</li>
+</ul>
+
+<h3 id="t14">T14: READMEの hanamask 向け更新</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §0。<code>README.md</code>に残る旧work-manager向けの記述をhanamask向けに書き換える。</li>
+<li>変更範囲: <code>README.md</code>のみ。</li>
+<li>禁止事項: <code>docs/</code>配下の内容変更はこのタスクに含めない（README単体の更新）。</li>
+<li>テスト: 該当なし（ドキュメントのみ）。記載したセットアップ手順（<code>npm install</code>/<code>npm run dev</code>等）が実際に通ることを確認する。</li>
+<li>停止条件: 特になし。他タスクの完了によって記述すべき内容が変わるため、主要機能タスク（T03〜T12）が一巡した後に着手するのが望ましい。</li>
+</ul>
+
+</main>
+</body>
+</html>
