@@ -14,6 +14,15 @@ export interface NoteInput {
   tags: string[];
 }
 
+export interface NoteVersion {
+  id: string;
+  noteId: string;
+  title: string;
+  body: string;
+  tags: string[];
+  createdAt: string;
+}
+
 export type TaskStatus = "todo" | "in_progress" | "done";
 
 export interface Task {

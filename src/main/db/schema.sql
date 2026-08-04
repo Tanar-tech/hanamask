@@ -8,6 +8,17 @@ CREATE TABLE IF NOT EXISTS notes (
   updated_at TEXT NOT NULL
 );
 
+-- Snapshot of a note's content taken immediately before each update. Rows are never
+-- updated or trimmed, so the table doubles as the note's edit history.
+CREATE TABLE IF NOT EXISTS note_versions (
+  id TEXT PRIMARY KEY,
+  note_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  tags TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,

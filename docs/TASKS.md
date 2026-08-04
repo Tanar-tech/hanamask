@@ -80,13 +80,14 @@
 
 ### T04: ノート編集履歴（バージョニング）
 
-- ステータス: 未着手
+- ステータス: 進行中（バックエンド完了。管理者判断: 復元操作自体も新バージョンとして積む方式で実装した。履歴表示UIは`src/renderer/components/`の詳細画面連携が未着手のため残す）
 - 依存: 必須: T03（更新前スナップショットを撮るには`update_note`が存在する必要がある）
 - 目的: `docs/REQUIREMENTS.md` §4.7, §6, §7.1。`update_note`実行直前の内容をスナップショットし、`list_note_versions`/`restore_note_version`で辿れるようにする。
 - 変更範囲: `src/main/db/`（`NoteVersion`テーブル・リポジトリ関数）, `src/main/mcp/tools.ts`（2ツール追加）, `src/renderer/components/`（履歴表示UI）。
 - 禁止事項: バージョン数の上限・自動間引きは`docs/REQUIREMENTS.md`に規定が無いため実装しない（無制限保存のまま。上限が必要になったら別タスクで管理者に提案する）。
 - テスト: `update_note`呼び出しごとにスナップショットが1件増えることの単体テスト、`restore_note_version`で本文が過去バージョンに戻ることのテスト（戻す操作自体もスナップショットを積むか、`docs/REQUIREMENTS.md`に明記が無いため実装前に停止条件で確認）。
-- 停止条件: 「過去バージョンへの復元」がさらに新しいバージョンとして積まれるか、単純上書きかは要求定義に記載が無いため、実装前に管理者へ確認する。
+- 停止条件: 「過去バージョンへの復元」がさらに新しいバージョンとして積まれるか、単純上書きかは要求定義に記載が無いため、実装前に管理者へ確認する。→ 管理者確認済み（新バージョンとして積む方式）。
+- 実績: `notes-repo.ts`に`snapshotNote`（`updateNote`冒頭で自動実行）・`listNoteVersions`・`restoreNoteVersion`（内部で`updateNote`を呼ぶことで復元自体も履歴に積む）を追加。`tools.ts`に`list_note_versions`/`restore_note_version`を追加。単体テスト10件+MCPツール5件を追加。`implementer`が実装、`reviewer`・`verifier`とも指摘なし（`restoreNoteVersion`経由の一連の流れを実データで確認済み）。履歴表示UIはT03/T06と同様、ノート詳細画面への組み込みが必要なため別タスクで対応する。
 
 ### T05: タスク管理（CRUD・ステータス・ソフトデリート）
 
