@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS tasks (
   updated_at TEXT NOT NULL
 );
 
+-- No foreign keys to notes/tasks: a link's endpoints can be either entity type,
+-- so a single FK column can't target both tables. Orphaned links (endpoint
+-- deleted) are tolerated for now; docs/REQUIREMENTS.md doesn't require
+-- referential integrity here, and cleanup can be added later if it matters.
 CREATE TABLE IF NOT EXISTS links (
   id TEXT PRIMARY KEY,
   from_type TEXT NOT NULL,

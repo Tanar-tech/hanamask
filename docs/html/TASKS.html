@@ -134,13 +134,14 @@ flowchart LR
 
 <h3 id="t06">T06: リンク機能（ノート-タスク、ノート-ノート、タスク-タスク）</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 進行中（バックエンド完了。ノート/タスク詳細画面が未実装のため、リンク表示・作成UIは組み込み先が無く未着手のまま残す）</li>
 <li>依存: 必須: T03, T05（リンク対象となるノート/タスクの更新・詳細画面が無いとリンク表示・作成UIを組み込む先が無い）</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §3-8（相互リンクの探索）, §4.2, §4.3, §7.1。<code>link_entities</code>/<code>unlink_entities</code>/<code>list_links</code>と、ノート/タスク詳細画面でのリンク表示・作成UIを実装する。</li>
 <li>変更範囲: <code>src/main/db/links-repo.ts</code>（新規）, <code>src/main/mcp/tools.ts</code>（3ツール追加）, <code>src/renderer/components/</code>（リンク表示・作成UI、ノート/タスク詳細画面への組み込み）。</li>
 <li>禁止事項: リンクの種類（参照/依存等の意味づけ）は<code>docs/REQUIREMENTS.md</code>に規定が無いため、単純な相互参照のみ実装する（意味づけの拡張は行わない）。</li>
 <li>テスト: <code>links-repo</code>の作成・解除・一覧取得の単体テスト、双方向に取得できること（<code>from</code>側・<code>to</code>側どちらからでも<code>list_links</code>で見えること）のテスト。</li>
 <li>停止条件: 特になし。</li>
+<li>実績: <code>links-repo.ts</code>（<code>createLink</code>/<code>deleteLink</code>（物理削除）/<code>listLinks</code>）、<code>tools.ts</code>に<code>link_entities</code>/<code>unlink_entities</code>/<code>list_links</code>を追加し<code>server.ts</code>で配線。外部キー制約は張っていない（<code>from</code>/<code>to</code>がnote/taskいずれも取りうるため単一FKで表現できず、参照整合性は要求定義にも規定が無いため今回は許容する判断とした。理由は<code>schema.sql</code>のコメントに明記）。単体テスト（<code>links-repo</code>9件・MCPツール12件）を追加。<code>implementer</code>が実装、<code>reviewer</code>がレビュー（Major指摘2件=本ドキュメント更新漏れとFK根拠コメント不足、いずれも本コミットで対応済み）、<code>verifier</code>がツールハンドラ直接呼び出しでlink_entities→list_links（from/to双方向）→unlink_entitiesの一連の流れを実データで確認済み。ノート/タスク詳細画面でのUI表示・作成は別途対応する。</li>
 </ul>
 
 <h3 id="t07">T07: Mermaid図のレンダリング表示</h3>
