@@ -31,12 +31,16 @@ const mockHanamask = (getTask: (id: string) => Promise<Task | null>) => {
     updateNote: vi.fn(async () => null),
     deleteNote: vi.fn(async () => {}),
     onNotesChanged: vi.fn(() => () => {}),
+    listNoteVersions: vi.fn(async () => []),
+    restoreNoteVersion: vi.fn(async () => null),
     listTasks: vi.fn(async () => []),
     getTask: getTaskMock,
     updateTaskStatus,
     onTasksChanged: vi.fn(() => () => {}),
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),
+    searchNotes: vi.fn(async () => []),
+    onNavigate: vi.fn(() => () => {}),
   };
   return { getTask: getTaskMock, updateTaskStatus };
 };
