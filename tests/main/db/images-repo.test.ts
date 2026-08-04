@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { randomUUID } from "node:crypto";
 import { closeDb, getDb, openDb } from "../../../src/main/db/db";
 import { createImage, listImages } from "../../../src/main/db/images-repo";
@@ -30,6 +31,18 @@ describe("images-repo", () => {
     expect(image.noteId).toBe("note-1");
     expect(image.filePath).toBe("/data/images/a.png");
     expect(image.mimeType).toBe("image/png");
+  });
+
+  it("レンダラーがそのまま使えるfile:// URLを付けて返す", () => {
+    const created = createImage({
+      noteId: "note-1",
+      filePath: join(tmpdir(), "images", "a b.png"),
+      mimeType: "image/png",
+    });
+
+    expect(created.fileUrl).toBe(pathToFileURL(created.filePath).href);
+    expect(created.fileUrl.startsWith("file:///")).toBe(true);
+    expect(listImages("note-1")[0]?.fileUrl).toBe(created.fileUrl);
   });
 
   it("接続を張り直しても画像レコードが永続化されている", () => {

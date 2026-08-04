@@ -54,6 +54,9 @@ export interface Image {
   id: string;
   noteId: string;
   filePath: string;
+  // Derived from filePath by the main process: only there is node:url available to turn a
+  // Windows backslash path into a valid file:// URL the renderer can put in an <img src>.
+  fileUrl: string;
   mimeType: string;
 }
 

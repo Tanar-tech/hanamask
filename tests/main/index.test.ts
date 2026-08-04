@@ -159,6 +159,7 @@ const sampleImage: Image = {
   id: "image-1",
   noteId: "note-1",
   filePath: "/tmp/hanamask-userdata/images/image-1.png",
+  fileUrl: "file:///tmp/hanamask-userdata/images/image-1.png",
   mimeType: "image/png",
 };
 

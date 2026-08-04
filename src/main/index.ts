@@ -1,13 +1,12 @@
 import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
-import { dirname, extname, join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
 import { purgeSoftDeletedRecords } from "./db/purge.js";
 import { getNote, searchNotes, softDeleteNote } from "./db/notes-repo.js";
 import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
-import { createImage, listImages } from "./db/images-repo.js";
+import { listImages } from "./db/images-repo.js";
+import { attachImage, setImagesDirPath } from "./images/attach-image.js";
 import type { Image, Note, Task, TaskStatus } from "../shared/preload-api.js";
 import {
   emitNotesChanged,
@@ -31,13 +30,6 @@ const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
 const IMAGES_LIST_CHANNEL = "images:list";
 const IMAGES_DIR_NAME = "images";
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const IMAGE_EXTENSION_BY_MIME_TYPE: Readonly<Record<string, string>> = {
-  "image/png": ".png",
-  "image/jpeg": ".jpg",
-  "image/gif": ".gif",
-  "image/webp": ".webp",
-};
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 // .cjs, not .js: Electron's sandboxed preload loader only executes CommonJS, and
@@ -77,45 +69,13 @@ const updateTaskStatus = (_event: IpcMainInvokeEvent, id: string, status: TaskSt
   if (updateTask(id, { status }) !== null) emitTasksChanged();
 };
 
-const resolveImagesDirPath = (): string => {
-  const dirPath = join(app.getPath("userData"), IMAGES_DIR_NAME);
-  if (!existsSync(dirPath)) mkdirSync(dirPath, { recursive: true });
-  return dirPath;
-};
-
-const resolveImageExtension = (fileName: string, mimeType: string): string => {
-  const fromFileName = extname(fileName);
-  return fromFileName === "" ? (IMAGE_EXTENSION_BY_MIME_TYPE[mimeType] ?? "") : fromFileName;
-};
-
-const decodeImageData = (dataBase64: string, mimeType: string): Buffer => {
-  if (!(mimeType in IMAGE_EXTENSION_BY_MIME_TYPE)) {
-    throw new Error(`Unsupported image type: ${mimeType}`);
-  }
-  const data = Buffer.from(dataBase64, "base64");
-  if (data.byteLength > MAX_IMAGE_BYTES) {
-    throw new Error(`Image exceeds the ${MAX_IMAGE_BYTES} byte limit: ${data.byteLength} bytes`);
-  }
-  return data;
-};
-
-// The picked file is copied under user data with a generated name so two attachments
-// sharing a file name cannot overwrite each other.
-const attachImage = (
+const attachImageToNote = (
   _event: IpcMainInvokeEvent,
   noteId: string,
   fileName: string,
   dataBase64: string,
   mimeType: string,
-): Image => {
-  const data = decodeImageData(dataBase64, mimeType);
-  const filePath = join(
-    resolveImagesDirPath(),
-    `${randomUUID()}${resolveImageExtension(fileName, mimeType)}`,
-  );
-  writeFileSync(filePath, data);
-  return createImage({ noteId, filePath, mimeType });
-};
+): Image => attachImage({ noteId, fileName, dataBase64, mimeType });
 
 const findImages = (_event: IpcMainInvokeEvent, noteId: string): Image[] => listImages(noteId);
 
@@ -151,6 +111,7 @@ const resolveDbFilePath = (): string => {
 
 const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
+  setImagesDirPath(join(app.getPath("userData"), IMAGES_DIR_NAME));
   purgeSoftDeletedRecords(new Date());
   createMainWindow();
   onNotesChanged(broadcastNotesChanged);
@@ -165,7 +126,7 @@ ipcMain.handle(NOTES_GET_CHANNEL, findNote);
 ipcMain.handle(TASKS_GET_CHANNEL, findTask);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
-ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImage);
+ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
 ipcMain.handle(IMAGES_LIST_CHANNEL, findImages);
 
 app.on("window-all-closed", () => {

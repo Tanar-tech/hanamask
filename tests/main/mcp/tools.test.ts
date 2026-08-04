@@ -192,6 +192,7 @@ describe("mcp note tools", () => {
 
   it("exposes update_note, delete_note and restore_note definitions", () => {
     expect(noteTools.map((tool) => tool.definition.name).sort()).toEqual([
+      "attach_image",
       "create_note",
       "delete_note",
       "get_note",

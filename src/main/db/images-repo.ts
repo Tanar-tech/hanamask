@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { pathToFileURL } from "node:url";
 import { getDb } from "./db.js";
 import type { Image } from "../../shared/preload-api.js";
 
@@ -24,6 +25,7 @@ const toImage = (row: ImageRow): Image => ({
   id: row.id,
   noteId: row.note_id,
   filePath: row.file_path,
+  fileUrl: pathToFileURL(row.file_path).href,
   mimeType: row.mime_type,
 });
 
@@ -34,7 +36,11 @@ export interface ImageInput {
 }
 
 export const createImage = (input: ImageInput): Image => {
-  const image: Image = { id: randomUUID(), ...input };
+  const image: Image = {
+    id: randomUUID(),
+    ...input,
+    fileUrl: pathToFileURL(input.filePath).href,
+  };
   getDb()
     .prepare("INSERT INTO images (id, note_id, file_path, mime_type) VALUES (?, ?, ?, ?)")
     .run(image.id, image.noteId, image.filePath, image.mimeType);

@@ -14,13 +14,17 @@ const makeNote = (overrides: Partial<Note> = {}): Note => ({
   ...overrides,
 });
 
-const makeImage = (overrides: Partial<Image> = {}): Image => ({
-  id: "image-1",
-  noteId: "note-1",
-  filePath: "/data/images/a.png",
-  mimeType: "image/png",
-  ...overrides,
-});
+const makeImage = (overrides: Partial<Image> = {}): Image => {
+  const filePath = overrides.filePath ?? "/data/images/a.png";
+  return {
+    id: "image-1",
+    noteId: "note-1",
+    mimeType: "image/png",
+    fileUrl: `file://${filePath}`,
+    ...overrides,
+    filePath,
+  };
+};
 
 interface ImageApiOverrides {
   listImages?: (noteId: string) => Promise<Image[]>;
@@ -59,6 +63,17 @@ const selectFile = async (file: File): Promise<void> => {
   await act(async () => {
     fireEvent.change(input, { target: { files: [file] } });
   });
+};
+
+// 貼り付けはフォーカス可能な要素が無くても届く必要があるため、documentに対して発火させる。
+const pasteItems = async (items: readonly Partial<DataTransferItem>[]): Promise<void> => {
+  await act(async () => {
+    fireEvent.paste(document, { clipboardData: { items } });
+  });
+};
+
+const pasteFile = async (file: File): Promise<void> => {
+  await pasteItems([{ kind: "file", type: file.type, getAsFile: () => file }]);
 };
 
 afterEach(() => {
@@ -212,6 +227,73 @@ describe("NoteDetail", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("application/pdf");
     // 添付の失敗はノート本体の表示を壊さない。
     expect(screen.getByText("設計メモ")).toBeTruthy();
+  });
+
+  it("プレビューのsrcにはmainプロセスが返したfileUrlをそのまま使う", async () => {
+    // Windowsのバックスラッシュ区切りパスはレンダラー側で文字列連結してはURLにならない。
+    mockHanamask(async () => makeNote(), {
+      listImages: async () => [
+        makeImage({ filePath: "C:\\Users\\me\\images\\a.png", fileUrl: "file:///C:/Users/me/images/a.png" }),
+      ],
+    });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    await waitFor(() => {
+      expect(screen.getByRole("img").getAttribute("src")).toBe("file:///C:/Users/me/images/a.png");
+    });
+  });
+
+  it("クリップボードの画像を貼り付けるとattachImageを呼び一覧に反映する", async () => {
+    const attached = makeImage({ id: "image-9", filePath: "/data/images/pasted.png" });
+    let stored: Image[] = [];
+    const { attachImage } = mockHanamask(async () => makeNote(), {
+      listImages: async () => stored,
+      attachImage: async () => {
+        stored = [attached];
+        return attached;
+      },
+    });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    await pasteFile(new File(["hello"], "clipboard.png", { type: "image/png" }));
+
+    await waitFor(() => {
+      expect(attachImage).toHaveBeenCalledWith("note-1", "clipboard.png", "aGVsbG8=", "image/png");
+    });
+    await waitFor(() => {
+      expect(screen.getAllByRole("img")).toHaveLength(1);
+    });
+    expect(screen.getByRole("img").getAttribute("src")).toBe("file:///data/images/pasted.png");
+  });
+
+  it("画像以外の貼り付けでは添付しない", async () => {
+    const { attachImage } = mockHanamask(async () => makeNote());
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    await pasteItems([{ kind: "string", type: "text/plain", getAsFile: () => null }]);
+
+    expect(attachImage).not.toHaveBeenCalled();
+  });
+
+  it("貼り付けが失敗したらエラーメッセージを表示する", async () => {
+    mockHanamask(async () => makeNote(), {
+      attachImage: async () => {
+        throw new Error("Unsupported image type: image/bmp");
+      },
+    });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    await pasteFile(new File(["hello"], "clipboard.bmp", { type: "image/bmp" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain("image/bmp");
   });
 
   it("noteIdが変わったら新しいノートを取得し直す", async () => {

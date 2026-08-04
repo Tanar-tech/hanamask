@@ -8,6 +8,7 @@ const stubImage: Image = {
   id: "image-1",
   noteId: "note-1",
   filePath: "/data/images/a.png",
+  fileUrl: "file:///data/images/a.png",
   mimeType: "image/png",
 };
 

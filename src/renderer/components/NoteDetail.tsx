@@ -11,8 +11,6 @@ const ATTACH_LABEL = "画像を添付";
 const ACCEPTED_IMAGE_TYPES = "image/png,image/jpeg,image/gif,image/webp";
 const PREVIEW_MAX_WIDTH_PX = 320;
 
-const toFileUrl = (filePath: string): string => `file://${filePath}`;
-
 // readAsDataURL yields "data:<mime>;base64,<payload>"; the IPC contract takes the payload alone.
 const readFileAsBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -30,6 +28,12 @@ const readFileAsBase64 = (file: File): Promise<string> =>
     };
     reader.readAsDataURL(file);
   });
+
+const findImageFile = (clipboardData: DataTransfer | null): File | null => {
+  if (clipboardData === null) return null;
+  const imageItem = Array.from(clipboardData.items).find((item) => item.type.startsWith("image/"));
+  return imageItem?.getAsFile() ?? null;
+};
 
 export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => {
   const [note, setNote] = useState<Note | null>(null);
@@ -76,10 +80,8 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
     };
   }, [noteId]);
 
-  const handleFileSelected = (event: ChangeEvent<HTMLInputElement>): void => {
-    const file = event.target.files?.[0];
-    if (file === undefined) return;
-    const attach = async (): Promise<void> => {
+  const attachFile = useCallback(
+    async (file: File): Promise<void> => {
       try {
         setAttachError(null);
         const dataBase64 = await readFileAsBase64(file);
@@ -88,9 +90,30 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
       } catch (cause) {
         setAttachError(`画像の添付に失敗しました: ${String(cause)}`);
       }
-    };
-    void attach();
+    },
+    [noteId, reloadImages],
+  );
+
+  const handleFileSelected = (event: ChangeEvent<HTMLInputElement>): void => {
+    const file = event.target.files?.[0];
+    if (file === undefined) return;
+    void attachFile(file);
   };
+
+  // 詳細画面にはフォーカスを持つ要素が無く、貼り付けはdocumentにしか届かないため、
+  // 要素のonPasteではなくdocumentを購読する。
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent): void => {
+      const file = findImageFile(event.clipboardData);
+      if (file === null) return;
+      event.preventDefault();
+      void attachFile(file);
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => {
+      document.removeEventListener("paste", handlePaste);
+    };
+  }, [attachFile]);
 
   return (
     <article>
@@ -118,7 +141,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
             {images.map((image) => (
               <li key={image.id}>
                 <img
-                  src={toFileUrl(image.filePath)}
+                  src={image.fileUrl}
                   alt={ATTACH_LABEL}
                   style={{ maxWidth: PREVIEW_MAX_WIDTH_PX }}
                 />
