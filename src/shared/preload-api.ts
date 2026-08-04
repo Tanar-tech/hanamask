@@ -33,6 +33,7 @@ export interface TaskInput {
 
 export interface HanamaskPreloadApi {
   listNotes(): Promise<Note[]>;
+  deleteNote(id: string): Promise<void>;
   onNotesChanged(callback: () => void): () => void;
   listTasks(): Promise<Task[]>;
   onTasksChanged(callback: () => void): () => void;

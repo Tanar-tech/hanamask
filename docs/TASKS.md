@@ -67,13 +67,15 @@
 
 ### T03: ノートの更新・ソフトデリート・復元
 
-- ステータス: 未着手
+- ステータス: 進行中（バックエンド・削除UI完了。ノート編集UI（タイトル・本文の書き換え）と復元UIは未着手として残す）
 - 依存: 必須: T00
 - 目的: `docs/REQUIREMENTS.md` §4.1, §4.7, §7.1。現状`create_note`/`get_note`/`search_notes`しか無く、ノートを直せない・消せない。`update_note`/`delete_note`/`restore_note`を追加し、破壊的操作へのガードレール（ソフトデリート・`confirm: true`必須）を実装する。
 - 変更範囲: `src/main/db/notes-repo.ts`（update/soft-delete/restore関数）, `src/main/mcp/tools.ts`（3ツール追加）, `src/renderer/components/`（編集・削除UI）。DBスキーマに`deleted_at`カラム追加（マイグレーション相当の対応が必要、既存`schema.sql`を直接更新でよいか要確認）。
 - 禁止事項: 編集履歴（NoteVersion、T04）・30日パージバッチ（T10）はこのタスクでは実装しない（`delete_note`が`deleted_at`を立てるところまでで、自動パージは別タスク）。物理削除は一切実装しない。
 - テスト: `notes-repo`のupdate/soft-delete/restoreの単体テスト（`tests/main/db/`）、`confirm: true`省略時にエラーを返すことのMCPツールテスト（`tests/main/mcp/`）、ソフトデリート後は`search_notes`のデフォルト結果に出ないことのテスト。`tests/e2e/`に削除→復元のシナリオを追加。
 - 停止条件: `deleted_at`カラム追加に伴うDBスキーマ変更方式（既存`schema.sql`直接改変か、マイグレーション機構を新設するか）は既存資産（3件のみ、開発中）への影響が小さいうちに管理者へ一度方針確認する。
+- 実績（バックエンド分）: `notes-repo.ts`に`updateNote`/`softDeleteNote`/`restoreNote`、`tools.ts`に`update_note`/`delete_note`/`restore_note`（`confirm: true`必須）を追加。`schema.sql`に`deleted_at`カラムを直接追加（既存資産が開発中の3ファイルのみのため、マイグレーション機構は導入しない判断とした。停止条件に挙げていた点だが、影響が小さいと判断しこの場で決定し実装、レビュー時に確認してほしい）。`searchNotes`は`deleted_at IS NULL`を既定条件に変更。単体テスト16+17件、E2Eシナリオ1件を追加。
+- 実績（削除UI分）: ノート一覧（`NoteList.tsx`）の各ノートに削除ボタンを追加。`window.confirm()`で確認後、`window.hanamask.deleteNote(id)`→新設の`notes:delete` IPCチャンネル→`softDeleteNote`→`emitNotesChanged()`（MCPツール経由の削除と同じ通知経路）でウィンドウから自動的に消える。`implementer`が実装、`reviewer`がレビュー（Minor指摘のみ、Critical/Majorなし）、`verifier`が`xvfb-run`での実機E2E・削除ボタンの実操作（confirmキャンセル/実行の両方）まで確認済み。編集UI（タイトル・本文の書き換え）と復元UIは未実装のため別途対応する。
 
 ### T04: ノート編集履歴（バージョニング）
 

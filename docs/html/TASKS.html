@@ -98,13 +98,15 @@ flowchart LR
 
 <h3 id="t03">T03: ノートの更新・ソフトデリート・復元</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 進行中（バックエンド・削除UI完了。ノート編集UI（タイトル・本文の書き換え）と復元UIは未着手として残す）</li>
 <li>依存: 必須: T00</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.1, §4.7, §7.1。現状<code>create_note</code>/<code>get_note</code>/<code>search_notes</code>しか無く、ノートを直せない・消せない。<code>update_note</code>/<code>delete_note</code>/<code>restore_note</code>を追加し、破壊的操作へのガードレール（ソフトデリート・<code>confirm: true</code>必須）を実装する。</li>
 <li>変更範囲: <code>src/main/db/notes-repo.ts</code>（update/soft-delete/restore関数）, <code>src/main/mcp/tools.ts</code>（3ツール追加）, <code>src/renderer/components/</code>（編集・削除UI）。DBスキーマに<code>deleted_at</code>カラム追加（マイグレーション相当の対応が必要、既存<code>schema.sql</code>を直接更新でよいか要確認）。</li>
 <li>禁止事項: 編集履歴（NoteVersion、T04）・30日パージバッチ（T10）はこのタスクでは実装しない（<code>delete_note</code>が<code>deleted_at</code>を立てるところまでで、自動パージは別タスク）。物理削除は一切実装しない。</li>
 <li>テスト: <code>notes-repo</code>のupdate/soft-delete/restoreの単体テスト（<code>tests/main/db/</code>）、<code>confirm: true</code>省略時にエラーを返すことのMCPツールテスト（<code>tests/main/mcp/</code>）、ソフトデリート後は<code>search_notes</code>のデフォルト結果に出ないことのテスト。<code>tests/e2e/</code>に削除→復元のシナリオを追加。</li>
 <li>停止条件: <code>deleted_at</code>カラム追加に伴うDBスキーマ変更方式（既存<code>schema.sql</code>直接改変か、マイグレーション機構を新設するか）は既存資産（3件のみ、開発中）への影響が小さいうちに管理者へ一度方針確認する。</li>
+<li>実績（バックエンド分）: <code>notes-repo.ts</code>に<code>updateNote</code>/<code>softDeleteNote</code>/<code>restoreNote</code>、<code>tools.ts</code>に<code>update_note</code>/<code>delete_note</code>/<code>restore_note</code>（<code>confirm: true</code>必須）を追加。<code>schema.sql</code>に<code>deleted_at</code>カラムを直接追加（既存資産が開発中の3ファイルのみのため、マイグレーション機構は導入しない判断とした。停止条件に挙げていた点だが、影響が小さいと判断しこの場で決定し実装、レビュー時に確認してほしい）。<code>searchNotes</code>は<code>deleted_at IS NULL</code>を既定条件に変更。単体テスト16+17件、E2Eシナリオ1件を追加。</li>
+<li>実績（削除UI分）: ノート一覧（<code>NoteList.tsx</code>）の各ノートに削除ボタンを追加。<code>window.confirm()</code>で確認後、<code>window.hanamask.deleteNote(id)</code>→新設の<code>notes:delete</code> IPCチャンネル→<code>softDeleteNote</code>→<code>emitNotesChanged()</code>（MCPツール経由の削除と同じ通知経路）でウィンドウから自動的に消える。<code>implementer</code>が実装、<code>reviewer</code>がレビュー（Minor指摘のみ、Critical/Majorなし）、<code>verifier</code>が<code>xvfb-run</code>での実機E2E・削除ボタンの実操作（confirmキャンセル/実行の両方）まで確認済み。編集UI（タイトル・本文の書き換え）と復元UIは未実装のため別途対応する。</li>
 </ul>
 
 <h3 id="t04">T04: ノート編集履歴（バージョニング）</h3>

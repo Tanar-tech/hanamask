@@ -1,11 +1,11 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
-import { searchNotes } from "./db/notes-repo.js";
+import { searchNotes, softDeleteNote } from "./db/notes-repo.js";
 import { listTasks } from "./db/tasks-repo.js";
 import type { Note } from "../shared/preload-api.js";
-import { onNotesChanged, onTasksChanged } from "./mcp/change-emitter.js";
+import { emitNotesChanged, onNotesChanged, onTasksChanged } from "./mcp/change-emitter.js";
 import { startMcpServer } from "./mcp/server.js";
 
 const DB_FILE_NAME = "hanamask.sqlite3";
@@ -15,6 +15,7 @@ const NOTES_CHANGED_CHANNEL = "notes:changed";
 const NOTES_LIST_CHANNEL = "notes:list";
 const TASKS_CHANGED_CHANNEL = "tasks:changed";
 const TASKS_LIST_CHANNEL = "tasks:list";
+const NOTES_DELETE_CHANNEL = "notes:delete";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 // .cjs, not .js: Electron's sandboxed preload loader only executes CommonJS, and
@@ -39,6 +40,11 @@ export const broadcastTasksChanged = (): void => {
 };
 
 const listNotes = (): Note[] => searchNotes("");
+
+// MCPツール経由の削除と同じ通知経路を通すため、broadcastではなくemitNotesChangedを呼ぶ。
+const deleteNote = (_event: IpcMainInvokeEvent, id: string): void => {
+  if (softDeleteNote(id)) emitNotesChanged();
+};
 
 const createMainWindow = (): BrowserWindow => {
   const window = new BrowserWindow({
@@ -81,6 +87,7 @@ const start = async (): Promise<void> => {
 
 ipcMain.handle(NOTES_LIST_CHANNEL, listNotes);
 ipcMain.handle(TASKS_LIST_CHANNEL, () => listTasks());
+ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 
 app.on("window-all-closed", () => {
   app.quit();

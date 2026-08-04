@@ -1,5 +1,12 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
-import { createNote, getNote, searchNotes } from "../db/notes-repo.js";
+import {
+  createNote,
+  getNote,
+  restoreNote,
+  searchNotes,
+  softDeleteNote,
+  updateNote,
+} from "../db/notes-repo.js";
 import {
   createTask,
   listTasks,
@@ -65,6 +72,24 @@ const readTags = (args: Record<string, unknown>): string[] => {
   return value;
 };
 
+const readOptionalString = (args: Record<string, unknown>, key: string): string | undefined => {
+  const value = args[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") {
+    throw new Error(`"${key}" must be a string`);
+  }
+  return value;
+};
+
+const readOptionalTags = (args: Record<string, unknown>): string[] | undefined => {
+  const value = args.tags;
+  if (value === undefined) return undefined;
+  if (!isStringArray(value)) {
+    throw new Error('"tags" must be an array of strings');
+  }
+  return value;
+};
+
 const createNoteTool: NoteTool = {
   definition: {
     name: "create_note",
@@ -120,21 +145,100 @@ const searchNotesTool: NoteTool = {
   handler: toToolHandler((args) => jsonResult({ notes: searchNotes(readString(args, "query")) })),
 };
 
-export const noteTools: readonly NoteTool[] = [createNoteTool, getNoteTool, searchNotesTool];
+const updateNoteTool: NoteTool = {
+  definition: {
+    name: "update_note",
+    description: "Update a note's title, body and/or tags. Omitted fields are left unchanged.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Note id (uuid)" },
+        title: { type: "string", description: "New title" },
+        body: { type: "string", description: "New body in Markdown" },
+        tags: { type: "array", items: { type: "string" }, description: "New tags" },
+      },
+      required: ["id"],
+    },
+  },
+  handler: toToolHandler((args) => {
+    const id = readString(args, "id");
+    const note = updateNote(id, {
+      title: readOptionalString(args, "title"),
+      body: readOptionalString(args, "body"),
+      tags: readOptionalTags(args),
+    });
+    if (note === null) {
+      return errorResult(`Note not found: ${id}`);
+    }
+    emitNotesChanged();
+    return jsonResult({ note });
+  }),
+};
+
+const deleteNoteTool: NoteTool = {
+  definition: {
+    name: "delete_note",
+    description:
+      "Soft-delete a note (sets deletedAt; the note stops appearing in search and can be restored). Requires confirm: true.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Note id (uuid)" },
+        confirm: { type: "boolean", description: "Must be true to actually delete" },
+      },
+      required: ["id", "confirm"],
+    },
+  },
+  handler: toToolHandler((args) => {
+    const id = readString(args, "id");
+    if (args.confirm !== true) {
+      throw new Error('delete_note requires "confirm: true"');
+    }
+    const deleted = softDeleteNote(id);
+    if (!deleted) {
+      return errorResult(`Note not found or already deleted: ${id}`);
+    }
+    emitNotesChanged();
+    return jsonResult({ deleted: true });
+  }),
+};
+
+const restoreNoteTool: NoteTool = {
+  definition: {
+    name: "restore_note",
+    description: "Restore a soft-deleted note so it reappears in search.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Note id (uuid)" },
+      },
+      required: ["id"],
+    },
+  },
+  handler: toToolHandler((args) => {
+    const id = readString(args, "id");
+    const note = restoreNote(id);
+    if (note === null) {
+      return errorResult(`Note not found or not deleted: ${id}`);
+    }
+    emitNotesChanged();
+    return jsonResult({ note });
+  }),
+};
+
+export const noteTools: readonly NoteTool[] = [
+  createNoteTool,
+  getNoteTool,
+  searchNotesTool,
+  updateNoteTool,
+  deleteNoteTool,
+  restoreNoteTool,
+];
 
 export const findNoteTool = (name: string): NoteTool | undefined =>
   noteTools.find((tool) => tool.definition.name === name);
 
 const DEFAULT_TASK_STATUS: TaskStatus = "todo";
-
-const readOptionalString = (args: Record<string, unknown>, key: string): string | undefined => {
-  const value = args[key];
-  if (value === undefined) return undefined;
-  if (typeof value !== "string") {
-    throw new Error(`"${key}" must be a string`);
-  }
-  return value;
-};
 
 // due_date accepts null explicitly so a caller can clear an existing deadline.
 const readOptionalDueDate = (args: Record<string, unknown>): string | null | undefined => {
