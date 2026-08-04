@@ -2,21 +2,37 @@
 
 hanamask を Windows 向けインストーラー（`.exe`）としてビルドする手順と、`electron-builder.yml` の設定意図をまとめる。対象読者は管理者・開発管理者。要求定義上の位置づけは [REQUIREMENTS.md](REQUIREMENTS.md) §5（配布形態）、運用上の位置づけは [GOVERNANCE.md](GOVERNANCE.md) §3.1（デプロイ・配布）を参照。
 
-## 1. 前提: ビルドには Windows 実機が必要
+## 1. 前提: ビルドは Windows のツールチェーンで行う（WSL からでも可）
 
-**パッケージングは Windows 実機（またはWindows CI ランナー）で行う。Linux / WSL 上ではビルドを完走できない。**
+**パッケージングには Windows 側の Node.js と Visual Studio Build Tools（C++ ワークロード）が必要。WSL を使っている場合、WSL から Windows 側の `npm` を呼び出す形でビルドできる（Windows 実機に移動する必要はない）。**
 
-理由は `better-sqlite3` がネイティブアドオン（`.node`）であることによる。Linux から `electron-builder --win` を実行すると、Windows 向けバイナリを用意する段階で `node-gyp` が
+`better-sqlite3` がネイティブアドオン（`.node`）であることが制約の理由。以下は 2026-08-04 に実測した結果である。
 
-```
-node-gyp does not support cross-compiling native modules from source
-```
+| 実行環境 | 結果 |
+|---|---|
+| WSL(Linux) の Node で `electron-builder --win` | ❌ `node-gyp does not support cross-compiling native modules from source`。Linux → Windows のクロスコンパイルは `node-gyp` が非対応で、Linux 側での回避策はない |
+| Windows の Node（VS Build Tools なし） | ❌ `Could not find any Visual Studio installation to use` |
+| Windows の Node（VS Build Tools あり） | ✅ `.exe` の生成に成功 |
 
-で停止する。`better-sqlite3` のソースからのクロスコンパイル（Linux → Windows）は `node-gyp` がサポートしていないため、Linux 側での回避策はない。開発・テスト（`npm run dev` / `npm test`）は WSL 上でも可能だが、インストーラー生成だけは Windows 実機で行うこと。
+補足:
+
+- `npm ci --ignore-scripts` でソースコンパイルを回避しても解決しない。`electron-builder` は `@electron/rebuild` で Electron の ABI に合わせたリビルドを行うため、そこで結局 `node-gyp` が動く。`buildFromSource=false` でも `better-sqlite3` には Electron 43 向けの prebuilt バイナリが存在しないため、必ずソースコンパイルにフォールバックする。
+- 開発・テスト（`npm run dev` / `npm test` / `npm run test:e2e`）は WSL 上の Linux ネイティブで問題なく動く。Windows 側のツールチェーンが要るのはインストーラー生成のときだけ。
+
+### 必要なもの
+
+- **Windows 側の Node.js**（実測: v24.15.0 / npm 11.12.1）
+- **Visual Studio Build Tools 2022 の C++ ワークロード**。未導入なら管理者権限で以下を実行する（実測: 17.14.37516.0、MSVC 14.44.35207、Windows SDK 10.0.26100）:
+
+  ```
+  winget install --id Microsoft.VisualStudio.2022.BuildTools --override "--quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
+  ```
+
+  ダウンロード完了後もインストール処理がしばらく続く。`vswhere.exe -all -products * -format json` の `isComplete` が `true` になるまで待つこと。`false` の間は `node-gyp` が VS を見つけられず失敗する。
 
 ## 2. ビルド手順
 
-Windows 実機のリポジトリ作業ツリーで実行する。
+Windows のリポジトリ作業ツリーで実行する。WSL で開発している場合は、**ソースを Windows ネイティブパス（例: `C:\Users\<user>\hanamask-build`）にコピーしてから実行すること。** `\\wsl$` / `\\wsl.localhost` の UNC パス上では `npm` や `electron-builder` が正しく動作しない。
 
 1. 依存をインストールする。
 
@@ -83,14 +99,28 @@ DB（`hanamask.sqlite3`）と画像ファイル（`images/`）は、インスト
 - **コード署名なし**: 署名証明書を用意していないため、生成した `.exe` は署名されない。ダウンロード実行時に Windows SmartScreen の警告（「WindowsによってPCが保護されました」）が表示される可能性があり、利用者は「詳細情報」→「実行」で進める必要がある。
 - **macOS / Linux 非対応**: 対応OSはWindows優先の方針に従い、`win` ターゲットのみを設定している。他OSは将来必要になった時点で追加する。
 
-## 5. 未検証事項
+## 5. 検証済み事項と未検証事項
 
-**Windows 実機での `.exe` 生成は未検証である。** `electron-builder.yml` と `package:win` スクリプトは整備済みだが、1. の制約により設定を追加した環境（Linux/WSL）では実行できていない。以下は Windows 実機で初回ビルドする際に確認すること。
+### 検証済み（2026-08-04）
 
-- `npm run package:win` が完走し、`release/` に `.exe` が生成されること
+WSL から Windows 側のツールチェーンを使い、`npm ci && npm run package:win` が完走することを確認した。生成物:
+
+```
+release/hanamask Setup 0.1.0.exe            約 118 MB
+release/hanamask Setup 0.1.0.exe.blockmap
+release/win-unpacked/
+```
+
+`better-sqlite3` のネイティブビルド、`@electron/rebuild` による Electron ABI へのリビルド、NSIS インストーラーの生成まで一通り通っている。
+
+### 未検証
+
+**生成した `.exe` を実際にインストールして動作させる検証は未実施。** 初回配布前に以下を確認すること。
+
 - 生成されたインストーラーでインストールし、アプリが起動すること
 - パッケージ後の状態で SQLite（`better-sqlite3`）が正しく読み込まれ、ノートの作成・参照ができること（`asarUnpack` 設定が効いているかの確認）
 - MCPサーバーがパッケージ後も起動し、外部AIエージェントから接続できること
+- コード署名が無いため、初回起動時に SmartScreen の警告が出る想定。その挙動の確認
 
 確認手順は `.claude/skills/e2e-runner/SKILL.md` の方針に従い手動で行う（インストーラー検証の自動化は行わない）。
 

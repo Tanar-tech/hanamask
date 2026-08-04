@@ -14,19 +14,38 @@
 
 <p>hanamask を Windows 向けインストーラー（<code>.exe</code>）としてビルドする手順と、<code>electron-builder.yml</code> の設定意図をまとめる。対象読者は管理者・開発管理者。要求定義上の位置づけは <a href="REQUIREMENTS.html">REQUIREMENTS.md</a> §5（配布形態）、運用上の位置づけは <a href="GOVERNANCE.html#3-1">GOVERNANCE.md</a> §3.1（デプロイ・配布）を参照。</p>
 
-<h2 id="1">1. 前提: ビルドには Windows 実機が必要</h2>
+<h2 id="1">1. 前提: ビルドは Windows のツールチェーンで行う（WSL からでも可）</h2>
 
-<p><strong>パッケージングは Windows 実機（またはWindows CI ランナー）で行う。Linux / WSL 上ではビルドを完走できない。</strong></p>
+<p><strong>パッケージングには Windows 側の Node.js と Visual Studio Build Tools（C++ ワークロード）が必要。WSL を使っている場合、WSL から Windows 側の <code>npm</code> を呼び出す形でビルドできる（Windows 実機に移動する必要はない）。</strong></p>
 
-<p>理由は <code>better-sqlite3</code> がネイティブアドオン（<code>.node</code>）であることによる。Linux から <code>electron-builder --win</code> を実行すると、Windows 向けバイナリを用意する段階で <code>node-gyp</code> が</p>
+<p><code>better-sqlite3</code> がネイティブアドオン（<code>.node</code>）であることが制約の理由。以下は 2026-08-04 に実測した結果である。</p>
 
-<pre><code>node-gyp does not support cross-compiling native modules from source</code></pre>
+<table>
+<thead><tr><th>実行環境</th><th>結果</th></tr></thead>
+<tbody>
+<tr><td>WSL(Linux) の Node で <code>electron-builder --win</code></td><td>❌ <code>node-gyp does not support cross-compiling native modules from source</code>。Linux → Windows のクロスコンパイルは <code>node-gyp</code> が非対応で、Linux 側での回避策はない</td></tr>
+<tr><td>Windows の Node（VS Build Tools なし）</td><td>❌ <code>Could not find any Visual Studio installation to use</code></td></tr>
+<tr><td>Windows の Node（VS Build Tools あり）</td><td>✅ <code>.exe</code> の生成に成功</td></tr>
+</tbody>
+</table>
 
-<p>で停止する。<code>better-sqlite3</code> のソースからのクロスコンパイル（Linux → Windows）は <code>node-gyp</code> がサポートしていないため、Linux 側での回避策はない。開発・テスト（<code>npm run dev</code> / <code>npm test</code>）は WSL 上でも可能だが、インストーラー生成だけは Windows 実機で行うこと。</p>
+<p>補足:</p>
+<ul>
+<li><code>npm ci --ignore-scripts</code> でソースコンパイルを回避しても解決しない。<code>electron-builder</code> は <code>@electron/rebuild</code> で Electron の ABI に合わせたリビルドを行うため、そこで結局 <code>node-gyp</code> が動く。<code>buildFromSource=false</code> でも <code>better-sqlite3</code> には Electron 43 向けの prebuilt バイナリが存在しないため、必ずソースコンパイルにフォールバックする。</li>
+<li>開発・テスト（<code>npm run dev</code> / <code>npm test</code> / <code>npm run test:e2e</code>）は WSL 上の Linux ネイティブで問題なく動く。Windows 側のツールチェーンが要るのはインストーラー生成のときだけ。</li>
+</ul>
+
+<h3 id="1-requirements">必要なもの</h3>
+<ul>
+<li><strong>Windows 側の Node.js</strong>（実測: v24.15.0 / npm 11.12.1）</li>
+<li><strong>Visual Studio Build Tools 2022 の C++ ワークロード</strong>。未導入なら管理者権限で以下を実行する（実測: 17.14.37516.0、MSVC 14.44.35207、Windows SDK 10.0.26100）:
+<pre><code>winget install --id Microsoft.VisualStudio.2022.BuildTools --override "--quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"</code></pre>
+ダウンロード完了後もインストール処理がしばらく続く。<code>vswhere.exe -all -products * -format json</code> の <code>isComplete</code> が <code>true</code> になるまで待つこと。<code>false</code> の間は <code>node-gyp</code> が VS を見つけられず失敗する。</li>
+</ul>
 
 <h2 id="2">2. ビルド手順</h2>
 
-<p>Windows 実機のリポジトリ作業ツリーで実行する。</p>
+<p>Windows のリポジトリ作業ツリーで実行する。WSL で開発している場合は、<strong>ソースを Windows ネイティブパス（例: <code>C:\Users\&lt;user&gt;\hanamask-build</code>）にコピーしてから実行すること。</strong> <code>\\wsl$</code> / <code>\\wsl.localhost</code> の UNC パス上では <code>npm</code> や <code>electron-builder</code> が正しく動作しない。</p>
 
 <ol>
 <li>依存をインストールする。
@@ -110,15 +129,27 @@ flowchart LR
 <li><strong>macOS / Linux 非対応</strong>: 対応OSはWindows優先の方針に従い、<code>win</code> ターゲットのみを設定している。他OSは将来必要になった時点で追加する。</li>
 </ul>
 
-<h2 id="5">5. 未検証事項</h2>
+<h2 id="5">5. 検証済み事項と未検証事項</h2>
 
-<p><strong>Windows 実機での <code>.exe</code> 生成は未検証である。</strong> <code>electron-builder.yml</code> と <code>package:win</code> スクリプトは整備済みだが、<a href="#1">1.</a> の制約により設定を追加した環境（Linux/WSL）では実行できていない。以下は Windows 実機で初回ビルドする際に確認すること。</p>
+<h3 id="5-verified">検証済み（2026-08-04）</h3>
+
+<p>WSL から Windows 側のツールチェーンを使い、<code>npm ci &amp;&amp; npm run package:win</code> が完走することを確認した。生成物:</p>
+
+<pre><code>release/hanamask Setup 0.1.0.exe            約 118 MB
+release/hanamask Setup 0.1.0.exe.blockmap
+release/win-unpacked/</code></pre>
+
+<p><code>better-sqlite3</code> のネイティブビルド、<code>@electron/rebuild</code> による Electron ABI へのリビルド、NSIS インストーラーの生成まで一通り通っている。</p>
+
+<h3 id="5-unverified">未検証</h3>
+
+<p><strong>生成した <code>.exe</code> を実際にインストールして動作させる検証は未実施。</strong> 初回配布前に以下を確認すること。</p>
 
 <ul>
-<li><code>npm run package:win</code> が完走し、<code>release/</code> に <code>.exe</code> が生成されること</li>
 <li>生成されたインストーラーでインストールし、アプリが起動すること</li>
 <li>パッケージ後の状態で SQLite（<code>better-sqlite3</code>）が正しく読み込まれ、ノートの作成・参照ができること（<code>asarUnpack</code> 設定が効いているかの確認）</li>
 <li>MCPサーバーがパッケージ後も起動し、外部AIエージェントから接続できること</li>
+<li>コード署名が無いため、初回起動時に SmartScreen の警告が出る想定。その挙動の確認</li>
 </ul>
 
 <p>確認手順は <code>.claude/skills/e2e-runner/SKILL.md</code> の方針に従い手動で行う（インストーラー検証の自動化は行わない）。</p>
