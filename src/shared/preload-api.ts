@@ -31,6 +31,16 @@ export interface TaskInput {
   dueDate: string | null;
 }
 
+export type EntityType = "note" | "task";
+
+export interface Link {
+  id: string;
+  fromType: EntityType;
+  fromId: string;
+  toType: EntityType;
+  toId: string;
+}
+
 export interface HanamaskPreloadApi {
   listNotes(): Promise<Note[]>;
   deleteNote(id: string): Promise<void>;
