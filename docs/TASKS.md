@@ -121,13 +121,14 @@
 
 ### T08: タスクのカンバン表示
 
-- ステータス: 未着手
+- ステータス: 完了
 - 依存: 必須: T05
 - 目的: `docs/REQUIREMENTS.md` §4.3（リスト表示とカンバン表示の両方が初期スコープ）。ステータス別の列にドラッグ&ドロップでタスクを移動できるUIを追加する。
-- 変更範囲: `src/renderer/components/`（カンバンビュー新規コンポーネント）。既存のリスト表示・タスクMCPツール（T05）には手を入れない（表示切替のみ）。
+- 変更範囲: `src/renderer/components/`（カンバンビュー新規コンポーネント）。既存のリスト表示・タスクMCPツール（T05）には手を入れない（表示切替のみ）。実際には、D&Dでのステータス更新をレンダラーから永続化する経路がT05時点に存在しなかったため、`src/main/index.ts`/`src/preload/index.ts`/`src/shared/preload-api.ts`に`tasks:update-status` IPCチャンネルの新設が必要になった（開発管理者が実装指示時に許可した範囲拡張。reviewerがMajor指摘したが機能上必須と判断し許容）。
 - 禁止事項: カンバンの列構成（ステータス以外の軸での分類等）はスコープ外。`docs/REQUIREMENTS.md`が定める`todo`/`in_progress`/`done`の3列のみ。
 - テスト: ドラッグ&ドロップでステータスが更新され、`update_task`が呼ばれることのコンポーネントテスト。
 - 停止条件: 特になし。
+- 実績: `KanbanView.tsx`をHTML5ネイティブDrag and Drop APIで実装（新規npmパッケージ追加なし）。`tasks:update-status` IPCチャンネルを新設し、既存の`updateTask`（`tasks-repo.ts`）を再利用。単体テスト（`KanbanView`9件・IPCハンドラ3件）を追加。`implementer`が実装、`reviewer`がレビュー（Major指摘=宣言範囲超過は開発管理者の事前許可事項として対応不要と判断、Minor指摘=本ドキュメント更新で対応済み）、`verifier`が`xvfb-run`実機E2Eで`create_task`→カンバン反映→ステータス更新の永続化・両ビューへの反映まで確認済み（実際のマウスドラッグ操作はChromiumの信頼済みイベント制約によりE2E自動化不可のため、ドロップハンドラの呼び出しパイプライン全体をJS経由で検証）。
 
 ### T09: 画像添付
 

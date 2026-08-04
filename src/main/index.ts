@@ -4,9 +4,14 @@ import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
 import { purgeSoftDeletedRecords } from "./db/purge.js";
 import { searchNotes, softDeleteNote } from "./db/notes-repo.js";
-import { listTasks } from "./db/tasks-repo.js";
-import type { Note } from "../shared/preload-api.js";
-import { emitNotesChanged, onNotesChanged, onTasksChanged } from "./mcp/change-emitter.js";
+import { listTasks, updateTask } from "./db/tasks-repo.js";
+import type { Note, TaskStatus } from "../shared/preload-api.js";
+import {
+  emitNotesChanged,
+  emitTasksChanged,
+  onNotesChanged,
+  onTasksChanged,
+} from "./mcp/change-emitter.js";
 import { startMcpServer } from "./mcp/server.js";
 
 const DB_FILE_NAME = "hanamask.sqlite3";
@@ -17,6 +22,7 @@ const NOTES_LIST_CHANNEL = "notes:list";
 const TASKS_CHANGED_CHANNEL = "tasks:changed";
 const TASKS_LIST_CHANNEL = "tasks:list";
 const NOTES_DELETE_CHANNEL = "notes:delete";
+const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 // .cjs, not .js: Electron's sandboxed preload loader only executes CommonJS, and
@@ -45,6 +51,11 @@ const listNotes = (): Note[] => searchNotes("");
 // MCPツール経由の削除と同じ通知経路を通すため、broadcastではなくemitNotesChangedを呼ぶ。
 const deleteNote = (_event: IpcMainInvokeEvent, id: string): void => {
   if (softDeleteNote(id)) emitNotesChanged();
+};
+
+// MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
+const updateTaskStatus = (_event: IpcMainInvokeEvent, id: string, status: TaskStatus): void => {
+  if (updateTask(id, { status }) !== null) emitTasksChanged();
 };
 
 const createMainWindow = (): BrowserWindow => {
@@ -90,6 +101,7 @@ const start = async (): Promise<void> => {
 ipcMain.handle(NOTES_LIST_CHANNEL, listNotes);
 ipcMain.handle(TASKS_LIST_CHANNEL, () => listTasks());
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
+ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 
 app.on("window-all-closed", () => {
   app.quit();
