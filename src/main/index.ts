@@ -14,7 +14,10 @@ const NOTES_CHANGED_CHANNEL = "notes:changed";
 const NOTES_LIST_CHANNEL = "notes:list";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
-const PRELOAD_PATH = join(moduleDir, "../preload/index.js");
+// .cjs, not .js: Electron's sandboxed preload loader only executes CommonJS, and
+// package.json's "type": "module" would make a plain .js file ambiguous (see
+// scripts/copy-main-assets.mjs).
+const PRELOAD_PATH = join(moduleDir, "../preload/index.cjs");
 const RENDERER_HTML_PATH = join(moduleDir, "../renderer/index.html");
 
 // Vite dev server URL is injected by the dev script; absent in a packaged build.
@@ -51,8 +54,15 @@ const createMainWindow = (): BrowserWindow => {
 
 let stopMcpServer: (() => Promise<void>) | undefined;
 
+// E2E tests point this at a temp file to avoid touching the developer's real note database.
+const resolveDbFilePath = (): string => {
+  const override = process.env.HANAMASK_DB_PATH;
+  if (override !== undefined && override !== "") return override;
+  return join(app.getPath("userData"), DB_FILE_NAME);
+};
+
 const start = async (): Promise<void> => {
-  openDb(join(app.getPath("userData"), DB_FILE_NAME));
+  openDb(resolveDbFilePath());
   createMainWindow();
   onNotesChanged(broadcastNotesChanged);
   const mcpServer = await startMcpServer();

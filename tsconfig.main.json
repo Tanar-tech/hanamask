@@ -15,5 +15,5 @@
     "rootDir": "src",
     "noEmit": false
   },
-  "include": ["src/main/**/*.ts", "src/preload/**/*.ts"]
+  "include": ["src/main/**/*.ts"]
 }

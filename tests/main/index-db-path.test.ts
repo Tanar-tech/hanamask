@@ -1,0 +1,50 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+const openDb = vi.fn();
+const startMcpServer = vi.fn(async () => ({ port: 39217, close: vi.fn(async () => {}) }));
+
+vi.mock("electron", () => ({
+  app: {
+    whenReady: () => Promise.resolve(),
+    on: vi.fn(),
+    quit: vi.fn(),
+    getPath: vi.fn(() => "/tmp/hanamask-userdata"),
+  },
+  // Declared as a function expression because the module under test calls it with `new`.
+  BrowserWindow: Object.assign(
+    vi.fn(function createFakeWindow() {
+      return {
+        webContents: { send: vi.fn() },
+        loadFile: vi.fn(() => Promise.resolve()),
+        loadURL: vi.fn(() => Promise.resolve()),
+      };
+    }),
+    { getAllWindows: () => [] },
+  ),
+  ipcMain: { handle: vi.fn() },
+}));
+
+vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
+vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes: vi.fn() }));
+vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
+vi.mock("../../src/main/mcp/change-emitter", () => ({
+  emitNotesChanged: vi.fn(),
+  onNotesChanged: vi.fn(() => () => {}),
+}));
+
+describe("main process HANAMASK_DB_PATH override", () => {
+  afterEach(() => {
+    delete process.env.HANAMASK_DB_PATH;
+  });
+
+  it("opens the database at the overridden path when HANAMASK_DB_PATH is set", async () => {
+    process.env.HANAMASK_DB_PATH = "/tmp/hanamask-e2e-test.sqlite3";
+
+    await import("../../src/main/index");
+    await vi.waitFor(() => {
+      expect(openDb).toHaveBeenCalled();
+    });
+
+    expect(openDb).toHaveBeenCalledWith("/tmp/hanamask-e2e-test.sqlite3");
+  });
+});
