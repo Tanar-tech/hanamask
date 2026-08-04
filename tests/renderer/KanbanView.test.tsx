@@ -1,0 +1,182 @@
+/** @vitest-environment jsdom */
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { KanbanView } from "../../src/renderer/components/KanbanView";
+import type { Task } from "../../src/shared/preload-api";
+
+const makeTask = (overrides: Partial<Task> = {}): Task => ({
+  id: "task-1",
+  title: "MCPサーバーを実装する",
+  status: "todo",
+  dueDate: null,
+  createdAt: "2026-08-03T00:00:00.000Z",
+  updatedAt: "2026-08-03T00:00:00.000Z",
+  ...overrides,
+});
+
+const mockHanamask = (tasksByCall: Task[][]) => {
+  const listeners: Array<() => void> = [];
+  const unsubscribe = vi.fn();
+  const listTasks = vi.fn(
+    async () =>
+      tasksByCall[Math.min(listTasks.mock.calls.length - 1, tasksByCall.length - 1)] ?? [],
+  );
+  const onTasksChanged = vi.fn((callback: () => void) => {
+    listeners.push(callback);
+    return unsubscribe;
+  });
+  const updateTaskStatus = vi.fn(async () => {});
+  window.hanamask = {
+    listNotes: vi.fn(async () => []),
+    deleteNote: vi.fn(async () => {}),
+    onNotesChanged: vi.fn(() => () => {}),
+    listTasks,
+    onTasksChanged,
+    updateTaskStatus,
+  };
+  return { listTasks, onTasksChanged, updateTaskStatus, listeners, unsubscribe };
+};
+
+const column = (label: string): HTMLElement => screen.getByRole("region", { name: label });
+
+const dropOnColumn = (label: string, taskId: string): void => {
+  fireEvent.drop(column(label), { dataTransfer: { getData: () => taskId } });
+};
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+describe("KanbanView", () => {
+  it("タスクをステータスごとの3列に振り分けて表示する", async () => {
+    mockHanamask([
+      [
+        makeTask(),
+        makeTask({ id: "task-2", title: "テストを書く", status: "in_progress" }),
+        makeTask({ id: "task-3", title: "リリースする", status: "done" }),
+      ],
+    ]);
+
+    render(<KanbanView />);
+
+    expect(await screen.findByText("MCPサーバーを実装する")).toBeTruthy();
+    expect(within(column("未着手")).getByText("MCPサーバーを実装する")).toBeTruthy();
+    expect(within(column("進行中")).getByText("テストを書く")).toBeTruthy();
+    expect(within(column("完了")).getByText("リリースする")).toBeTruthy();
+    expect(within(column("未着手")).queryByText("テストを書く")).toBeNull();
+  });
+
+  it("タスクが0件でも3つの列を表示する", async () => {
+    mockHanamask([[]]);
+
+    render(<KanbanView />);
+
+    expect(await screen.findByRole("region", { name: "未着手" })).toBeTruthy();
+    expect(column("進行中")).toBeTruthy();
+    expect(column("完了")).toBeTruthy();
+  });
+
+  it("ドラッグ開始時にタスクIDをdataTransferに載せる", async () => {
+    mockHanamask([[makeTask()]]);
+
+    render(<KanbanView />);
+    const card = await screen.findByText("MCPサーバーを実装する");
+    const setData = vi.fn();
+
+    fireEvent.dragStart(card, { dataTransfer: { setData } });
+
+    expect(setData).toHaveBeenCalledWith("text/plain", "task-1");
+  });
+
+  it("別の列にドロップするとそのステータスへ更新する", async () => {
+    const { updateTaskStatus } = mockHanamask([[makeTask()]]);
+
+    render(<KanbanView />);
+    expect(await screen.findByText("MCPサーバーを実装する")).toBeTruthy();
+
+    await act(async () => {
+      dropOnColumn("進行中", "task-1");
+    });
+
+    expect(updateTaskStatus).toHaveBeenCalledWith("task-1", "in_progress");
+  });
+
+  it("同じ列にドロップしたときは更新しない", async () => {
+    const { updateTaskStatus } = mockHanamask([[makeTask()]]);
+
+    render(<KanbanView />);
+    expect(await screen.findByText("MCPサーバーを実装する")).toBeTruthy();
+
+    await act(async () => {
+      dropOnColumn("未着手", "task-1");
+    });
+
+    expect(updateTaskStatus).not.toHaveBeenCalled();
+  });
+
+  it("知らないタスクIDがドロップされても更新しない", async () => {
+    const { updateTaskStatus } = mockHanamask([[makeTask()]]);
+
+    render(<KanbanView />);
+    expect(await screen.findByText("MCPサーバーを実装する")).toBeTruthy();
+
+    await act(async () => {
+      dropOnColumn("完了", "unknown-task");
+    });
+
+    expect(updateTaskStatus).not.toHaveBeenCalled();
+  });
+
+  it("ステータス更新に失敗したときエラーを表示する", async () => {
+    mockHanamask([[makeTask()]]);
+    window.hanamask.updateTaskStatus = vi.fn(() => Promise.reject(new Error("IPC失敗")));
+
+    render(<KanbanView />);
+    expect(await screen.findByText("MCPサーバーを実装する")).toBeTruthy();
+
+    await act(async () => {
+      dropOnColumn("完了", "task-1");
+    });
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
+  it("onTasksChangedのコールバックでタスク一覧を再取得して更新する", async () => {
+    const { listTasks, listeners } = mockHanamask([
+      [makeTask()],
+      [makeTask({ status: "done" })],
+    ]);
+
+    render(<KanbanView />);
+    expect(await screen.findByText("MCPサーバーを実装する")).toBeTruthy();
+    expect(listTasks).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      listeners.forEach((listener) => listener());
+    });
+
+    expect(listTasks).toHaveBeenCalledTimes(2);
+    expect(within(column("完了")).getByText("MCPサーバーを実装する")).toBeTruthy();
+  });
+
+  it("読み込みに失敗したときエラーを表示する", async () => {
+    mockHanamask([[]]);
+    window.hanamask.listTasks = vi.fn(() => Promise.reject(new Error("IPC失敗")));
+
+    render(<KanbanView />);
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
+  it("アンマウント時に購読を解除する", async () => {
+    const { unsubscribe } = mockHanamask([[makeTask()]]);
+
+    const { unmount } = render(<KanbanView />);
+    expect(await screen.findByText("MCPサーバーを実装する")).toBeTruthy();
+
+    unmount();
+
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+});
