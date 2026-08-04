@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -89,9 +89,14 @@ describe("notes-repo", () => {
   });
 
   it("updates the given fields and bumps updatedAt, leaving createdAt unchanged", () => {
+    // On a fast CI runner both calls can land in the same millisecond, making the ISO
+    // timestamps identical; advance the clock explicitly so updatedAt is reliably distinct.
+    vi.useFakeTimers();
     const created = createNote({ title: "元タイトル", body: "元本文", tags: ["a"] });
+    vi.advanceTimersByTime(1);
 
     const updated = updateNote(created.id, { title: "新タイトル" });
+    vi.useRealTimers();
 
     expect(updated).toEqual({
       ...created,

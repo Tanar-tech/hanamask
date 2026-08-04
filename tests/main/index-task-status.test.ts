@@ -42,6 +42,7 @@ vi.mock("electron", () => ({
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
 vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes: vi.fn(), softDeleteNote: vi.fn() }));
 vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks, updateTask }));
+vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords: vi.fn() }));
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
   emitNotesChanged: vi.fn(),
