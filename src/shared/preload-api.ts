@@ -102,4 +102,5 @@ export interface HanamaskPreloadApi {
     toId: string;
   }): Promise<Link>;
   deleteLink(id: string): Promise<boolean>;
+  onLinksChanged(callback: () => void): () => void;
 }

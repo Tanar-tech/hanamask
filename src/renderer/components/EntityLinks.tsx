@@ -102,8 +102,12 @@ export const EntityLinks = ({ entityType, entityId }: EntityLinksProps): JSX.Ele
       }
     };
     void load();
+    const unsubscribe = window.hanamask.onLinksChanged(() => {
+      void load();
+    });
     return () => {
       current = false;
+      unsubscribe();
     };
   }, [entityType, entityId]);
 
@@ -119,7 +123,7 @@ export const EntityLinks = ({ entityType, entityId }: EntityLinksProps): JSX.Ele
         toId,
       });
       setTargetId("");
-      // リンクには変更通知チャンネルが無いため、作成後は自分で取り直す。
+      // links:changed はMCPツール経由の操作だけが出すため、UI操作の後は自分で取り直す。
       await reload();
     } catch (cause) {
       setError(`リンクの作成に失敗しました: ${String(cause)}`);

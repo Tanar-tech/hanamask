@@ -53,6 +53,7 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     listLinks: vi.fn(async () => []),
     createLink: vi.fn(),
     deleteLink: vi.fn(async () => true),
+    onLinksChanged: vi.fn(() => () => {}),
   };
   return { listTasks, onTasksChanged, updateTaskStatus, listeners, unsubscribe };
 };

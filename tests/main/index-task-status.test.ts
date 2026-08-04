@@ -56,6 +56,8 @@ vi.mock("../../src/main/mcp/change-emitter", () => ({
     tasksChangedListeners.push(listener);
     return () => {};
   },
+  emitLinksChanged: vi.fn(),
+  onLinksChanged: vi.fn(() => () => {}),
 }));
 
 const findUpdateTaskStatusHandler = (): ((event: unknown, id: string, status: string) => void) => {

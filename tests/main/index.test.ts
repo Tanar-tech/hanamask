@@ -46,6 +46,7 @@ const mkdirSync = vi.fn();
 const existsSync = vi.fn(() => false);
 const notesChangedListeners: Array<() => void> = [];
 const tasksChangedListeners: Array<() => void> = [];
+const linksChangedListeners: Array<() => void> = [];
 const openWindows: FakeWindow[] = [];
 
 // Declared as a function expression because the module under test calls it with `new`.
@@ -109,6 +110,11 @@ vi.mock("../../src/main/mcp/change-emitter", () => ({
   emitTasksChanged: vi.fn(),
   onTasksChanged: (listener: () => void) => {
     tasksChangedListeners.push(listener);
+    return () => {};
+  },
+  emitLinksChanged: vi.fn(),
+  onLinksChanged: (listener: () => void) => {
+    linksChangedListeners.push(listener);
     return () => {};
   },
 }));
@@ -193,6 +199,15 @@ const emitTasksChangedFromMcp = (): void => {
     throw new Error("no tasks-changed listener was registered");
   }
   tasksChangedListeners.forEach((listener) => {
+    listener();
+  });
+};
+
+const emitLinksChangedFromMcp = (): void => {
+  if (linksChangedListeners.length === 0) {
+    throw new Error("no links-changed listener was registered");
+  }
+  linksChangedListeners.forEach((listener) => {
     listener();
   });
 };
@@ -665,5 +680,18 @@ describe("main process entry", () => {
 
     expect(window.webContents.send).toHaveBeenCalledTimes(1);
     expect(window.webContents.send).toHaveBeenCalledWith("notes:changed");
+  });
+
+  it("broadcasts links:changed to every open window", () => {
+    openWindows.forEach((window) => {
+      window.webContents.send.mockClear();
+    });
+
+    emitLinksChangedFromMcp();
+
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).toHaveBeenCalledTimes(1);
+      expect(window.webContents.send).toHaveBeenCalledWith("links:changed");
+    });
   });
 });
