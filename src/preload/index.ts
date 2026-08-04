@@ -21,6 +21,7 @@ const IMAGES_LIST_CHANNEL = "images:list";
 const LINKS_LIST_CHANNEL = "links:list";
 const LINKS_CREATE_CHANNEL = "links:create";
 const LINKS_DELETE_CHANNEL = "links:delete";
+const LINKS_CHANGED_CHANNEL = "links:changed";
 
 const subscribe = (channel: string, callback: () => void): (() => void) => {
   const listener = (): void => callback();
@@ -64,6 +65,7 @@ const api: HanamaskPreloadApi = {
     ipcRenderer.invoke(LINKS_LIST_CHANNEL, entityType, entityId),
   createLink: (input) => ipcRenderer.invoke(LINKS_CREATE_CHANNEL, input),
   deleteLink: (id) => ipcRenderer.invoke(LINKS_DELETE_CHANNEL, id),
+  onLinksChanged: (callback) => subscribe(LINKS_CHANGED_CHANNEL, callback),
 };
 
 contextBridge.exposeInMainWorld("hanamask", api);

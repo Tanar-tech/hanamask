@@ -5,7 +5,11 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { closeDb, openDb } from "../../../src/main/db/db";
 import { listLinks } from "../../../src/main/db/links-repo";
-import { onNotesChanged, onTasksChanged } from "../../../src/main/mcp/change-emitter";
+import {
+  onLinksChanged,
+  onNotesChanged,
+  onTasksChanged,
+} from "../../../src/main/mcp/change-emitter";
 import { findLinkTool, linkTools } from "../../../src/main/mcp/tools";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
@@ -115,6 +119,65 @@ describe("mcp link tools", () => {
 
     unsubscribeNotes();
     unsubscribeTasks();
+  });
+
+  it("link_entitiesの成功時はリンクの変更通知を出す", () => {
+    const linksListener = vi.fn();
+    const unsubscribe = onLinksChanged(linksListener);
+
+    linkThroughTool({ from_type: "note", from_id: "note-1", to_type: "task", to_id: "task-1" });
+
+    expect(linksListener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+  });
+
+  it("link_entitiesの失敗時はリンクの変更通知を出さない", () => {
+    const linksListener = vi.fn();
+    const unsubscribe = onLinksChanged(linksListener);
+
+    expect(callTool("link_entities", { from_type: "note", from_id: "note-1" }).isError).toBe(true);
+    expect(linksListener).not.toHaveBeenCalled();
+
+    unsubscribe();
+  });
+
+  it("unlink_entitiesの成功時はリンクの変更通知を出す", () => {
+    const id = linkThroughTool({
+      from_type: "note",
+      from_id: "note-1",
+      to_type: "task",
+      to_id: "task-1",
+    });
+    const linksListener = vi.fn();
+    const unsubscribe = onLinksChanged(linksListener);
+
+    callTool("unlink_entities", { id });
+
+    expect(linksListener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+  });
+
+  it("存在しないリンクのunlink_entitiesはリンクの変更通知を出さない", () => {
+    const linksListener = vi.fn();
+    const unsubscribe = onLinksChanged(linksListener);
+
+    expect(callTool("unlink_entities", { id: randomUUID() }).isError).toBe(true);
+    expect(linksListener).not.toHaveBeenCalled();
+
+    unsubscribe();
+  });
+
+  it("list_linksは変更通知を出さない", () => {
+    const linksListener = vi.fn();
+    const unsubscribe = onLinksChanged(linksListener);
+
+    callTool("list_links", { entity_type: "note", entity_id: "note-1" });
+
+    expect(linksListener).not.toHaveBeenCalled();
+
+    unsubscribe();
   });
 
   it("list_linksはfrom側・to側どちらからでもリンクを返す", () => {
