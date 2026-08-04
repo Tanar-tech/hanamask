@@ -1,0 +1,183 @@
+/** @vitest-environment jsdom */
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { TrashView } from "../../src/renderer/components/TrashView";
+import type { Note } from "../../src/shared/preload-api";
+
+const makeNote = (overrides: Partial<Note> = {}): Note => ({
+  id: "note-1",
+  title: "消したメモ",
+  body: "消したメモの本文",
+  tags: ["design"],
+  createdAt: "2026-08-03T00:00:00.000Z",
+  updatedAt: "2026-08-03T10:00:00.000Z",
+  ...overrides,
+});
+
+interface TrashApiOverrides {
+  listDeletedNotes?: () => Promise<Note[]>;
+  restoreNote?: (id: string) => Promise<Note | null>;
+}
+
+const mockHanamask = (overrides: TrashApiOverrides = {}) => {
+  const listDeletedNotes = vi.fn(overrides.listDeletedNotes ?? (async () => [makeNote()]));
+  const restoreNote = vi.fn(overrides.restoreNote ?? (async () => makeNote()));
+  window.hanamask = {
+    listNotes: vi.fn(async () => []),
+    searchNotes: vi.fn(async () => []),
+    getNote: vi.fn(async () => null),
+    updateNote: vi.fn(async () => null),
+    deleteNote: vi.fn(async () => {}),
+    onNotesChanged: vi.fn(() => () => {}),
+    onNavigate: vi.fn(() => () => {}),
+    listNoteVersions: vi.fn(async () => []),
+    restoreNoteVersion: vi.fn(async () => null),
+    listDeletedNotes,
+    restoreNote,
+    listTasks: vi.fn(async () => []),
+    getTask: vi.fn(async () => null),
+    updateTaskStatus: vi.fn(async () => {}),
+    onTasksChanged: vi.fn(() => () => {}),
+    attachImage: vi.fn(),
+    listImages: vi.fn(async () => []),
+    listLinks: vi.fn(async () => []),
+    createLink: vi.fn(),
+    deleteLink: vi.fn(async () => true),
+  };
+  return { listDeletedNotes, restoreNote };
+};
+
+const clickButton = async (name: string, index = 0): Promise<void> => {
+  const buttons = await screen.findAllByRole("button", { name });
+  const button = buttons[index];
+  if (button === undefined) throw new Error(`no button named ${name} at index ${index}`);
+  await act(async () => {
+    button.click();
+  });
+};
+
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+
+describe("TrashView", () => {
+  it("削除済みノートの一覧を表示する", async () => {
+    mockHanamask({
+      listDeletedNotes: async () => [
+        makeNote(),
+        makeNote({ id: "note-2", title: "別の消したメモ", body: "別の本文" }),
+      ],
+    });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect(await screen.findByText("消したメモ")).toBeTruthy();
+    expect(screen.getByText("別の消したメモ")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "復元" })).toHaveLength(2);
+  });
+
+  it("削除済みノートが無いときは空状態を表示する", async () => {
+    mockHanamask({ listDeletedNotes: async () => [] });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect(await screen.findByText("削除済みのノートはありません")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "復元" })).toBeNull();
+  });
+
+  it("復元ボタンで restoreNote を呼び一覧を取り直す", async () => {
+    const { listDeletedNotes, restoreNote } = mockHanamask();
+    listDeletedNotes.mockImplementationOnce(async () => [makeNote()]);
+    listDeletedNotes.mockImplementation(async () => []);
+
+    render(<TrashView onBack={vi.fn()} />);
+    await clickButton("復元");
+
+    expect(restoreNote).toHaveBeenCalledWith("note-1");
+    await waitFor(() => {
+      expect(listDeletedNotes).toHaveBeenCalledTimes(2);
+    });
+    expect(await screen.findByText("削除済みのノートはありません")).toBeTruthy();
+  });
+
+  it("復元では確認ダイアログを出さない", async () => {
+    const confirmMock = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirmMock);
+    const { restoreNote } = mockHanamask();
+
+    render(<TrashView onBack={vi.fn()} />);
+    await clickButton("復元");
+
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(restoreNote).toHaveBeenCalledWith("note-1");
+  });
+
+  it("一覧取得に失敗するとエラーを表示する", async () => {
+    mockHanamask({
+      listDeletedNotes: async () => {
+        throw new Error("boom");
+      },
+    });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "削除済みノートの読み込みに失敗しました",
+    );
+  });
+
+  it("復元に失敗するとエラーを表示する", async () => {
+    mockHanamask({
+      restoreNote: async () => {
+        throw new Error("boom");
+      },
+    });
+
+    render(<TrashView onBack={vi.fn()} />);
+    await clickButton("復元");
+
+    expect((await screen.findByRole("alert")).textContent).toContain("ノートの復元に失敗しました");
+  });
+
+  it("復元対象が見つからないときはエラーを表示する", async () => {
+    mockHanamask({ restoreNote: async () => null });
+
+    render(<TrashView onBack={vi.fn()} />);
+    await clickButton("復元");
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "対象のノートが見つかりません",
+    );
+  });
+
+  it("戻るボタンで onBack を呼ぶ", async () => {
+    mockHanamask();
+    const onBack = vi.fn();
+
+    render(<TrashView onBack={onBack} />);
+    await clickButton("戻る");
+
+    expect(onBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("アンマウント後に届いた取得結果で状態を更新しない", async () => {
+    let resolveList: ((notes: Note[]) => void) | undefined;
+    mockHanamask({
+      listDeletedNotes: () =>
+        new Promise<Note[]>((resolve) => {
+          resolveList = resolve;
+        }),
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { unmount } = render(<TrashView onBack={vi.fn()} />);
+    unmount();
+    await act(async () => {
+      resolveList?.([makeNote()]);
+    });
+
+    expect(errorSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText("消したメモ")).toBeNull();
+  });
+});

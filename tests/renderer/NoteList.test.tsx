@@ -32,6 +32,8 @@ const mockHanamask = (notesByCall: Note[][]) => {
   });
   const deleteNote = vi.fn(async () => {});
   window.hanamask = {
+    listDeletedNotes: vi.fn(async () => []),
+    restoreNote: vi.fn(async () => null),
     listNotes,
     onNotesChanged,
     deleteNote,

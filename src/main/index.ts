@@ -5,7 +5,9 @@ import { openDb } from "./db/db.js";
 import { purgeSoftDeletedRecords } from "./db/purge.js";
 import {
   getNote,
+  listDeletedNotes,
   listNoteVersions,
+  restoreNote,
   restoreNoteVersion,
   searchNotes,
   softDeleteNote,
@@ -48,6 +50,8 @@ const NOTES_GET_CHANNEL = "notes:get";
 const NOTES_UPDATE_CHANNEL = "notes:update";
 const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
 const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
+const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
+const NOTES_RESTORE_CHANNEL = "notes:restore";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
@@ -111,6 +115,13 @@ const findNoteVersions = (_event: IpcMainInvokeEvent, noteId: string): NoteVersi
 // 復元は本文の更新なので、MCPツール経由の更新と同じ通知経路（emitNotesChanged）を通す。
 const restoreVersion = (_event: IpcMainInvokeEvent, versionId: string): Note | null => {
   const restored = restoreNoteVersion(versionId);
+  if (restored !== null) emitNotesChanged();
+  return restored;
+};
+
+// MCPツール経由の復元と同じ通知経路を通すため、broadcastではなくemitNotesChangedを呼ぶ。
+const undeleteNote = (_event: IpcMainInvokeEvent, id: string): Note | null => {
+  const restored = restoreNote(id);
   if (restored !== null) emitNotesChanged();
   return restored;
 };
@@ -224,6 +235,8 @@ ipcMain.handle(NOTES_UPDATE_CHANNEL, editNote);
 ipcMain.handle(NOTES_LIST_VERSIONS_CHANNEL, findNoteVersions);
 ipcMain.handle(NOTES_RESTORE_VERSION_CHANNEL, restoreVersion);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
+ipcMain.handle(NOTES_LIST_DELETED_CHANNEL, () => listDeletedNotes());
+ipcMain.handle(NOTES_RESTORE_CHANNEL, undeleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
 ipcMain.handle(IMAGES_LIST_CHANNEL, findImages);

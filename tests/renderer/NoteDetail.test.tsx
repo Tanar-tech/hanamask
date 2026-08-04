@@ -77,6 +77,8 @@ const mockHanamask = (
   const restoreNoteVersionMock = vi.fn(imageApi.restoreNoteVersion ?? (async () => makeNote()));
   const onNotesChangedMock = vi.fn<(callback: () => void) => () => void>(() => () => {});
   window.hanamask = {
+    listDeletedNotes: vi.fn(async () => []),
+    restoreNote: vi.fn(async () => null),
     listNoteVersions: listNoteVersionsMock,
     restoreNoteVersion: restoreNoteVersionMock,
     listNotes: vi.fn(async () => []),

@@ -7,6 +7,7 @@ import { closeDb, openDb } from "../../../src/main/db/db";
 import {
   createNote,
   getNote,
+  listDeletedNotes,
   restoreNote,
   searchNotes,
   softDeleteNote,
@@ -154,5 +155,43 @@ describe("notes-repo", () => {
 
   it("returns null from restoreNote for an unknown id", () => {
     expect(restoreNote(randomUUID())).toBeNull();
+  });
+
+  it("lists only soft-deleted notes", () => {
+    const kept = createNote({ title: "残す", body: "本文", tags: [] });
+    const removed = createNote({ title: "消す", body: "本文", tags: ["gone"] });
+    softDeleteNote(removed.id);
+
+    const deletedNotes = listDeletedNotes();
+
+    expect(deletedNotes).toHaveLength(1);
+    expect(deletedNotes[0]?.id).toBe(removed.id);
+    expect(deletedNotes[0]?.tags).toEqual(["gone"]);
+    expect(deletedNotes.some((note) => note.id === kept.id)).toBe(false);
+  });
+
+  it("returns an empty array from listDeletedNotes when nothing is deleted", () => {
+    createNote({ title: "残す", body: "本文", tags: [] });
+
+    expect(listDeletedNotes()).toEqual([]);
+  });
+
+  it("drops a note from listDeletedNotes once it is restored", () => {
+    const created = createNote({ title: "戻す", body: "本文", tags: [] });
+    softDeleteNote(created.id);
+    expect(listDeletedNotes()).toHaveLength(1);
+
+    restoreNote(created.id);
+
+    expect(listDeletedNotes()).toEqual([]);
+  });
+
+  it("orders deleted notes with the most recently deleted first", () => {
+    const first = createNote({ title: "先に消す", body: "本文", tags: [] });
+    const second = createNote({ title: "後で消す", body: "本文", tags: [] });
+    softDeleteNote(first.id);
+    softDeleteNote(second.id);
+
+    expect(listDeletedNotes().map((note) => note.id)).toEqual([second.id, first.id]);
   });
 });
