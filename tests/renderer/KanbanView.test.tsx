@@ -48,6 +48,8 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     updateTaskStatus,
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),
+    searchNotes: vi.fn(async () => []),
+    onNavigate: vi.fn(() => () => {}),
   };
   return { listTasks, onTasksChanged, updateTaskStatus, listeners, unsubscribe };
 };

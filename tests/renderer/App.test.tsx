@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { App } from "../../src/renderer/App";
-import type { Image, Note, Task } from "../../src/shared/preload-api";
+import type { Image, NavigateTarget, Note, Task } from "../../src/shared/preload-api";
 
 const stubImage: Image = {
   id: "image-1",
@@ -30,9 +30,15 @@ const task: Task = {
   updatedAt: "2026-08-03T00:00:00.000Z",
 };
 
+const navigateListeners: Array<(view: NavigateTarget) => void> = [];
+const unsubscribeNavigate = vi.fn();
+
 const mockHanamask = () => {
+  navigateListeners.length = 0;
+  unsubscribeNavigate.mockClear();
   window.hanamask = {
     listNotes: vi.fn(async () => [note]),
+    searchNotes: vi.fn(async () => [note]),
     getNote: vi.fn(async () => note),
     updateNote: vi.fn(async () => null),
     deleteNote: vi.fn(async () => {}),
@@ -43,9 +49,22 @@ const mockHanamask = () => {
     getTask: vi.fn(async () => task),
     updateTaskStatus: vi.fn(async () => {}),
     onTasksChanged: vi.fn(() => () => {}),
+    onNavigate: vi.fn((callback: (view: NavigateTarget) => void) => {
+      navigateListeners.push(callback);
+      return unsubscribeNavigate;
+    }),
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),
   };
+};
+
+const emitNavigate = async (view: NavigateTarget): Promise<void> => {
+  if (navigateListeners.length === 0) throw new Error("onNavigate was not subscribed");
+  await act(async () => {
+    navigateListeners.forEach((listener) => {
+      listener(view);
+    });
+  });
 };
 
 const clickButton = async (name: string): Promise<void> => {
@@ -109,5 +128,72 @@ describe("App のナビゲーション", () => {
 
     await screen.findByText("MCPサーバーの設計についてのメモ本文");
     expect(window.hanamask.getNote).toHaveBeenCalledWith("note-1");
+  });
+});
+
+describe("App のMCP経由の画面遷移", () => {
+  it("noteの遷移指示でノート詳細画面を開く", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await screen.findByRole("button", { name: "設計メモ" });
+    await emitNavigate({ kind: "note", id: "note-1" });
+
+    expect(await screen.findByText("MCPサーバーの設計についてのメモ本文")).toBeTruthy();
+    expect(window.hanamask.getNote).toHaveBeenCalledWith("note-1");
+  });
+
+  it("taskの遷移指示でタスク詳細画面を開く", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await screen.findByRole("button", { name: "設計メモ" });
+    await emitNavigate({ kind: "task", id: "task-1" });
+
+    expect(await screen.findByRole("combobox", { name: "ステータス" })).toBeTruthy();
+    expect(window.hanamask.getTask).toHaveBeenCalledWith("task-1");
+  });
+
+  it("searchの遷移指示で検索結果画面を開く", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await screen.findByRole("button", { name: "設計メモ" });
+    await emitNavigate({ kind: "search", query: "設計" });
+
+    expect(await screen.findByRole("heading", { name: "「設計」の検索結果" })).toBeTruthy();
+    expect(window.hanamask.searchNotes).toHaveBeenCalledWith("設計");
+    expect(screen.queryByRole("heading", { name: "進行中" })).toBeNull();
+  });
+
+  it("検索結果画面からノートを選ぶとノート詳細を開く", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await emitNavigate({ kind: "search", query: "設計" });
+    await clickButton("設計メモ");
+
+    expect(await screen.findByText("MCPサーバーの設計についてのメモ本文")).toBeTruthy();
+  });
+
+  it("listの遷移指示で一覧画面に戻る", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await emitNavigate({ kind: "note", id: "note-1" });
+    await screen.findByText("MCPサーバーの設計についてのメモ本文");
+    await emitNavigate({ kind: "list" });
+
+    expect(await screen.findByRole("heading", { name: "進行中" })).toBeTruthy();
+  });
+
+  it("アンマウント時に遷移指示の購読を解除する", async () => {
+    mockHanamask();
+
+    const { unmount } = render(<App />);
+    await screen.findByRole("button", { name: "設計メモ" });
+    unmount();
+
+    expect(unsubscribeNavigate).toHaveBeenCalledTimes(1);
   });
 });

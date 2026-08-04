@@ -39,6 +39,8 @@ const mockHanamask = (getTask: (id: string) => Promise<Task | null>) => {
     onTasksChanged: vi.fn(() => () => {}),
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),
+    searchNotes: vi.fn(async () => []),
+    onNavigate: vi.fn(() => () => {}),
   };
   return { getTask: getTaskMock, updateTaskStatus };
 };
