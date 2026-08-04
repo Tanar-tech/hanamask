@@ -191,6 +191,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
   useEffect(() => {
     // ノート切替時に古い取得結果が後から届いて上書きするのを防ぐ。
     let current = true;
+    setReloadError(null);
     const load = async (): Promise<void> => {
       try {
         const loaded = await window.hanamask.getNote(noteId);

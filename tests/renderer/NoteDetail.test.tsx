@@ -768,6 +768,29 @@ describe("NoteDetail の外部更新反映", () => {
     expect(await screen.findByText("復元されたタイトル")).toBeTruthy();
     vi.unstubAllGlobals();
   });
+
+  it("背景リロードの失敗はノートを切り替えると消える", async () => {
+    let failReload = false;
+    const { onNotesChanged } = mockHanamask(async (id) => {
+      if (failReload) throw new Error("boom");
+      return makeNote({ id, title: id === "note-1" ? "設計メモ" : "別のメモ" });
+    });
+
+    const { rerender } = render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    failReload = true;
+    await emitNotesChanged(onNotesChanged);
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "最新の内容の取得に失敗しました",
+    );
+
+    failReload = false;
+    rerender(<NoteDetail noteId="note-2" onBack={vi.fn()} />);
+
+    expect(await screen.findByText("別のメモ")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });
 
 describe("NoteDetail のリンク", () => {
