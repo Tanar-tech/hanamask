@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>テストケース作成方針</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../TESTING.md">docs/TESTING.md</a></p>
+
+<h1>テストケース作成方針</h1>
+
+<p>このドキュメントは hanamask における単体テストの書き方の方針を定める。一般的なテストパターン（網羅すべきケースの種類、テスト容易性の設計原則）は <code>~/.claude/CLAUDE.md</code>（グローバル規約）が参照する <code>docs/testing.md</code>（グローバル）に従う。本ファイルには、それを hanamask のスタック（Electron + better-sqlite3 + MCP SDK + React）に適用する上での具体的な方針のみを記す。</p>
+
+<p>work-manager（本リポジトリのテンプレート元）の <code>tests/</code> 配下の慣習を土台としつつ、スタックの違いに起因する箇所は明示的に変更している（後述）。</p>
+
+<h2 id="runner">テストランナー・実行コマンド</h2>
+<ul>
+<li>Vitest を使用する（<code>npm test</code> / <code>npm run test:watch</code>）。</li>
+<li>設定は <code>vitest.config.ts</code>。<code>environment: "node"</code> がデフォルト。DOM が必要なテストのみファイル先頭に <code>/** @vitest-environment jsdom */</code> を付けて <code>jsdom</code> に切り替える（<code>tests/renderer/NoteList.test.tsx</code> 参照）。</li>
+</ul>
+
+<h2 id="layout">ディレクトリ構成・命名（work-managerからの変更点）</h2>
+<ul>
+<li><code>tests/</code> は <code>src/</code> のディレクトリ構造をそのままミラーする（例: <code>src/main/db/notes-repo.ts</code> → <code>tests/main/db/notes-repo.test.ts</code>）。
+<ul>
+<li><strong>work-managerとの違い</strong>: work-manager は <code>tests/</code> 直下にフラットにテストファイルを置く。hanamask では Electron の <code>main</code>（Node.js）/<code>renderer</code>（React・DOM）/<code>preload</code> のプロセス境界がテスト方針（後述のI/O境界の扱い）に直結するため、フラット配置だとその境界が一見して分からなくなる。<code>src/</code> 構造をミラーすることでファイル所属が自明になる方を優先した。</li>
+</ul>
+</li>
+<li>ファイル名は <code>&lt;対象ファイル名&gt;.test.ts</code> / <code>.test.tsx</code>（work-managerと同じ命名規則）。</li>
+</ul>
+
+<h2 id="style">テストの書き方</h2>
+<ul>
+<li><code>describe</code>/<code>it</code> を使い、<code>it</code> の説明文は日本語で「何をしたら何が起きるか」を仕様として読める文にする（work-manager <code>tests/task-timer.test.ts</code> 等の慣習を踏襲）。
+<ul>
+<li>良い例: <code>"実行中タスクがある場合、切替時刻で前タスクを終了し次タスクを開始する"</code></li>
+<li>避ける例: <code>"switchTask works"</code> のような実装名の言い換え</li>
+</ul>
+</li>
+<li>純粋関数はI/Oから分離してそのままテストする（グローバル規約の「Designing for testability」節、および work-manager <code>src/lib/task-timer.ts</code> 系の設計を踏襲）。日付・IDなどはテスト側で固定値/生成値を渡し、暗黙の現在時刻に依存させない。</li>
+</ul>
+
+<h2 id="io-boundary">I/O境界のテスト方針（work-managerからの変更点）</h2>
+
+<p>work-manager は Prisma + PostgreSQL 構成のため、DBアクセスは <code>vi.mock("@/lib/db", ...)</code> で <code>prisma.*</code> を丸ごとモックし、ハンドラ層のロジックのみを検証する（<code>tests/tasks-handlers.test.ts</code> 参照）。実DBへの接続はテストでは行わない。</p>
+
+<p>hanamask は better-sqlite3（同期・ファイルベース・プロセス内蔵）を使うため、この制約が当てはまらない。方針を以下のように変更する。</p>
+
+<ul>
+<li><strong>DBを直接使うロジック（リポジトリ層・MCPツールハンドラ）は、原則としてモックせず実際のSQLiteファイル（一時ファイル）に対してテストする。</strong>
+<ul>
+<li><code>beforeEach</code> で <code>tmpdir()</code> 配下にランダムな一時ファイルパスを作り <code>openDb()</code> する、<code>afterEach</code> で <code>closeDb()</code> してから <code>rmSync(..., { force: true })</code> で削除する（<code>tests/main/db/notes-repo.test.ts</code>, <code>tests/main/mcp/tools.test.ts</code> 参照）。</li>
+<li>理由: better-sqlite3は同期APIかつネットワークI/Oを伴わないため、実ファイルに対するテストでも十分高速。モックで代替する必要が薄く、実際のSQL（<code>LIKE</code>のワイルドカードエスケープなど）が正しく機能することまで検証できる方が信頼性が高い。</li>
+</ul>
+</li>
+<li><strong>モックを使うのは、実データでは再現しづらい異常系（ネイティブドライバ層の障害）に限定する。</strong>
+<ul>
+<li>例: <code>tests/main/db/db.test.ts</code> は <code>vi.mock("better-sqlite3", ...)</code> でドライバ自体をモックし、「スキーマ適用が例外を投げたら接続をclose・状態をクリアする」という異常系のみを検証する。正常系（<code>notes-repo.test.ts</code>）は実ファイルで検証するため、ここでのモックはドライバ層の境界に閉じている。</li>
+</ul>
+</li>
+<li>MCPツールのテストは、HTTPトランスポートを経由せず <code>findNoteTool(name).handler(args)</code> を直接呼び出してツールの入出力を検証する（<code>tests/main/mcp/tools.test.ts</code> 参照）。トランスポート層自体の検証は別途スコープする。</li>
+</ul>
+
+<h2 id="renderer">レンダラー（React）コンポーネントのテスト</h2>
+<ul>
+<li><code>@testing-library/react</code> を使用する。ファイル先頭に <code>/** @vitest-environment jsdom */</code> を付ける。</li>
+<li>レンダラーは <code>window.hanamask</code>（preload が公開するAPI）越しにのみ main プロセスと通信する。テストでは <code>window.hanamask</code> に <code>vi.fn()</code> を差し込んでモックし、実際の IPC/MCP には触れない（<code>tests/renderer/NoteList.test.tsx</code> の <code>mockHanamask</code> 参照）。</li>
+<li><code>afterEach</code> で <code>cleanup()</code> と <code>vi.restoreAllMocks()</code> を必ず呼び、テスト間の状態漏れを防ぐ。</li>
+<li>購読解除（<code>unsubscribe</code>）やコールバック経由の再取得など、ライフサイクルに関わる振る舞いも個別のテストケースとして明示する。</li>
+</ul>
+
+<h2 id="coverage">網羅すべきケースの観点</h2>
+<p>happy path / edge / corner / boundary / empty / null・undefined / invalid / error / negative / regression の観点はグローバル <code>docs/testing.md</code> のチェックリストに従う（本ファイルでは重複させない）。hanamask における具体例:</p>
+<ul>
+<li>empty: <code>searchNotes("")</code> は全件返す、ノート0件時のレンダラー空状態表示</li>
+<li>invalid: MCPツールへの型不一致な引数（<code>{ id: 42 }</code> など）は <code>isError: true</code> を返す</li>
+<li>error: DBクローズ後のツール呼び出しはクラッシュせず <code>isError: true</code> を返す</li>
+<li>negative: バリデーション失敗時は <code>onNotesChanged</code> リスナーに通知しない（副作用が起きないことの確認）</li>
+</ul>
+
+<h2 id="golden">Golden tests</h2>
+<p>現時点で CLI出力・固定フォーマット出力を持つ機能はないため未導入。該当する機能（例: エクスポート機能）が追加された時点で <code>docs/testing.md</code> の Golden tests 節に従い導入を検討する。</p>
+
+<h2 id="prohibited">禁止事項</h2>
+<p>テストの削除・無効化、アサーションを緩めることで「グリーンにする」ことは禁止する（<code>CLAUDE.md</code> の Parallel Subagent Framework セーフティ機構と同じ規約）。テストが失敗する場合は原因を修正するか、修正できない場合は失敗のまま報告する。</p>
+
+</main>
+</body>
+</html>

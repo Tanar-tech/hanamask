@@ -42,7 +42,7 @@
 
 <h3 id="t01">T01: テストケース作成方針の整備</h3>
 <ul>
-<li>ステータス: レビュー待ち（PR #7, <code>docs/TESTING.md</code>）</li>
+<li>ステータス: 完了（PR #7, <code>docs/TESTING.md</code>）</li>
 <li>目的: 単体テストの書き方（ディレクトリ構成・I/O境界の扱い）を明文化し、以降のタスクで揺れなく踏襲できるようにする。</li>
 <li>変更範囲: <code>docs/TESTING.md</code>, <code>docs/GOVERNANCE.md</code>, <code>docs/html/</code>。</li>
 <li>テスト: 該当なし（ドキュメントのみ）。</li>
@@ -50,7 +50,7 @@
 
 <h3 id="t02">T02: GUI/E2E検証ハーネスの整備</h3>
 <ul>
-<li>ステータス: レビュー待ち（PR #8, <code>tests/e2e/</code>, <code>.claude/skills/e2e-runner/SKILL.md</code>）</li>
+<li>ステータス: 完了（PR #8, <code>tests/e2e/</code>, <code>.claude/skills/e2e-runner/SKILL.md</code>）</li>
 <li>目的: MCP経由の操作がデスクトップUIに実際に反映されることを、Electronアプリを本当に起動して自動検証できるようにする。</li>
 <li>変更範囲: <code>tests/e2e/</code>, <code>vitest.e2e.config.ts</code>, <code>.claude/skills/e2e-runner/SKILL.md</code>, <code>src/main/index.ts</code>（テスト用DBパス上書き）, <code>tsconfig.preload.json</code>。</li>
 <li>実績: 副産物としてpreloadスクリプトのCommonJSコンパイル不備（画面が真っ白になる実害バグ）を発見・修正済み。</li>

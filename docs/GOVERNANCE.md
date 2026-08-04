@@ -106,7 +106,7 @@ herdr（7.1）が複数の独立したタスクをworktree単位で並列化す�
 一般的なコーディングスタイル・コメント方針（YAGNI、コメントは「なぜ」のみ等）は `~/.claude/CLAUDE.md`（グローバル規約）の Coding Style / Comments 節に従う。本プロジェクト固有の規約のみ以下に記す。
 
 - 技術スタック（2026-08-03改訂。旧: Next.js/PostgreSQL/AWSサーバーレス構成）: Electron（デスクトップアプリ本体）+ Node.js製MCP SDK（mainプロセス内蔵のMCPサーバー）+ SQLite（ローカルDB）。UI（レンダラープロセス）の詳細実装は基盤実装時に確定する。詳細は [docs/REQUIREMENTS.md](REQUIREMENTS.md) 参照。
-- テスト: 単体テストは Vitest（既存採用ランナー、グローバル規約の「既存ランナーがあれば従う」に該当）。
+- テスト: 単体テストは Vitest（既存採用ランナー、グローバル規約の「既存ランナーがあれば従う」に該当）。テストケース作成方針（ディレクトリ構成、I/O境界の扱い等）は [docs/TESTING.md](TESTING.md) を参照。
 - Anthropic APIキー等の秘密情報はElectronの `safeStorage`（OSセキュアストレージ）で暗号化して保存する。環境変数(.env)やサードパーティの汎用キーストアは使わない（docs/REQUIREMENTS.md §4.6）。
 
 ## 9. セキュリティ・シークレット管理
@@ -122,6 +122,7 @@ herdr（7.1）が複数の独立したタスクをworktree単位で並列化す�
 - `CLAUDE.md`: Claude Code セッション向けのプロジェクト固有指示（本規約の要点を参照する形で維持）
 - `docs/HERDR.md`: herdrによる並列サブエージェント運用のセットアップ・使い方
 - `docs/CODEX.md`: OpenAI Codex CLIのセットアップ・herdr連携・開発要員としての運用方法
+- `docs/TESTING.md`: テストケース作成方針（ディレクトリ構成、I/O境界の扱い等）
 - `docs/TASKS.md`: `docs/REQUIREMENTS.md`を実装単位に分解したタスク一覧（目的・変更範囲・禁止事項・テスト・停止条件）。整備・更新手順は skill「task-breakdown」を参照。
 - `.claude/agents/`: Claude Codeサブエージェント定義（`implementer`/`reviewer`/`verifier`）。7.2のフローで使用する。
 - `.claude/skills/`: Claude Codeスキル定義（`feature-spec`/`structured-review`/`e2e-runner`）。7.2のフローで使用する。

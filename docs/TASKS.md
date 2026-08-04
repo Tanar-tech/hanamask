@@ -31,14 +31,14 @@
 
 ### T01: テストケース作成方針の整備
 
-- ステータス: レビュー待ち（PR #7, `docs/TESTING.md`）
+- ステータス: 完了（PR #7, `docs/TESTING.md`）
 - 目的: 単体テストの書き方（ディレクトリ構成・I/O境界の扱い）を明文化し、以降のタスクで揺れなく踏襲できるようにする。
 - 変更範囲: `docs/TESTING.md`, `docs/GOVERNANCE.md`, `docs/html/`。
 - テスト: 該当なし（ドキュメントのみ）。
 
 ### T02: GUI/E2E検証ハーネスの整備
 
-- ステータス: レビュー待ち（PR #8, `tests/e2e/`, `.claude/skills/e2e-runner/SKILL.md`）
+- ステータス: 完了（PR #8, `tests/e2e/`, `.claude/skills/e2e-runner/SKILL.md`）
 - 目的: MCP経由の操作がデスクトップUIに実際に反映されることを、Electronアプリを本当に起動して自動検証できるようにする。
 - 変更範囲: `tests/e2e/`, `vitest.e2e.config.ts`, `.claude/skills/e2e-runner/SKILL.md`, `src/main/index.ts`（テスト用DBパス上書き）, `tsconfig.preload.json`。
 - 実績: 副産物としてpreloadスクリプトのCommonJSコンパイル不備（画面が真っ白になる実害バグ）を発見・修正済み。

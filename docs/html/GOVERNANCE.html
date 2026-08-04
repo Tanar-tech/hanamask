@@ -162,7 +162,7 @@ flowchart LR
 <p>一般的なコーディングスタイル・コメント方針（YAGNI、コメントは「なぜ」のみ等）は <code>~/.claude/CLAUDE.md</code>（グローバル規約）の Coding Style / Comments 節に従う。本プロジェクト固有の規約のみ以下に記す。</p>
 <ul>
 <li>技術スタック（2026-08-03改訂。旧: Next.js/PostgreSQL/AWSサーバーレス構成）: Electron（デスクトップアプリ本体）+ Node.js製MCP SDK（mainプロセス内蔵のMCPサーバー）+ SQLite（ローカルDB）。UI（レンダラープロセス）の詳細実装は基盤実装時に確定する。詳細は <a href="REQUIREMENTS.html">docs/REQUIREMENTS.md</a> 参照。</li>
-<li>テスト: 単体テストは Vitest（既存採用ランナー、グローバル規約の「既存ランナーがあれば従う」に該当）。</li>
+<li>テスト: 単体テストは Vitest（既存採用ランナー、グローバル規約の「既存ランナーがあれば従う」に該当）。テストケース作成方針（ディレクトリ構成、I/O境界の扱い等）は <a href="TESTING.html">docs/TESTING.md</a> を参照。</li>
 <li>Anthropic APIキー等の秘密情報はElectronの <code>safeStorage</code>（OSセキュアストレージ）で暗号化して保存する。環境変数(.env)やサードパーティの汎用キーストアは使わない（docs/REQUIREMENTS.md §4.6）。</li>
 </ul>
 
@@ -180,6 +180,7 @@ flowchart LR
 <li><code>CLAUDE.md</code>: Claude Code セッション向けのプロジェクト固有指示（本規約の要点を参照する形で維持）</li>
 <li><code>docs/HERDR.md</code>: herdrによる並列サブエージェント運用のセットアップ・使い方</li>
 <li><code>docs/CODEX.md</code>: OpenAI Codex CLIのセットアップ・herdr連携・開発要員としての運用方法</li>
+<li><code>docs/TESTING.md</code>: テストケース作成方針（ディレクトリ構成、I/O境界の扱い等）</li>
 <li><code>docs/TASKS.md</code>: <code>docs/REQUIREMENTS.md</code>を実装単位に分解したタスク一覧（目的・変更範囲・禁止事項・テスト・停止条件）。整備・更新手順は skill「task-breakdown」を参照。</li>
 <li><code>.claude/agents/</code>: Claude Codeサブエージェント定義（<code>implementer</code>/<code>reviewer</code>/<code>verifier</code>）。7.2のフローで使用する。</li>
 <li><code>.claude/skills/</code>: Claude Codeスキル定義（<code>feature-spec</code>/<code>structured-review</code>/<code>e2e-runner</code>）。7.2のフローで使用する。</li>

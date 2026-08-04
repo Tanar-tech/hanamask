@@ -146,6 +146,9 @@ vite.config.ts.timestamp-*
 *.sqlite3
 release/
 
+# hanamask: E2Eテスト(tests/e2e)が出力するスクリーンショット
+tests/e2e/.artifacts/
+
 # Claude Code のセッションローカルな実行時状態（sessionId/pid等）。プロジェクト設定ではないため追跡しない。
 .claude/scheduled_tasks.lock
 # Claude Code の個人用設定（端末固有の許可ルール等）
