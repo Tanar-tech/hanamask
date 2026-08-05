@@ -163,7 +163,8 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
   // 変更通知のコールバックは購読時のstateを閉じ込めてしまうため、判断材料は都度refから読む。
   // mutationCountは利用者の操作で表示中の内容が変わるたびに増える。取得の前後で値が変われば、
   // その取得は操作前の内容なので捨てる。restoringの再判定では塞げない（取得が解決する頃には
-  // 操作が完了していてフラグは既に降りているため）。
+  // 操作が完了していてフラグは既に降りているため）。加算は操作の開始時なので、操作が失敗すると
+  // 待機中だった正当な取得を1回だけ捨てる。次の変更通知で取り直されるため許容している。
   const liveStateRef = useRef({ editing, restoring, mutationCount: 0 });
   useEffect(() => {
     liveStateRef.current.editing = editing;
