@@ -56,8 +56,9 @@
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th></tr></thead>
 <tbody>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル（BYO Agent）。未着手・最大の残スコープ（管理者判断で継続見送り中）</td><td>T03, T05</td></tr>
-<tr><td><a href="#t21">T21</a></td><td>ノート切替時の復元レース（<code>App.tsx</code>の<code>&lt;NoteDetail&gt;</code>に<code>key</code>が無い）</td><td>T15</td></tr>
 <tr><td><a href="#t22">T22</a></td><td>T16/T17で見送ったE2Eシナリオの追加</td><td>T16, T17</td></tr>
+<tr><td><a href="#t23">T23</a></td><td>タスク詳細画面へのリアルタイム反映の横展開（T17のノート側の方式をタスクへ）</td><td>T17</td></tr>
+<tr><td><a href="#t24">T24</a></td><td>E2Eヘルパーの共通化（4specでの重複解消）</td><td>T22</td></tr>
 </tbody>
 </table>
 
@@ -85,13 +86,15 @@ flowchart LR
   T15 --> T21["T21 ノート切替の復元レース"]
   T16 --> T22["T22 E2Eシナリオ追加"]
   T17 --> T22
+  T17 --> T23["T23 タスク詳細のリアルタイム反映"]
+  T22 --> T24["T24 E2Eヘルパー共通化"]
 
   classDef done fill:#d7ead7,stroke:#4a7a4a,color:#123;
   classDef wip fill:#fdf0c8,stroke:#a08a30,color:#123;
   classDef todo fill:#f6d7d7,stroke:#a05050,color:#123;
   class T00,T03,T05,T15,T04,T06,T07,T08,T09,T10,T11 done;
-  class T16,T17,T18,T19,T20 done;
-  class T12,T21,T22 todo;
+  class T16,T17,T18,T19,T20,T21 done;
+  class T12,T22,T23,T24 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -352,13 +355,14 @@ flowchart LR
 
 <h3 id="t21">T21: ノート切替時の復元レース（<code>NoteDetail</code>が再マウントされない）</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #38）</li>
 <li>依存: 必須: T15（ノート/タスク詳細画面）</li>
 <li>目的: <code>reviewer</code>がT18のレビュー中に発見した既存の欠落。<code>src/renderer/App.tsx</code>の<code>&lt;NoteDetail noteId={view.id} ... /&gt;</code>に<code>key</code>指定が無いため、別のノートへ切り替えても<code>NoteDetail</code>/<code>NoteVersionHistory</code>は同一インスタンスとして再利用される。あるバージョンの復元がIPC応答待ちの間に別ノートへ遷移すると<code>NoteVersionHistory</code>はアンマウントされず<code>mounted.current</code>が<code>true</code>のままになり、復元完了時に<code>onRestored</code>（=<code>setNote</code>）が表示中の別ノートを旧ノートの復元結果で上書きしうる。T18の修正で導入した<code>mounted</code> refによる防御が、この経路では効かない。</li>
 <li>変更範囲: <code>src/renderer/App.tsx</code>（<code>&lt;NoteDetail&gt;</code>/<code>&lt;TaskDetail&gt;</code>に<code>key={view.id}</code>を付与してノートIDごとに再マウントさせる）。副作用として詳細画面のローカルstate（編集中の<code>draft</code>等）がノート切替時に確実にリセットされるため、既存の<code>useEffect</code>によるリセット処理が冗長になる可能性がある。</li>
 <li>禁止事項: <code>NoteVersionHistory</code>/<code>NoteDetail</code>側のガードロジック（T18で追加した<code>mounted</code> ref・<code>restoring</code>フラグ）を削除しないこと。<code>key</code>追加はこれらを代替するものではなく、アンマウント経路を確実にするための補強である。</li>
 <li>テスト: 復元のIPC応答待ち中に別ノートへ遷移し、応答が解決しても表示中のノートが上書きされないことのテスト（<code>App.test.tsx</code>または<code>NoteDetail.test.tsx</code>）。まずこのレースを再現する失敗テストを書いてから修正すること。<code>key</code>追加で既存のノート切替・タスク切替のテストが壊れないことも確認する。</li>
 <li>停止条件: <code>key</code>追加により詳細画面のstate管理（既存の<code>noteId</code>変更時リセット処理）と重複・競合が生じる場合、どちらを正とするかの方針を管理者に確認する。</li>
+<li>実績（PR #38）: <code>&lt;NoteDetail&gt;</code>/<code>&lt;TaskDetail&gt;</code>に<code>key={view.id}</code>を付与。修正前に新規テストが実際にFAILし、失敗時のDOMダンプで表示中のはずのノートが旧ノートの復元結果に置き換わることを確認（<code>reviewer</code>も独立に<code>key</code>を一時除去して同じFAILを再現）。T18で追加した<code>mounted</code> ref・<code>restoring</code>フラグは削除していない。副作用として<code>NoteDetail</code>内の<code>noteId</code>依存<code>useEffect</code>が実質「初回マウントのみ」になるが、競合ではなく冗長化であり停止条件に該当しないと判断し、整理は見送った（<code>key</code>が将来外れた場合の保険としても残る）。</li>
 </ul>
 
 <h3 id="t22">T22: T16/T17で見送ったE2Eシナリオの追加</h3>
@@ -370,6 +374,28 @@ flowchart LR
 <li>禁止事項: 実装側の挙動変更は行わない。E2Eを通すためにプロダクトコードへテスト専用の分岐・属性を足さない（既存のロケータで届かない場合は、その旨を報告して止める）。他タスクのE2Eシナリオ（タスク・カンバン等）の拡充はスコープ外。</li>
 <li>テスト: (1) UI操作でノートを削除→ゴミ箱画面に出る→復元→通常一覧に戻る。(2) ノート詳細画面を開いたままMCPツールで<code>update_note</code>を実行し、タイトル・本文・タグの表示が更新される。(3) 編集モード中に同じ更新を行うと、編集内容が保持されたまま変更通知が表示される。既存E2E 6件が壊れないことも確認する。</li>
 <li>停止条件: E2E内からMCPツールを直接叩く手段（既存specはIPC経由のUI操作が中心）が既存ハーネスに無く、新しい仕組み（テスト用MCPクライアントの追加等）が必要になった場合は、<code>docs/GOVERNANCE.md</code> §6の判断を仰ぐため管理者に確認する。</li>
+</ul>
+
+<h3 id="t23">T23: タスク詳細画面へのリアルタイム反映の横展開</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>依存: 必須: T17（ノート側で方式が確定していること）／推奨: T05, T15</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.6, §1。T17でノート詳細画面のリアルタイム反映を実装した際、「ノートで方式を固めてから横展開する」として意図的にスコープ外にした残り。<code>TaskDetail.tsx</code>は<code>tasks:changed</code>を購読しておらず、マウント時と<code>taskId</code>変更時にしか<code>getTask</code>を呼ばないため、AIエージェントがMCP経由で<code>update_task</code>しても画面を開いたままの利用者には古い内容が表示され続ける。ノートだけが仕様を満たし、タスクが例外になっている状態を解消する。</li>
+<li>変更範囲: <code>src/renderer/components/TaskDetail.tsx</code>（<code>tasks:changed</code>購読と再取得）, <code>tests/renderer/TaskDetail.test.tsx</code>。MCP側・IPC側（<code>tasks:changed</code>の発火経路）は既に存在するため変更しない。</li>
+<li>禁止事項: <code>notes:changed</code>/<code>links:changed</code>まわりやノート側コンポーネントには手を入れない。ポーリングによる定期再取得は実装しない（既存の<code>tasks:changed</code>通知経路に乗せる）。<code>TaskDetail</code>に編集フォーム等の新機能を足さない（本タスクは反映のみ）。カンバン・リスト表示側の反映は既存実装のままとする。</li>
+<li>テスト: <code>tasks:changed</code>受信でタスク（タイトル・本文・ステータス・期限等）が再取得され表示が更新されることのコンポーネントテスト。ステータス変更の楽観更新（<code>changeStatus</code>が応答前にローカルstateを書き換える）と再取得が競合しても、利用者の操作結果が巻き戻らないことのテスト。取得失敗時にエラー表示が出て、次の成功で消えること（T17の<code>reloadError</code>と同じ扱い）。</li>
+<li>停止条件: <code>changeStatus</code>の楽観更新中に<code>tasks:changed</code>が届いた場合の扱い（更新前の値で上書きされうる）が、ノート側の<code>restoring</code>スキップと同型の判断で解決できない場合は、方針を管理者に確認する。要求定義に無いUI（競合通知バナー等）をタスク側に新設する必要が出た場合も同様に確認する。</li>
+</ul>
+
+<h3 id="t24">T24: E2Eヘルパーの共通化</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>依存: 必須: T22（4本目のspecが入り重複が確定すること）／推奨: なし</li>
+<li>目的: <code>tests/e2e/</code>の4つのspecが<code>buildLaunchEnv</code>/<code>callMcpTool</code>/<code>readNoteId</code>等をそれぞれ同一コードで重複定義している。グローバル規約のDRY原則に反し、ハーネスの仕様変更（ポート規約・環境変数の追加等）のたびに4箇所を直す必要がある。T22の実装者がスコープ外として意図的に見送った分。</li>
+<li>変更範囲: <code>tests/e2e/</code>のみ（共通ヘルパーファイルの新設と既存4specからの参照差し替え）。アプリ本体（<code>src/</code>）は変更しない。</li>
+<li>禁止事項: ヘルパー共通化に便乗してテストの内容（シナリオ・アサーション）を変更しない。テストを削除・スキップしない。過度な抽象化（1箇所でしか使わないものまでヘルパー化する）はしない。</li>
+<li>テスト: 既存E2E 9件が共通化の前後で同じく全て通ること（<code>xvfb-run -a npm run test:e2e</code>）。共通化の前後で各specの実行内容が変わっていないことを差分で確認する。</li>
+<li>停止条件: 共通化にあたりspecごとのポート番号やDB配置の規約を変更する必要が出た場合は、既存テストの安定性に影響するため管理者に確認する。特になし以外の判断が生じなければ自律的に進めてよい。</li>
 </ul>
 
 </main>
