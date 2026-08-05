@@ -26,7 +26,10 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
   // 変更通知のコールバックは購読時のstateを閉じ込めてしまうため、判断材料は都度refから読む。
   // 描画に使わないのでstateにはしない。stateにするとsetStateからeffectでのref同期までの間に
   // 通知が届いたとき古い値で判断してしまう（NoteDetailの`editing`/`restoring`は描画に使うため別）。
-  const liveStateRef = useRef({ changingStatus: false });
+  // mutationCountは利用者の操作で表示中の内容が変わるたびに増える。取得の前後で値が変われば、
+  // その取得は操作前の内容なので捨てる。changingStatusの再判定では塞げない（取得が解決する頃には
+  // 操作が完了していてフラグは既に降りているため）。
+  const liveStateRef = useRef({ changingStatus: false, mutationCount: 0 });
 
   useEffect(() => {
     // タスク切替時に古い取得結果が後から届いて上書きするのを防ぐ。
@@ -51,9 +54,11 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
   const reloadTask = useCallback(async (): Promise<void> => {
     // ステータス変更の応答待ち中に取得すると変更前の内容が後から届き、変更結果を打ち消しうる。
     if (liveStateRef.current.changingStatus) return;
+    const startedAtMutationCount = liveStateRef.current.mutationCount;
     const latest = await window.hanamask.getTask(taskId);
     setReloadError(null);
     if (latest === null) return;
+    if (liveStateRef.current.mutationCount !== startedAtMutationCount) return;
     setTask(latest);
   }, [taskId]);
 
@@ -70,6 +75,7 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
 
   const changeStatus = useCallback(async (id: string, status: TaskStatus) => {
     liveStateRef.current.changingStatus = true;
+    liveStateRef.current.mutationCount += 1;
     try {
       await window.hanamask.updateTaskStatus(id, status);
       setTask((current) => (current === null ? current : { ...current, status }));

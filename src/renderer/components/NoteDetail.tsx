@@ -161,10 +161,19 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
 
   const editing = draft !== null;
   // 変更通知のコールバックは購読時のstateを閉じ込めてしまうため、判断材料は都度refから読む。
-  const liveStateRef = useRef({ editing, restoring });
+  // mutationCountは利用者の操作で表示中の内容が変わるたびに増える。取得の前後で値が変われば、
+  // その取得は操作前の内容なので捨てる。restoringの再判定では塞げない（取得が解決する頃には
+  // 操作が完了していてフラグは既に降りているため）。
+  const liveStateRef = useRef({ editing, restoring, mutationCount: 0 });
   useEffect(() => {
-    liveStateRef.current = { editing, restoring };
+    liveStateRef.current.editing = editing;
+    liveStateRef.current.restoring = restoring;
   }, [editing, restoring]);
+
+  const handleRestoringChange = useCallback((next: boolean): void => {
+    if (next) liveStateRef.current.mutationCount += 1;
+    setRestoring(next);
+  }, []);
 
   const reloadImages = useCallback(async (): Promise<void> => {
     setImages(await window.hanamask.listImages(noteId));
@@ -173,9 +182,11 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
   const reloadNote = useCallback(async (): Promise<void> => {
     // 復元の応答待ち中に取得すると復元前の内容が後から届き、復元結果を打ち消しうる。
     if (liveStateRef.current.restoring) return;
+    const startedAtMutationCount = liveStateRef.current.mutationCount;
     const latest = await window.hanamask.getNote(noteId);
     setReloadError(null);
     if (latest === null) return;
+    if (liveStateRef.current.mutationCount !== startedAtMutationCount) return;
     // 編集中の入力を失わせないため、反映せず通知だけ出して利用者に選ばせる。
     if (liveStateRef.current.editing) setExternalNote(latest);
     else setNote(latest);
@@ -263,6 +274,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
     if (draft === null) return;
     try {
       setSaveError(null);
+      liveStateRef.current.mutationCount += 1;
       const updated = await window.hanamask.updateNote(noteId, {
         title: draft.title,
         body: draft.body,
@@ -363,7 +375,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
           <NoteVersionHistory
             noteId={noteId}
             onRestored={setNote}
-            onRestoringChange={setRestoring}
+            onRestoringChange={handleRestoringChange}
           />
 
         </>

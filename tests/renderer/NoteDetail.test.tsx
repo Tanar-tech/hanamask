@@ -769,6 +769,68 @@ describe("NoteDetail の外部更新反映", () => {
     vi.unstubAllGlobals();
   });
 
+  it("再取得の応答待ち中に履歴から復元すると、後から届いた取得結果で復元結果が消えない", async () => {
+    let resolveReload: ((note: Note) => void) | undefined;
+    let loadCount = 0;
+    const { onNotesChanged } = mockHanamask(
+      async () => {
+        loadCount += 1;
+        if (loadCount === 1) return makeNote();
+        return new Promise<Note>((resolve) => {
+          resolveReload = resolve;
+        });
+      },
+      {
+        listNoteVersions: async () => [makeVersion()],
+        restoreNoteVersion: async () =>
+          makeNote({ title: "復元されたタイトル", body: "復元された本文" }),
+      },
+    );
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("旧タイトル");
+    // 取得が先に始まり、その応答待ちの間に復元が始まって先に完了する順序。
+    await emitNotesChanged(onNotesChanged);
+    await clickButton("このバージョンに戻す");
+    await act(async () => {
+      resolveReload?.(makeNote());
+    });
+
+    expect(screen.getByText("復元されたタイトル")).toBeTruthy();
+    expect(screen.queryByText("設計メモ")).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
+  it("再取得の応答待ち中に編集を保存すると、後から届いた取得結果で保存結果が消えない", async () => {
+    let resolveReload: ((note: Note) => void) | undefined;
+    let loadCount = 0;
+    const { onNotesChanged } = mockHanamask(
+      async () => {
+        loadCount += 1;
+        if (loadCount === 1) return makeNote();
+        return new Promise<Note>((resolve) => {
+          resolveReload = resolve;
+        });
+      },
+      { updateNote: async () => makeNote({ title: "利用者の保存結果" }) },
+    );
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+    typeInto("タイトル", "利用者の保存結果");
+    // 取得が先に始まり、その応答待ちの間に保存が始まって先に完了する順序。
+    await emitNotesChanged(onNotesChanged);
+    await clickButton("保存");
+    await act(async () => {
+      resolveReload?.(makeNote());
+    });
+
+    expect(screen.getByText("利用者の保存結果")).toBeTruthy();
+    expect(screen.queryByText("設計メモ")).toBeNull();
+  });
+
   it("背景リロードの失敗はノートを切り替えると消える", async () => {
     let failReload = false;
     const { onNotesChanged } = mockHanamask(async (id) => {
