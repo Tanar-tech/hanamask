@@ -869,20 +869,37 @@ describe("NoteDetail の外部更新反映", () => {
   });
 
   it("画像を添付しても応答待ち中だったノート本体の再取得は捨てられない", async () => {
+    const attached = makeImage({ id: "image-9", filePath: "/data/images/new.png" });
     let resolveReload: ((note: Note) => void) | undefined;
     let loadCount = 0;
-    const { onNotesChanged } = mockHanamask(async () => {
-      loadCount += 1;
-      if (loadCount === 1) return makeNote();
-      return new Promise<Note>((resolve) => {
-        resolveReload = resolve;
-      });
-    });
+    let stored: Image[] = [];
+    const { onNotesChanged } = mockHanamask(
+      async () => {
+        loadCount += 1;
+        if (loadCount === 1) return makeNote();
+        return new Promise<Note>((resolve) => {
+          resolveReload = resolve;
+        });
+      },
+      {
+        listImages: async () => stored,
+        attachImage: async () => {
+          stored = [attached];
+          return attached;
+        },
+      },
+    );
 
     render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
     await screen.findByText("設計メモ");
     await emitNotesChanged(onNotesChanged);
     await selectFile(new File(["hello"], "shot.png", { type: "image/png" }));
+    // 画像が出るまで待つことで、添付が完全に終わり加算も済んだことを保証する。ここで待たないと
+    // 加算前にノートの取得が解決してしまい、相乗り実装にしてもこのテストが通ってしまう。
+    await waitFor(() => {
+      expect(screen.getAllByRole("img")).toHaveLength(1);
+    });
+
     await act(async () => {
       resolveReload?.(makeNote({ title: "MCPが書き換えた" }));
     });
