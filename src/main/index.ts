@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, type IpcMainInvokeEvent } from "electron";
+import { app, BrowserWindow, ipcMain, session, type IpcMainInvokeEvent } from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
@@ -74,6 +74,72 @@ const RENDERER_HTML_PATH = join(moduleDir, "../renderer/index.html");
 
 // Vite dev server URL is injected by the dev script; absent in a packaged build.
 const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+
+const CSP_HEADER_NAME = "Content-Security-Policy";
+
+interface CspDirectives {
+  "default-src": string;
+  "script-src": string;
+  "style-src": string;
+  "img-src": string;
+  "font-src": string;
+  "connect-src": string;
+  "base-uri": string;
+  "form-action": string;
+  "frame-ancestors": string;
+  "object-src": string;
+}
+
+// style-src の 'unsafe-inline': mermaid は図ごとに内容の変わる <style> と style 属性を
+// 生成SVGに埋め込むため、これが無いと図がスタイルを失い黒い矩形になる（内容が可変なので
+// hash指定では代替できない）。スクリプト実行は 'self' のみで 'unsafe-eval' も無く、
+// どのディレクティブでも外部オリジンを許可していないため、緩和の影響は見た目に限られる。
+// img-src の file: 添付画像は userData 配下を file:// URL で読むため、'self' では届かない
+// （開発時は 'self' が dev server のオリジンになるので特に必要）。
+const PRODUCTION_DIRECTIVES: CspDirectives = {
+  "default-src": "'none'",
+  "script-src": "'self'",
+  "style-src": "'self' 'unsafe-inline'",
+  "img-src": "'self' file: data:",
+  "font-src": "'self' data:",
+  "connect-src": "'self'",
+  "base-uri": "'none'",
+  "form-action": "'none'",
+  "frame-ancestors": "'none'",
+  "object-src": "'none'",
+};
+
+// Vite の dev server は Fast Refresh のpreambleをインラインscriptとして差し込み、HMRを
+// WebSocketで繋ぐ。本番（file://読み込み）には不要な緩和なので dev server 使用時だけ足す。
+const withDevServerSources = (devServerUrl: string): CspDirectives => {
+  const { origin } = new URL(devServerUrl);
+  const socketOrigin = origin.replace(/^http/, "ws");
+  return {
+    ...PRODUCTION_DIRECTIVES,
+    "script-src": `${PRODUCTION_DIRECTIVES["script-src"]} 'unsafe-inline' ${origin}`,
+    "style-src": `${PRODUCTION_DIRECTIVES["style-src"]} ${origin}`,
+    "connect-src": `${PRODUCTION_DIRECTIVES["connect-src"]} ${origin} ${socketOrigin}`,
+  };
+};
+
+export const buildContentSecurityPolicy = (devServerUrl: string | undefined): string => {
+  const directives =
+    devServerUrl === undefined ? PRODUCTION_DIRECTIVES : withDevServerSources(devServerUrl);
+  return Object.entries(directives)
+    .map(([name, sources]) => `${name} ${sources}`)
+    .join("; ");
+};
+
+// レンダラーは file:// で読み込むためHTML側のmetaタグでも設定できるが、それだと開発時と
+// 本番で同じindex.htmlが配られ、dev server用の緩和を本番にも持ち込んでしまう。
+const applyContentSecurityPolicy = (): void => {
+  const policy = buildContentSecurityPolicy(devServerUrl);
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: { ...details.responseHeaders, [CSP_HEADER_NAME]: [policy] },
+    });
+  });
+};
 
 export const broadcastNotesChanged = (): void => {
   BrowserWindow.getAllWindows().forEach((window) => {
@@ -221,6 +287,7 @@ const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
   setImagesDirPath(join(app.getPath("userData"), IMAGES_DIR_NAME));
   purgeSoftDeletedRecords(new Date());
+  applyContentSecurityPolicy();
   createMainWindow();
   setUiNavigator({
     showWindow: () => {

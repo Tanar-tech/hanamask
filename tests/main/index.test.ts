@@ -77,6 +77,7 @@ vi.mock("electron", () => ({
     getAllWindows: () => openWindows,
   }),
   ipcMain: { handle: ipcHandle },
+  session: { defaultSession: { webRequest: { onHeadersReceived: vi.fn() } } },
 }));
 
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
