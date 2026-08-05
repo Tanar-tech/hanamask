@@ -84,6 +84,14 @@ describe("NoteList", () => {
     expect(screen.getByText("積み残しタスクの一覧")).toBeTruthy();
   });
 
+  it("一覧に名前を付けて読み上げできるようにする", async () => {
+    mockHanamask([[makeNote()]]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+
+    expect(await screen.findByRole("list", { name: "ノート一覧" })).toBeTruthy();
+  });
+
   it("onNotesChangedのコールバックでノート一覧を再取得して更新する", async () => {
     const { listNotes, listeners } = mockHanamask([
       [makeNote()],
