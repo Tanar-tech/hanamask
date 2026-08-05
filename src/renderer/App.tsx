@@ -22,8 +22,9 @@ export const App = (): JSX.Element => {
   return (
     <main>
       <h1>hanamask</h1>
-      {view.kind === "note" && <NoteDetail noteId={view.id} onBack={backToList} />}
-      {view.kind === "task" && <TaskDetail taskId={view.id} onBack={backToList} />}
+      {/* keyで再マウントさせないと、応答待ちの非同期処理が切替後のノートを上書きしうる。 */}
+      {view.kind === "note" && <NoteDetail key={view.id} noteId={view.id} onBack={backToList} />}
+      {view.kind === "task" && <TaskDetail key={view.id} taskId={view.id} onBack={backToList} />}
       {view.kind === "trash" && <TrashView onBack={backToList} />}
       {view.kind === "search" && (
         <SearchResults
