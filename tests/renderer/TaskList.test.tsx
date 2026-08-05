@@ -82,6 +82,14 @@ describe("TaskList", () => {
     expect(screen.getByText("2026-08-10")).toBeTruthy();
   });
 
+  it("一覧に名前を付けて読み上げできるようにする", async () => {
+    mockHanamask([[makeTask()]]);
+
+    render(<TaskList onSelectTask={vi.fn()} />);
+
+    expect(await screen.findByRole("list", { name: "タスク一覧" })).toBeTruthy();
+  });
+
   it("onTasksChangedのコールバックでタスク一覧を再取得して更新する", async () => {
     const { listTasks, listeners } = mockHanamask([
       [makeTask()],
