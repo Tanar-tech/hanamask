@@ -165,7 +165,9 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
   // その取得は操作前の内容なので捨てる。restoringの再判定では塞げない（取得が解決する頃には
   // 操作が完了していてフラグは既に降りているため）。加算は操作の開始時なので、操作が失敗すると
   // 待機中だった正当な取得を1回だけ捨てる。次の変更通知で取り直されるため許容している。
-  const liveStateRef = useRef({ editing, restoring, mutationCount: 0 });
+  // imageMutationCountは画像一覧だけを対象にした同じ仕組み。mutationCountに相乗りさせると
+  // 画像を添付するたびに待機中のノート本体の取得まで捨ててしまうため、別に持つ。
+  const liveStateRef = useRef({ editing, restoring, mutationCount: 0, imageMutationCount: 0 });
   useEffect(() => {
     liveStateRef.current.editing = editing;
     liveStateRef.current.restoring = restoring;
@@ -177,7 +179,11 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
   }, []);
 
   const reloadImages = useCallback(async (): Promise<void> => {
-    setImages(await window.hanamask.listImages(noteId));
+    const startedAtImageMutationCount = liveStateRef.current.imageMutationCount;
+    const latest = await window.hanamask.listImages(noteId);
+    // 添付前に始まった取得が後から解決すると、添付した画像が一覧から消える。
+    if (liveStateRef.current.imageMutationCount !== startedAtImageMutationCount) return;
+    setImages(latest);
   }, [noteId]);
 
   const reloadNote = useCallback(async (): Promise<void> => {
@@ -259,6 +265,9 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
         setAttachError(null);
         const dataBase64 = await readFileAsBase64(file);
         await window.hanamask.attachImage(noteId, file.name, dataBase64, file.type);
+        // mutationCountと違い保存の完了後に加算する。添付は完了した時点で初めて一覧の内容が
+        // 変わるため、ここまでに始まった取得はすべて添付前の一覧を運んでいる。
+        liveStateRef.current.imageMutationCount += 1;
         await reloadImages();
       } catch (cause) {
         setAttachError(`画像の添付に失敗しました: ${String(cause)}`);

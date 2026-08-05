@@ -831,6 +831,65 @@ describe("NoteDetail の外部更新反映", () => {
     expect(screen.queryByText("設計メモ")).toBeNull();
   });
 
+  it("画像一覧の再取得の応答待ち中に画像を添付すると、後から届いた取得結果で添付が消えない", async () => {
+    const attached = makeImage({ id: "image-9", filePath: "/data/images/new.png" });
+    let resolvePendingList: ((images: Image[]) => void) | undefined;
+    let stored: Image[] = [];
+    let listCount = 0;
+    const { onNotesChanged } = mockHanamask(async () => makeNote(), {
+      listImages: async () => {
+        listCount += 1;
+        // 2回目＝変更通知による再取得。添付が終わったあとに解決させるため保留する。
+        if (listCount !== 2) return stored;
+        return new Promise<Image[]>((resolve) => {
+          resolvePendingList = resolve;
+        });
+      },
+      attachImage: async () => {
+        stored = [attached];
+        return attached;
+      },
+    });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    // 取得が先に始まり、その応答待ちの間に添付が始まって先に完了する順序。
+    await emitNotesChanged(onNotesChanged);
+    await selectFile(new File(["hello"], "shot.png", { type: "image/png" }));
+    await waitFor(() => {
+      expect(screen.getAllByRole("img")).toHaveLength(1);
+    });
+
+    await act(async () => {
+      resolvePendingList?.([]);
+    });
+
+    expect(screen.getAllByRole("img")).toHaveLength(1);
+    expect(screen.getByRole("img").getAttribute("src")).toBe("file:///data/images/new.png");
+  });
+
+  it("画像を添付しても応答待ち中だったノート本体の再取得は捨てられない", async () => {
+    let resolveReload: ((note: Note) => void) | undefined;
+    let loadCount = 0;
+    const { onNotesChanged } = mockHanamask(async () => {
+      loadCount += 1;
+      if (loadCount === 1) return makeNote();
+      return new Promise<Note>((resolve) => {
+        resolveReload = resolve;
+      });
+    });
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await emitNotesChanged(onNotesChanged);
+    await selectFile(new File(["hello"], "shot.png", { type: "image/png" }));
+    await act(async () => {
+      resolveReload?.(makeNote({ title: "MCPが書き換えた" }));
+    });
+
+    expect(screen.getByText("MCPが書き換えた")).toBeTruthy();
+  });
+
   it("背景リロードの失敗はノートを切り替えると消える", async () => {
     let failReload = false;
     const { onNotesChanged } = mockHanamask(async (id) => {
