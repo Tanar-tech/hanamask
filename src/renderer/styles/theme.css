@@ -1,0 +1,79 @@
+/*
+ * Tailwind v4 のデザイントークン定義。
+ * preflight は読み込まない: 既存画面はブラウザ既定スタイルに依存しており、
+ * リセットを入れると本PRのスコープ外である見た目の変化が起きるため。
+ * 画面をTailwindへ置き換える後続PRで導入可否を判断する。
+ */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* static: ユーティリティ経由でなく var() で直接参照しても解決できるよう、未使用でも変数を出力する */
+@theme static {
+  /* エージェントの操作を表す */
+  --color-ink-pink: #ff3d8b;
+  /* 利用者の操作・現在地・押せるもの */
+  --color-ink-aqua: #00b3c8;
+  /* フォーカスリング専用 */
+  --color-ink-yellow: #ffc93c;
+
+  --color-paper: #eceff3;
+  --color-paper-raised: #f7f9fb;
+  --color-line: #cdd5de;
+
+  --color-text: #10131c;
+  --color-text-soft: #5a6675;
+  --color-text-faint: #8896a5;
+
+  /* セマンティック（アクセント2色とは別枠） */
+  --color-ok: #17915c;
+  --color-warn: #b8730a;
+  --color-crit: #cc2f3e;
+
+  /* OS標準スタックのみ。Webフォントは日本語で数MBになり起動を遅くするため読み込まない */
+  --font-display:
+    "Helvetica Neue", "Arial Black", "Hiragino Kaku Gothic ProN", "Yu Gothic",
+    sans-serif;
+  --font-body:
+    system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic UI",
+    sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* motion 側の値は src/renderer/styles/motion.ts が正。両者の一致はテストで担保する */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 1, 1);
+}
+
+/* motion の reducedMotion="user" と挙動を揃える */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-base: 0ms;
+    --duration-slow: 0ms;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ink-pink: #ff5c9e;
+    --color-ink-aqua: #2ad0e4;
+    --color-ink-yellow: #ffd45c;
+
+    --color-paper: #0d1017;
+    --color-paper-raised: #161b25;
+    --color-line: #2a3240;
+
+    --color-text: #e6ebf1;
+    --color-text-soft: #a3b0bf;
+    --color-text-faint: #6f7d8c;
+
+    --color-ok: #3ad18b;
+    --color-warn: #e0a13a;
+    --color-crit: #ff6b78;
+  }
+}
