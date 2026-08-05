@@ -142,3 +142,19 @@ Append one entry per run. Prune entries older than 30 days.
   "outcome": "shipped"
 }
 ```
+
+```json
+{
+  "run_id": "2026-08-05T06:40:00Z",
+  "pattern": "dev-loop",
+  "duration_s": null,
+  "items_found": 1,
+  "actions_taken": 2,
+  "escalations": 0,
+  "tokens_estimate": null,
+  "tasks": ["T28"],
+  "prs_opened": [53, 54],
+  "prs_merged": [53, 54],
+  "outcome": "shipped"
+}
+```

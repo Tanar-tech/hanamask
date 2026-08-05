@@ -59,7 +59,6 @@
 <tr><td><a href="#t22">T22</a></td><td>T16/T17で見送ったE2Eシナリオの追加</td><td>T16, T17</td></tr>
 <tr><td><a href="#t25"><strong>T25</strong></a></td><td><strong>デスクトップアプリのUI一新（優先度: 高）</strong></td><td>T03, T05, T06, T15</td></tr>
 <tr><td><a href="#t27">T27</a></td><td>レンダラーのContent-Security-Policy設定（多層防御）</td><td>なし（推奨: T25の後）</td></tr>
-<tr><td><a href="#t28">T28</a></td><td>画像添付にも同種の再取得レースが残っている</td><td>T26</td></tr>
 </tbody>
 </table>
 
@@ -100,8 +99,8 @@ flowchart LR
   classDef todo fill:#f6d7d7,stroke:#a05050,color:#123;
   class T00,T03,T05,T15,T04,T06,T07,T08,T09,T10,T11 done;
   class T16,T17,T18,T19,T20,T21 done;
-  class T22,T23,T24,T26 done;
-  class T12,T25,T27,T28 todo;
+  class T22,T23,T24,T26,T28 done;
+  class T12,T25,T27 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -468,13 +467,14 @@ flowchart LR
 
 <h3 id="t28">T28: 画像添付にも同種の再取得レースが残っている</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #54）</li>
 <li>依存: 必須: T26（世代カウンタ方式の確立）／推奨: なし</li>
 <li>目的: T26のレビューで<code>reviewer</code>が指摘した積み残し。T26は<code>note</code>/<code>task</code>本体の上書きを防いだが、<code>NoteDetail</code>の<code>reloadImages</code>にはガードが一切無い。利用者の画像添付（<code>attachFile</code>）と変更通知経由の<code>reloadImages</code>が、T26で塞いだのと<strong>同じ構造</strong>の潜在レースを持っている。方式は既に確立しているため解決は容易。</li>
 <li>変更範囲: <code>src/renderer/components/NoteDetail.tsx</code>（<code>reloadImages</code>と<code>attachFile</code>）, <code>tests/renderer/NoteDetail.test.tsx</code>。</li>
 <li>禁止事項: T26で導入した<code>mutationCount</code>の意味を変えないこと。画像用に別カウンタが要るか既存に相乗りしてよいかは実装時に判断してよいが、<strong><code>note</code>本体の反映が画像添付のたびに捨てられるような副作用を作らないこと</strong>。<code>attach_image</code>の仕様（保存先・命名規則・MIME検証）には触れない。</li>
 <li>テスト: <strong>まず現状のコードでこのレースを再現する失敗テストを書くこと</strong>。再現できない場合は「対応不要」として閉じてよく、その根拠を報告する。修正後はT26と同じ構造のテストが通ること。</li>
 <li>停止条件: 既存の<code>mutationCount</code>への相乗りが<code>note</code>本体の反映に悪影響を与えると判明し、カウンタの分離が必要になった場合は、T26の設計に手を入れることになるため管理者に確認する。</li>
+<li>実績（PR #54）: <code>imageMutationCount</code>を新設して分離した（相乗りは両方向に誤検知が出る）。<code>mutationCount</code>の意味・加算箇所・<code>reloadNote</code>のガードは一切変えていないため停止条件には該当しないと判断して続行。加算位置はT26と意図的に変えて<code>attachImage</code>の<strong>成功後</strong>とした（添付失敗時に正当な取得を捨てずに済むため）。<code>reviewer</code>のMajor指摘により<strong>副作用の番人として追加した回帰テストが実際には機能していなかった</strong>ことが判明し（添付完了を待たずにノートの取得を解決させていた）、修正のうえ相乗り実装で確実に落ちることを実測確認した。</li>
 </ul>
 
 <h3 id="t27">T27: レンダラーのContent-Security-Policy設定</h3>
