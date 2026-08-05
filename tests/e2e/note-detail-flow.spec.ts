@@ -10,6 +10,7 @@ import {
   launchApp,
   noteListOf,
   openNoteDetail,
+  openNoteList,
 } from "./helpers.js";
 
 // A fixed, non-default port that also differs from the ones note-flow.spec.ts (39299) and
@@ -40,6 +41,8 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
     app = await launchApp(dbFilePath, E2E_MCP_PORT);
     const window = await app.firstWindow();
     await window.waitForLoadState();
+    // The app opens on the home screen; these tests operate on the note list itself.
+    await openNoteList(window);
     return window;
   };
 

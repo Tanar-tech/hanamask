@@ -67,9 +67,18 @@ export const createNoteViaMcp = async (
   input: { title: string; body: string; tags: string[] },
 ): Promise<string> => readNoteId(await callMcpTool(mcpPort, "create_note", input));
 
-// NoteList and TaskList both render their entries as a <ul> directly under <main>, so scope
-// note locators to the first one to keep them unambiguous under Playwright's strict mode.
-export const noteListOf = (window: Page) => window.locator("main > ul").first();
+// Several views render a <ul>, so scope note locators by NoteList's own accessible name
+// to keep them unambiguous under Playwright's strict mode.
+export const noteListOf = (window: Page) => window.getByRole("list", { name: "ノート一覧" });
+
+export const taskListOf = (window: Page) => window.getByRole("list", { name: "タスク一覧" });
+
+// The app now opens on the home screen, so reach the list views through the left rail.
+export const openNoteList = (window: Page): Promise<void> =>
+  window.getByRole("button", { name: "ノート", exact: true }).click();
+
+export const openTaskList = (window: Page): Promise<void> =>
+  window.getByRole("button", { name: "タスク", exact: true }).click();
 
 export const openNoteDetail = async (window: Page, title: string): Promise<void> => {
   await noteListOf(window).getByRole("button", { name: title }).click();
