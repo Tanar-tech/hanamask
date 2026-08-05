@@ -1,89 +1,24 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { _electron as electron, type ElectronApplication, type Page } from "playwright";
+import { type ElectronApplication, type Page } from "playwright";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-
-type CallToolResult = Awaited<ReturnType<Client["callTool"]>>;
+import {
+  SCREENSHOT_DIR,
+  callMcpTool,
+  createNoteViaMcp,
+  launchApp,
+  noteListOf,
+  openNoteDetail,
+} from "./helpers.js";
 
 // A fixed, non-default port that also differs from the ones note-flow.spec.ts (39299) and
 // task-flow.spec.ts (39298) use, so the specs cannot collide even if run in parallel.
 const E2E_MCP_PORT = 39297;
-const SCREENSHOT_DIR = join(import.meta.dirname, ".artifacts");
 
 // A 1x1 transparent PNG, small enough to embed and still pass the MIME/magic-byte checks.
 const ONE_PIXEL_PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-
-// VITE_DEV_SERVER_URL must not be forwarded: its presence tells src/main/index.ts to load
-// the Vite dev server instead of the built dist/renderer/index.html this test relies on.
-const buildLaunchEnv = (dbFilePath: string): Record<string, string> => {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && key !== "VITE_DEV_SERVER_URL") env[key] = value;
-  }
-  env.HANAMASK_DB_PATH = dbFilePath;
-  env.HANAMASK_MCP_PORT = String(E2E_MCP_PORT);
-  return env;
-};
-
-const launchApp = (dbFilePath: string): Promise<ElectronApplication> =>
-  electron.launch({ args: ["."], env: buildLaunchEnv(dbFilePath) });
-
-const callMcpTool = async (name: string, args: Record<string, unknown>): Promise<CallToolResult> => {
-  const client = new Client({ name: "hanamask-e2e", version: "0.0.0" });
-  const transport = new StreamableHTTPClientTransport(
-    new URL(`http://127.0.0.1:${E2E_MCP_PORT}/mcp`),
-  );
-  await client.connect(transport);
-  try {
-    const result = await client.callTool({ name, arguments: args });
-    if (result.isError === true) {
-      throw new Error(`${name} failed: ${JSON.stringify(result.content)}`);
-    }
-    return result;
-  } finally {
-    await client.close();
-  }
-};
-
-const readNoteId = (result: CallToolResult): string => {
-  if (!("content" in result) || !Array.isArray(result.content)) {
-    throw new Error(`Tool result has no content array: ${JSON.stringify(result)}`);
-  }
-  const [firstContent] = result.content;
-  if (firstContent === undefined || firstContent.type !== "text") {
-    throw new Error(`Tool result has no text content: ${JSON.stringify(result)}`);
-  }
-  const payload: unknown = JSON.parse(firstContent.text);
-  if (typeof payload !== "object" || payload === null || !("note" in payload)) {
-    throw new Error("payload has no note");
-  }
-  const { note } = payload;
-  if (typeof note !== "object" || note === null || !("id" in note)) {
-    throw new Error("note has no id");
-  }
-  const { id } = note;
-  if (typeof id !== "string") throw new Error("note id is not a string");
-  return id;
-};
-
-const createNoteViaMcp = async (input: {
-  title: string;
-  body: string;
-  tags: string[];
-}): Promise<string> => readNoteId(await callMcpTool("create_note", input));
-
-// NoteList and TaskList both render their entries as a <ul> directly under <main>, so scope
-// note locators to the first one to keep them unambiguous under Playwright's strict mode.
-const noteListOf = (window: Page) => window.locator("main > ul").first();
-
-const openNoteDetail = async (window: Page, title: string): Promise<void> => {
-  await noteListOf(window).getByRole("button", { name: title }).click();
-  await window.getByRole("heading", { name: title }).waitFor();
-};
 
 describe("note detail flow (edit / mermaid / image attachment)", () => {
   let dbFilePath: string;
@@ -102,7 +37,7 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
   const startApp = async (): Promise<Page> => {
     const tmpDir = mkdtempSync(join(tmpdir(), "hanamask-e2e-detail-"));
     dbFilePath = join(tmpDir, "hanamask.sqlite3");
-    app = await launchApp(dbFilePath);
+    app = await launchApp(dbFilePath, E2E_MCP_PORT);
     const window = await app.firstWindow();
     await window.waitForLoadState();
     return window;
@@ -112,7 +47,7 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
     const window = await startApp();
     await window.getByText("ノートはまだありません").waitFor();
 
-    await createNoteViaMcp({
+    await createNoteViaMcp(E2E_MCP_PORT, {
       title: "編集前タイトル",
       body: "編集前の本文",
       tags: ["before"],
@@ -148,12 +83,12 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
     const window = await startApp();
     await window.getByText("ノートはまだありません").waitFor();
 
-    await createNoteViaMcp({
+    await createNoteViaMcp(E2E_MCP_PORT, {
       title: "Mermaid正常ノート",
       body: "図の説明\n\n```mermaid\ngraph TD; A-->B;\n```",
       tags: [],
     });
-    await createNoteViaMcp({
+    await createNoteViaMcp(E2E_MCP_PORT, {
       title: "Mermaid異常ノート",
       body: "```mermaid\nthis is not a diagram (((\n```",
       tags: [],
@@ -181,7 +116,7 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
     const window = await startApp();
     await window.getByText("ノートはまだありません").waitFor();
 
-    const noteId = await createNoteViaMcp({
+    const noteId = await createNoteViaMcp(E2E_MCP_PORT, {
       title: "画像添付ノート",
       body: "MCP経由で添付した画像がプレビュー表示されることを確認する",
       tags: [],
@@ -189,7 +124,7 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
     await noteListOf(window).getByRole("button", { name: "画像添付ノート" }).waitFor();
 
     // attach_image emits no change notification, so attach before opening the detail view.
-    await callMcpTool("attach_image", {
+    await callMcpTool(E2E_MCP_PORT, "attach_image", {
       note_id: noteId,
       file_name: "pixel.png",
       data_base64: ONE_PIXEL_PNG_BASE64,
