@@ -22,9 +22,13 @@ const makeTask = (overrides: Partial<Task> = {}): Task => ({
   ...overrides,
 });
 
-const mockHanamask = (getTask: (id: string) => Promise<Task | null>) => {
+const mockHanamask = (
+  getTask: (id: string) => Promise<Task | null>,
+  updateTaskStatusImpl: () => Promise<void> = async () => {},
+) => {
   const getTaskMock = vi.fn(getTask);
-  const updateTaskStatus = vi.fn(async () => {});
+  const updateTaskStatus = vi.fn(updateTaskStatusImpl);
+  const onTasksChangedMock = vi.fn<(callback: () => void) => () => void>(() => () => {});
   window.hanamask = {
     listDeletedNotes: vi.fn(async () => []),
     restoreNote: vi.fn(async () => null),
@@ -38,7 +42,7 @@ const mockHanamask = (getTask: (id: string) => Promise<Task | null>) => {
     listTasks: vi.fn(async () => []),
     getTask: getTaskMock,
     updateTaskStatus,
-    onTasksChanged: vi.fn(() => () => {}),
+    onTasksChanged: onTasksChangedMock,
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),
     searchNotes: vi.fn(async () => []),
@@ -48,7 +52,30 @@ const mockHanamask = (getTask: (id: string) => Promise<Task | null>) => {
     deleteLink: vi.fn(async () => true),
     onLinksChanged: vi.fn(() => () => {}),
   };
-  return { getTask: getTaskMock, updateTaskStatus };
+  return { getTask: getTaskMock, updateTaskStatus, onTasksChanged: onTasksChangedMock };
+};
+
+const emitTasksChanged = async (
+  onTasksChanged: ReturnType<typeof mockHanamask>["onTasksChanged"],
+): Promise<void> => {
+  await act(async () => {
+    onTasksChanged.mock.calls.forEach(([callback]) => {
+      callback();
+    });
+  });
+};
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}
+
+const createDeferred = <T,>(): Deferred<T> => {
+  let resolve: (value: T) => void = () => {};
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
 };
 
 afterEach(() => {
@@ -127,6 +154,69 @@ describe("TaskDetail", () => {
     });
 
     expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
+  it("MCP経由の変更通知を受けるとタスクを再取得して表示を更新する", async () => {
+    let stored = makeTask();
+    const { getTask, onTasksChanged } = mockHanamask(async () => stored);
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+
+    stored = makeTask({ title: "MCPサーバーを実装する(改題)", status: "in_progress" });
+    await emitTasksChanged(onTasksChanged);
+
+    expect(await screen.findByText("MCPサーバーを実装する(改題)")).toBeTruthy();
+    const select = screen.getByRole("combobox", { name: "ステータス" });
+    expect((select as HTMLSelectElement).value).toBe("in_progress");
+    expect(getTask).toHaveBeenCalledTimes(2);
+  });
+
+  it("ステータス変更の応答待ち中に変更通知が届いても変更結果が巻き戻らない", async () => {
+    const update = createDeferred<void>();
+    const staleReload = createDeferred<Task>();
+    let loadCount = 0;
+    const { onTasksChanged, getTask } = mockHanamask(
+      async () => {
+        loadCount += 1;
+        return loadCount === 1 ? makeTask() : staleReload.promise;
+      },
+      async () => update.promise,
+    );
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    const select = await screen.findByRole("combobox", { name: "ステータス" });
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "done" } });
+    });
+
+    await emitTasksChanged(onTasksChanged);
+    await act(async () => {
+      update.resolve();
+    });
+    await act(async () => {
+      staleReload.resolve(makeTask({ status: "todo" }));
+    });
+
+    expect((select as HTMLSelectElement).value).toBe("done");
+    expect(getTask).toHaveBeenCalledTimes(1);
+  });
+
+  it("変更通知後の再取得に失敗しても表示中のタスクは消えない", async () => {
+    let failing = false;
+    const { onTasksChanged } = mockHanamask(async () => {
+      if (failing) throw new Error("boom");
+      return makeTask();
+    });
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+
+    failing = true;
+    await emitTasksChanged(onTasksChanged);
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByText("MCPサーバーを実装する")).toBeTruthy();
   });
 
   it("戻るボタンをクリックするとonBackを呼ぶ", async () => {
