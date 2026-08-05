@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { App } from "../../src/renderer/App";
-import type { Image, NavigateTarget, Note, Task } from "../../src/shared/preload-api";
+import type { Image, NavigateTarget, Note, NoteVersion, Task } from "../../src/shared/preload-api";
 
 const stubImage: Image = {
   id: "image-1",
@@ -91,6 +91,7 @@ const clickButton = async (name: string): Promise<void> => {
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
@@ -227,5 +228,64 @@ describe("App のMCP経由の画面遷移", () => {
     unmount();
 
     expect(unsubscribeNavigate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("App のノート切替時の復元レース", () => {
+  const otherNote: Note = {
+    id: "note-3",
+    title: "別のメモ",
+    body: "別ノートの本文",
+    tags: [],
+    createdAt: "2026-08-03T00:00:00.000Z",
+    updatedAt: "2026-08-03T00:00:00.000Z",
+  };
+
+  const restoredNote: Note = {
+    ...note,
+    title: "復元後のメモ",
+    body: "復元後の本文",
+  };
+
+  const noteVersion: NoteVersion = {
+    id: "version-1",
+    noteId: "note-1",
+    title: "旧タイトル",
+    body: "旧本文",
+    tags: ["design"],
+    createdAt: "2026-08-03T09:00:00.000Z",
+  };
+
+  it("復元の応答待ち中に別ノートへ遷移すると、応答が解決しても表示中のノートを上書きしない", async () => {
+    mockHanamask();
+    const notesById: Record<string, Note> = { "note-1": note, "note-3": otherNote };
+    window.hanamask.getNote = vi.fn(async (id: string) => notesById[id] ?? null);
+    window.hanamask.listNoteVersions = vi.fn(async (noteId: string) =>
+      noteId === "note-1" ? [noteVersion] : [],
+    );
+    let resolveRestore: (restored: Note) => void = () => {};
+    window.hanamask.restoreNoteVersion = vi.fn(
+      async () =>
+        new Promise<Note>((resolve) => {
+          resolveRestore = resolve;
+        }),
+    );
+    vi.stubGlobal("confirm", vi.fn(() => true));
+
+    render(<App />);
+    await clickButton("設計メモ");
+    await screen.findByText("MCPサーバーの設計についてのメモ本文");
+    await clickButton("このバージョンに戻す");
+
+    await emitNavigate({ kind: "note", id: "note-3" });
+    expect(await screen.findByText("別ノートの本文")).toBeTruthy();
+
+    await act(async () => {
+      resolveRestore(restoredNote);
+    });
+
+    expect(screen.getByText("別ノートの本文")).toBeTruthy();
+    expect(screen.queryByText("復元後の本文")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "復元後のメモ" })).toBeNull();
   });
 });
