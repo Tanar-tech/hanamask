@@ -24,6 +24,16 @@ hanamaskはブラウザではなくElectronデスクトップアプリのため�
 - テスト用DB/ポートの分離: `HANAMASK_DB_PATH`（一時ファイル）・`HANAMASK_MCP_PORT`（既定の39217とは別の39299固定）を環境変数で上書きして起動する。開発者が`npm run dev`で使っている実DB・実ポートには触れない。
 - スクリーンショットは `tests/e2e/.artifacts/`（gitignore対象）に出力される。実行後にこのディレクトリを見て実際の画面を確認できる。
 - **Linux/CI/WSLでの前提**: Electronのウィンドウ描画にはディスプレイが必要。ヘッドレスサーバー（WSL含む）では `xvfb-run npm run test:e2e` のようにXvfb配下で実行する。GUI環境（開発者のデスクトップ）では追加設定不要。
+- **WSLでスクリーンショットの日本語が豆腐（□）になるとき**: WSLのLinux側に日本語フォントが入っていないため。Windows側のフォントを参照させれば解決する。以下の内容の `fonts.conf` を一時ディレクトリに置き、`FONTCONFIG_FILE=<そのパス> xvfb-run -a npm run test:e2e` のように環境変数付きで実行する（`~/.config` を書き換えないので環境を汚さない）。テストの合否には影響しないが、**見た目を確認する目的でスクリーンショットを撮るときは必須**。
+
+  ```xml
+  <?xml version="1.0"?>
+  <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+  <fontconfig>
+    <include ignore_missing="yes">/etc/fonts/fonts.conf</include>
+    <dir>/mnt/c/Windows/Fonts</dir>
+  </fontconfig>
+  ```
 
 ## 新しいUI機能・MCPツールを追加したときの対応
 
