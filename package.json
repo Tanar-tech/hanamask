@@ -19,6 +19,7 @@
     "package:win": "npm run build && electron-builder --win"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^9.6.0",
@@ -33,6 +34,7 @@
     "eslint": "^9.39.5",
     "jsdom": "^30.0.1",
     "playwright": "^1.62.1",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "vite": "^8.2.0",
     "vitest": "^4.1.10"
@@ -44,6 +46,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^13.0.2",
     "mermaid": "^11.16.0",
+    "motion": "^12.43.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   }
