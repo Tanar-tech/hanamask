@@ -58,8 +58,8 @@
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル（BYO Agent）。未着手・最大の残スコープ（管理者判断で継続見送り中）</td><td>T03, T05</td></tr>
 <tr><td><a href="#t22">T22</a></td><td>T16/T17で見送ったE2Eシナリオの追加</td><td>T16, T17</td></tr>
 <tr><td><a href="#t25"><strong>T25</strong></a></td><td><strong>デスクトップアプリのUI一新（優先度: 高）</strong></td><td>T03, T05, T06, T15</td></tr>
-<tr><td><a href="#t26">T26</a></td><td>再取得の<code>await</code>後にガードを再判定していない問題（ノート・タスク共通）</td><td>T17, T23</td></tr>
 <tr><td><a href="#t27">T27</a></td><td>レンダラーのContent-Security-Policy設定（多層防御）</td><td>なし（推奨: T25の後）</td></tr>
+<tr><td><a href="#t28">T28</a></td><td>画像添付にも同種の再取得レースが残っている</td><td>T26</td></tr>
 </tbody>
 </table>
 
@@ -89,6 +89,7 @@ flowchart LR
   T17 --> T22
   T17 --> T23["T23 タスク詳細のリアルタイム反映"]
   T23 --> T26["T26 再取得ガードの再判定"]
+  T26 --> T28["T28 画像添付のレース"]
   T22 --> T24["T24 E2Eヘルパー共通化"]
   T25 -.-> T27["T27 CSP設定"]
   T15 --> T25["T25 UI一新<br/>（優先度 高）"]
@@ -99,8 +100,8 @@ flowchart LR
   classDef todo fill:#f6d7d7,stroke:#a05050,color:#123;
   class T00,T03,T05,T15,T04,T06,T07,T08,T09,T10,T11 done;
   class T16,T17,T18,T19,T20,T21 done;
-  class T22,T23,T24 done;
-  class T12,T25,T26,T27 todo;
+  class T22,T23,T24,T26 done;
+  class T12,T25,T27,T28 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -442,13 +443,25 @@ flowchart LR
 
 <h3 id="t26">T26: 再取得の<code>await</code>後にガードを再判定していない問題</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #49。世代カウンタ方式で解決）</li>
 <li>依存: 必須: T17（ノート側の<code>reloadNote</code>）, T23（タスク側の<code>reloadTask</code>）／推奨: なし</li>
 <li>目的: T23のレビューで<code>reviewer</code>が指摘した、ノート・タスク両画面に共通する既知の限界。<code>reloadNote</code>/<code>reloadTask</code>はスキップ判定（<code>restoring</code> / <code>changingStatus</code>）を<code>await</code>の<strong>前</strong>でしか行っておらず、<code>await</code>後は無条件に<code>setNote</code>/<code>setTask</code>する。そのため「通知による再取得が既に取得を呼んだ直後に復元またはステータス変更が始まり、再取得の応答が後から解決して利用者の操作結果を上書きする」経路が理論上残っている。現状の単体テストはいずれも「ガードが取得呼び出し自体を防ぐ」浅いケースしか検証していない。</li>
 <li>変更範囲: <code>src/renderer/components/NoteDetail.tsx</code>, <code>src/renderer/components/TaskDetail.tsx</code>, および対応するテスト。<strong>両画面を同時に見直すこと</strong>（片方だけ直すと実装方式の差がさらに開くため）。</li>
 <li>禁止事項: T18の<code>mounted</code> ref・<code>restoring</code>フラグ、T21の<code>key={view.id}</code>、T23の<code>liveStateRef</code>直接書き換え方式など、既存のガードを削除しないこと（本タスクはそれらの穴を塞ぐ補強であり置き換えではない）。楽観ロック等のDB層の仕組みは持ち込まない（UI層で解決する）。要求定義に無い競合通知UIを新設しない。</li>
 <li>テスト: <strong>まず現状のコードでこのレースを再現する失敗テストを書くこと</strong>（取得の応答を保留させ、その間に復元／ステータス変更を開始し、後から取得を解決させる）。再現できない場合は「対応不要」として閉じてよく、その判断根拠を報告する。修正後は両画面で同じ構造のテストが通ること。</li>
 <li>停止条件: <code>await</code>後の再判定だけでは塞げず、リクエストIDによる世代管理などより大きな仕組みが必要と判明した場合は、影響範囲が広がるため管理者に確認する。</li>
+<li>実績（PR #49）: <strong>停止条件が実際に発動した</strong>。実装者はまずレースを両画面で再現したうえで「<code>await</code>後のフラグ再判定では塞げない」ことを発見し（取得が解決する頃には操作が完了していてフラグが既に降りているため）、実装せずに報告した。管理者判断で世代カウンタ方式を採用。<code>liveStateRef</code>に<code>mutationCount</code>を持たせ、復元開始・ステータス変更開始・<strong>編集の保存開始</strong>（実装者が独自に発見した加算漏れ）で加算し、再取得は<code>await</code>前後で値が一致したときだけ反映する。<code>liveStateRef</code>の同期はオブジェクト差し替えからフィールド単位の代入に変更（差し替えのままだとカウンタが消えるため）。操作が失敗した場合は待機中の取得を1回だけ捨てるが、次の変更通知で取り直されるため許容する旨をコメントに明記した。</li>
+</ul>
+
+<h3 id="t28">T28: 画像添付にも同種の再取得レースが残っている</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>依存: 必須: T26（世代カウンタ方式の確立）／推奨: なし</li>
+<li>目的: T26のレビューで<code>reviewer</code>が指摘した積み残し。T26は<code>note</code>/<code>task</code>本体の上書きを防いだが、<code>NoteDetail</code>の<code>reloadImages</code>にはガードが一切無い。利用者の画像添付（<code>attachFile</code>）と変更通知経由の<code>reloadImages</code>が、T26で塞いだのと<strong>同じ構造</strong>の潜在レースを持っている。方式は既に確立しているため解決は容易。</li>
+<li>変更範囲: <code>src/renderer/components/NoteDetail.tsx</code>（<code>reloadImages</code>と<code>attachFile</code>）, <code>tests/renderer/NoteDetail.test.tsx</code>。</li>
+<li>禁止事項: T26で導入した<code>mutationCount</code>の意味を変えないこと。画像用に別カウンタが要るか既存に相乗りしてよいかは実装時に判断してよいが、<strong><code>note</code>本体の反映が画像添付のたびに捨てられるような副作用を作らないこと</strong>。<code>attach_image</code>の仕様（保存先・命名規則・MIME検証）には触れない。</li>
+<li>テスト: <strong>まず現状のコードでこのレースを再現する失敗テストを書くこと</strong>。再現できない場合は「対応不要」として閉じてよく、その根拠を報告する。修正後はT26と同じ構造のテストが通ること。</li>
+<li>停止条件: 既存の<code>mutationCount</code>への相乗りが<code>note</code>本体の反映に悪影響を与えると判明し、カウンタの分離が必要になった場合は、T26の設計に手を入れることになるため管理者に確認する。</li>
 </ul>
 
 <h3 id="t27">T27: レンダラーのContent-Security-Policy設定</h3>
