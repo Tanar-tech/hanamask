@@ -60,6 +60,7 @@
 <tr><td><a href="#t24">T24</a></td><td>E2Eヘルパーの共通化（4specでの重複解消）</td><td>T22</td></tr>
 <tr><td><a href="#t25"><strong>T25</strong></a></td><td><strong>デスクトップアプリのUI一新（優先度: 高）</strong></td><td>T03, T05, T06, T15</td></tr>
 <tr><td><a href="#t26">T26</a></td><td>再取得の<code>await</code>後にガードを再判定していない問題（ノート・タスク共通）</td><td>T17, T23</td></tr>
+<tr><td><a href="#t27">T27</a></td><td>レンダラーのContent-Security-Policy設定（多層防御）</td><td>なし（推奨: T25の後）</td></tr>
 </tbody>
 </table>
 
@@ -413,8 +414,8 @@ flowchart LR
 <li>変更範囲: <code>src/renderer/</code> 全体（<code>App.tsx</code>・<code>components/</code> 配下の全コンポーネント・スタイル定義）。レンダラー以外（<code>src/main/</code>・<code>src/preload/</code>・<code>src/shared/</code>・DBスキーマ・MCPツール）は原則変更しない。</li>
 <li>禁止事項: <strong>既存機能を1つも落とさないこと</strong>（ノートのCRUD・検索・編集・Mermaid表示・画像添付・バージョン履歴・ゴミ箱と復元・リンク・タスクのリスト/カンバン表示・ステータス変更・UI連携ツールによる画面遷移・リアルタイム反映）。要求定義に無い新機能をデザイン刷新に便乗して追加しない。既存テストをデザイン変更に合わせて安易に削除・スキップしない（ロケータの更新は可、シナリオの削除は不可）。</li>
 <li>テスト: 刷新前後で既存の単体テスト・E2E（現時点で9件）が同じシナリオを満たすこと。加えて刷新後の各画面で主要導線（ノート作成→編集→保存、削除→ゴミ箱→復元、タスクのステータス変更、リンク作成）が実機（<code>xvfb-run</code>）で完走することを確認する。</li>
-<li>管理者確認済みの方針（2026-08-05）: (1) <strong>対象プラットフォーム</strong>=現行のElectronクロスプラットフォーム構成を維持し、Windowsを主ターゲットとして扱う（技術的転換は行わない）。(2) <strong>UIライブラリ</strong>=コンポーネントライブラリの追加を承認（採用ライブラリはモックアップ提示時に確定）。(3) <strong>進め方</strong>=モックアップ承認 → 画面単位で段階的に置換。</li>
-<li>停止条件: モックアップの承認を得るまで実装（<code>src/renderer/</code>の書き換え）に着手しない。採用するUIライブラリはモックアップと同時に提案し確定を得てから<code>package.json</code>に追加する。段階的置換の途中で既存機能を落とさざるを得ないと判明した場合は、落とさない代替案を検討し、それでも不可能なら止めて報告する。<code>src/renderer/</code>以外の変更が必要になった場合はその必要性を報告して確認を得る。</li>
+<li>管理者確認済みの方針（2026-08-05）: (1) <strong>対象プラットフォーム</strong>=現行のElectronクロスプラットフォーム構成を維持し、Windowsを主ターゲットとして扱う（技術的転換は行わない）。(2) <strong>進め方</strong>=モックアップ承認 → 画面単位で段階的に置換。モックアップは承認済み。(3) <strong>採用ライブラリ確定</strong>: <code>tailwindcss</code> v4（スタイリング基盤）、<code>motion</code>（旧 Framer Motion。<strong>採用し、後続の画面実装はmotion前提で組む</strong>。開発管理者は「カンバン実装まで実物を見てから判断」を推奨したが、管理者判断で先行導入と決定）、<code>@radix-ui/react-*</code>（必要になった画面で個別に追加）。アイコンフォント／絵文字は採用しない。Webフォントは読み込まない（OS標準フォントスタックを使う）。</li>
+<li>停止条件: 採用ライブラリは確定済みで、これ以外を追加する場合は都度管理者に確認する。<code>motion</code>を使う以上、動きが操作の分かりにくさを招いていないかを画面ごとに確認し、見た目と分かりやすさが衝突した場合は分かりやすさを優先する（本タスクの絶対条件）。段階的置換の途中で既存機能を落とさざるを得ないと判明した場合は、落とさない代替案を検討し、それでも不可能なら止めて報告する。<code>src/renderer/</code>以外の変更が必要になった場合はその必要性を報告して確認を得る。</li>
 <li>進捗: モックアップ提案を作成し管理者へ提示済み（2026-08-05）。デザイン方針・4画面のモックアップ・既存機能16項目の網羅チェック表・ライブラリ提案・画面単位の置換順（PR 1〜6）を含む。承認待ちのため<code>src/renderer/</code>は未着手。</li>
 </ul>
 
@@ -427,6 +428,17 @@ flowchart LR
 <li>禁止事項: T18の<code>mounted</code> ref・<code>restoring</code>フラグ、T21の<code>key={view.id}</code>、T23の<code>liveStateRef</code>直接書き換え方式など、既存のガードを削除しないこと（本タスクはそれらの穴を塞ぐ補強であり置き換えではない）。楽観ロック等のDB層の仕組みは持ち込まない（UI層で解決する）。要求定義に無い競合通知UIを新設しない。</li>
 <li>テスト: <strong>まず現状のコードでこのレースを再現する失敗テストを書くこと</strong>（取得の応答を保留させ、その間に復元／ステータス変更を開始し、後から取得を解決させる）。再現できない場合は「対応不要」として閉じてよく、その判断根拠を報告する。修正後は両画面で同じ構造のテストが通ること。</li>
 <li>停止条件: <code>await</code>後の再判定だけでは塞げず、リクエストIDによる世代管理などより大きな仕組みが必要と判明した場合は、影響範囲が広がるため管理者に確認する。</li>
+</ul>
+
+<h3 id="t27">T27: レンダラーのContent-Security-Policy設定</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>依存: 必須: なし／推奨: T25（UI一新でレンダラーの構成が変わるため、大きな書き換えの後に入れる方が手戻りが少ない）</li>
+<li>目的: T25のライブラリ検討時に判明した既存の欠落。レンダラーにContent-Security-Policyが設定されていない（<code>index.html</code>にCSPのmetaタグが無く、mainプロセス側でもヘッダを付けていない）。現状は<code>contextIsolation: true</code> / <code>nodeIntegration: false</code>でリモートコンテンツも読み込まないため実害は無いが、レンダラーはノート本文というAIエージェント由来の入力をmermaidでパースしており、多層防御としてCSPを入れる価値がある。</li>
+<li>変更範囲: <code>index.html</code>（CSPのmetaタグ）または <code>src/main/index.ts</code>（<code>onHeadersReceived</code>でのヘッダ付与）。どちらの方式にするかは実装時に判断してよい。</li>
+<li>禁止事項: CSPを通すためにアプリの機能を落とさないこと（特にmermaidの図描画と画像の<code>file://</code>表示）。<code>unsafe-eval</code>は許可しないこと。開発時（Viteのdev server、HMR）と本番（<code>file://</code>読み込み）で挙動が変わるため、開発用に緩めた設定を本番にも適用しないこと。</li>
+<li>テスト: 既存の単体テスト・E2E 9件がすべて通ること。特に<strong>Mermaid図が描画できること</strong>と<strong>添付画像がプレビュー表示されること</strong>をE2Eで確認する（CSPで最初に壊れるのはこの2つ）。CSP違反がコンソールに出ていないことも実機で確認する。</li>
+<li>停止条件: mermaidまたはmotionが<code>style-src</code>に<code>'unsafe-inline'</code>を要求する場合、どこまで緩めてよいかは方針判断になるため管理者に確認する。</li>
 </ul>
 
 </main>

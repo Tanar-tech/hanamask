@@ -1,85 +1,20 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import { _electron as electron, type ElectronApplication, type Page } from "playwright";
+import { type ElectronApplication, type Page } from "playwright";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-
-type CallToolResult = Awaited<ReturnType<Client["callTool"]>>;
+import {
+  SCREENSHOT_DIR,
+  callMcpTool,
+  createNoteViaMcp,
+  launchApp,
+  noteListOf,
+  openNoteDetail,
+} from "./helpers.js";
 
 // A fixed, non-default port that also differs from the ones note-flow.spec.ts (39299),
 // task-flow.spec.ts (39298) and note-detail-flow.spec.ts (39297) use.
 const E2E_MCP_PORT = 39296;
-const SCREENSHOT_DIR = join(import.meta.dirname, ".artifacts");
-
-// VITE_DEV_SERVER_URL must not be forwarded: its presence tells src/main/index.ts to load
-// the Vite dev server instead of the built dist/renderer/index.html this test relies on.
-const buildLaunchEnv = (dbFilePath: string): Record<string, string> => {
-  const env: Record<string, string> = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (value !== undefined && key !== "VITE_DEV_SERVER_URL") env[key] = value;
-  }
-  env.HANAMASK_DB_PATH = dbFilePath;
-  env.HANAMASK_MCP_PORT = String(E2E_MCP_PORT);
-  return env;
-};
-
-const launchApp = (dbFilePath: string): Promise<ElectronApplication> =>
-  electron.launch({ args: ["."], env: buildLaunchEnv(dbFilePath) });
-
-const callMcpTool = async (name: string, args: Record<string, unknown>): Promise<CallToolResult> => {
-  const client = new Client({ name: "hanamask-e2e", version: "0.0.0" });
-  const transport = new StreamableHTTPClientTransport(
-    new URL(`http://127.0.0.1:${E2E_MCP_PORT}/mcp`),
-  );
-  await client.connect(transport);
-  try {
-    const result = await client.callTool({ name, arguments: args });
-    if (result.isError === true) {
-      throw new Error(`${name} failed: ${JSON.stringify(result.content)}`);
-    }
-    return result;
-  } finally {
-    await client.close();
-  }
-};
-
-const readNoteId = (result: CallToolResult): string => {
-  if (!("content" in result) || !Array.isArray(result.content)) {
-    throw new Error(`Tool result has no content array: ${JSON.stringify(result)}`);
-  }
-  const [firstContent] = result.content;
-  if (firstContent === undefined || firstContent.type !== "text") {
-    throw new Error(`Tool result has no text content: ${JSON.stringify(result)}`);
-  }
-  const payload: unknown = JSON.parse(firstContent.text);
-  if (typeof payload !== "object" || payload === null || !("note" in payload)) {
-    throw new Error("payload has no note");
-  }
-  const { note } = payload;
-  if (typeof note !== "object" || note === null || !("id" in note)) {
-    throw new Error("note has no id");
-  }
-  const { id } = note;
-  if (typeof id !== "string") throw new Error("note id is not a string");
-  return id;
-};
-
-const createNoteViaMcp = async (input: {
-  title: string;
-  body: string;
-  tags: string[];
-}): Promise<string> => readNoteId(await callMcpTool("create_note", input));
-
-// NoteList and TaskList both render their entries as a <ul> directly under <main>, so scope
-// note locators to the first one to keep them unambiguous under Playwright's strict mode.
-const noteListOf = (window: Page) => window.locator("main > ul").first();
-
-const openNoteDetail = async (window: Page, title: string): Promise<void> => {
-  await noteListOf(window).getByRole("button", { name: title }).click();
-  await window.getByRole("heading", { name: title }).waitFor();
-};
 
 describe("note trash and realtime reflection (UI delete/restore, MCP update while open)", () => {
   let dbFilePath: string;
@@ -98,7 +33,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
   const startApp = async (): Promise<Page> => {
     const tmpDir = mkdtempSync(join(tmpdir(), "hanamask-e2e-trash-"));
     dbFilePath = join(tmpDir, "hanamask.sqlite3");
-    app = await launchApp(dbFilePath);
+    app = await launchApp(dbFilePath, E2E_MCP_PORT);
     const window = await app.firstWindow();
     // NoteList guards deletion with window.confirm, which Playwright dismisses unless handled.
     // Registered before the first load so the handler can never lose a race with a dialog.
@@ -113,7 +48,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     const window = await startApp();
     await window.getByText("ノートはまだありません").waitFor();
 
-    await createNoteViaMcp({
+    await createNoteViaMcp(E2E_MCP_PORT, {
       title: "ゴミ箱往復ノート",
       body: "UI操作での削除と復元を確認する",
       tags: [],
@@ -142,7 +77,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     const window = await startApp();
     await window.getByText("ノートはまだありません").waitFor();
 
-    const noteId = await createNoteViaMcp({
+    const noteId = await createNoteViaMcp(E2E_MCP_PORT, {
       title: "反映前タイトル",
       body: "反映前の本文",
       tags: ["before"],
@@ -150,7 +85,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     await noteListOf(window).getByRole("button", { name: "反映前タイトル" }).waitFor();
     await openNoteDetail(window, "反映前タイトル");
 
-    await callMcpTool("update_note", {
+    await callMcpTool(E2E_MCP_PORT, "update_note", {
       id: noteId,
       title: "反映後タイトル",
       body: "反映後の本文",
@@ -170,7 +105,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     const window = await startApp();
     await window.getByText("ノートはまだありません").waitFor();
 
-    const noteId = await createNoteViaMcp({
+    const noteId = await createNoteViaMcp(E2E_MCP_PORT, {
       title: "編集中ノート",
       body: "編集中に外部更新されるノート",
       tags: ["before"],
@@ -183,7 +118,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     await window.getByLabel("本文").fill("編集中の本文");
     await window.getByLabel("タグ").fill("draft");
 
-    await callMcpTool("update_note", {
+    await callMcpTool(E2E_MCP_PORT, "update_note", {
       id: noteId,
       title: "外部更新タイトル",
       body: "外部更新の本文",
