@@ -100,6 +100,11 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     dbFilePath = join(tmpDir, "hanamask.sqlite3");
     app = await launchApp(dbFilePath);
     const window = await app.firstWindow();
+    // NoteList guards deletion with window.confirm, which Playwright dismisses unless handled.
+    // Registered before the first load so the handler can never lose a race with a dialog.
+    window.on("dialog", (dialog) => {
+      void dialog.accept();
+    });
     await window.waitForLoadState();
     return window;
   };
@@ -115,10 +120,6 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     });
     await noteListOf(window).getByRole("button", { name: "ゴミ箱往復ノート" }).waitFor();
 
-    // NoteList guards deletion with window.confirm, which Playwright dismisses unless handled.
-    window.on("dialog", (dialog) => {
-      void dialog.accept();
-    });
     await noteListOf(window).getByRole("button", { name: "削除" }).click();
     await window.getByText("ノートはまだありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-01-deleted-from-list.png") });
