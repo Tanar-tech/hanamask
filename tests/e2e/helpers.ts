@@ -41,7 +41,7 @@ export const callMcpTool = async (
   }
 };
 
-export const readNoteId = (result: CallToolResult): string => {
+const readNoteId = (result: CallToolResult): string => {
   if (!("content" in result) || !Array.isArray(result.content)) {
     throw new Error(`Tool result has no content array: ${JSON.stringify(result)}`);
   }
