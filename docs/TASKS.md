@@ -423,3 +423,23 @@
 - 禁止事項: T26で導入した`mutationCount`の意味を変えないこと。画像用に別のカウンタが要るのか、既存の`mutationCount`に相乗りしてよいのかは実装時に判断してよいが、**`note`本体の反映が画像添付のたびに捨てられるような副作用を作らないこと**（相乗りさせる場合は特に注意）。画像の保存先・命名規則・MIME検証など`attach_image`の仕様には触れない。
 - テスト: **まず現状のコードでこのレースを再現する失敗テストを書くこと**（`listImages`の応答を保留させ、その間に画像を添付し、後から`listImages`を解決させる）。再現できない場合は「対応不要」として閉じてよく、その根拠を報告する。修正後はT26と同じ構造のテストが通ること。
 - 停止条件: 既存の`mutationCount`への相乗りが`note`本体の反映に悪影響を与えると判明し、カウンタの分離が必要になった場合は、T26の設計に手を入れることになるため管理者に確認する。
+
+#### T25 の PR 分割とファイル所有範囲
+
+段階的置換を並列で進める際、同じファイルを2つのPRが触ると必ず競合する。以下のとおり**1ファイルは1PRだけが所有する**ものとし、並列に走らせてよいPRの組み合わせを事前に確定しておく。所有範囲を越える変更が必要になった場合は、勝手に触らず開発管理者に相談する。
+
+| PR | 目的 | 所有ファイル | 並列可否 |
+|---|---|---|---|
+| PR 1 | 土台（Tailwind・トークン・motion） | `package.json`, `vite.config.ts`, `eslint.config.mjs`, `src/renderer/styles/**`, `src/renderer/main.tsx`, `src/renderer/App.tsx`（LazyMotionのラップのみ） | 完了後に他を開始 |
+| PR 2 | アプリの骨格とホーム画面 | `src/renderer/App.tsx`, `src/renderer/components/Home.tsx`（新規）, `NoteList.tsx`, `TaskList.tsx` | PR 3以降と**直列**（App.tsxが土台になるため） |
+| PR 3 | ノート詳細 | `NoteDetail.tsx`, `NoteVersionHistory.tsx`, `MermaidDiagram.tsx` | PR 4・PR 5と並列可 |
+| PR 4 | タスク（カンバン・詳細） | `KanbanView.tsx`, `TaskDetail.tsx` | PR 3・PR 5と並列可 |
+| PR 5 | ゴミ箱・検索結果・リンク | `TrashView.tsx`, `SearchResults.tsx`, `EntityLinks.tsx` | PR 3・PR 4と並列可 |
+| PR 6 | 仕上げ（preflight導入・キーボード操作・フォーカス・通し確認） | 全体（横断的な微調整のみ） | 最後に単独で実施 |
+
+補足:
+- **`EntityLinks.tsx`はPR 5が所有する**が、ノート詳細（PR 3）とタスク詳細（PR 4）の両方から使われる。PR 3・PR 4はこのコンポーネントの見た目を変えず、配置だけを扱うこと。
+- **preflight（Tailwindのリセット）の導入はPR 6で行う**。途中で入れると、まだ置換していない画面の見た目が一斉に崩れるため。したがってPR 2〜5では、リセットが無い前提でユーティリティを当てる。
+- 各PRの完了条件は「**その画面の既存テストが、シナリオを変えずに通ること**」。ロケータの更新は可、検証内容の変更は不可。
+- 各PRで実機のスクリーンショットを撮って見た目を確認する（WSLでの日本語表示は `.claude/skills/e2e-runner/SKILL.md` の`FONTCONFIG_FILE`の手順を使う）。
+- **既存機能の網羅は、T25本体の禁止事項に列挙した機能一覧を各PRのチェックリストとして使う。**画面を作り替えた結果どれか1つでも到達できなくなったら、そのPRは未完了とする。

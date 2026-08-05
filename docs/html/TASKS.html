@@ -437,6 +437,19 @@ flowchart LR
 フォント（Webフォントを読み込まないためOS標準スタックをトークン化）: display=<code>"Helvetica Neue", "Arial Black", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif</code> / body=<code>system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif</code> / mono=<code>ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace</code>。
 </li>
 <li>追加決定（2026-08-05）: <code>motion</code>は<code>LazyMotion</code>による遅延ロード構成とする（素で読み込むとレンダラーのバンドルが+121kB／gzip +39kB増え起動時のパース時間に効くため）。<code>strict</code>を有効にし軽量な<code>m.*</code>の使用を強制する。Tailwindの<code>preflight</code>は土台PRでは読み込まず、画面をTailwindへ置き換える後続PRのいずれかで入れる。</li>
+<li><strong>PR分割とファイル所有範囲</strong>: 段階的置換を並列で進める際、同じファイルを2つのPRが触ると必ず競合する。<strong>1ファイルは1PRだけが所有する</strong>ものとし、所有範囲を越える変更が必要になった場合は勝手に触らず開発管理者に相談する。
+<div class="tablewrap"><table>
+<thead><tr><th>PR</th><th>目的</th><th>所有ファイル</th><th>並列可否</th></tr></thead>
+<tbody>
+<tr><td>PR 1</td><td>土台（Tailwind・トークン・motion）</td><td><code>package.json</code>, <code>vite.config.ts</code>, <code>eslint.config.mjs</code>, <code>src/renderer/styles/**</code>, <code>main.tsx</code>, <code>App.tsx</code>（LazyMotionのラップのみ）</td><td>完了後に他を開始</td></tr>
+<tr><td>PR 2</td><td>アプリの骨格とホーム画面</td><td><code>App.tsx</code>, <code>Home.tsx</code>（新規）, <code>NoteList.tsx</code>, <code>TaskList.tsx</code></td><td>PR 3以降と<strong>直列</strong></td></tr>
+<tr><td>PR 3</td><td>ノート詳細</td><td><code>NoteDetail.tsx</code>, <code>NoteVersionHistory.tsx</code>, <code>MermaidDiagram.tsx</code></td><td>PR 4・5と並列可</td></tr>
+<tr><td>PR 4</td><td>タスク（カンバン・詳細）</td><td><code>KanbanView.tsx</code>, <code>TaskDetail.tsx</code></td><td>PR 3・5と並列可</td></tr>
+<tr><td>PR 5</td><td>ゴミ箱・検索結果・リンク</td><td><code>TrashView.tsx</code>, <code>SearchResults.tsx</code>, <code>EntityLinks.tsx</code></td><td>PR 3・4と並列可</td></tr>
+<tr><td>PR 6</td><td>仕上げ（preflight導入・キーボード操作・通し確認）</td><td>全体（横断的な微調整のみ）</td><td>最後に単独</td></tr>
+</tbody></table></div>
+補足: <code>EntityLinks.tsx</code>はPR 5が所有するが、ノート詳細（PR 3）とタスク詳細（PR 4）の両方から使われるため、PR 3・4はこのコンポーネントの見た目を変えず配置だけを扱う。<strong>preflightの導入はPR 6で行う</strong>（途中で入れるとまだ置換していない画面の見た目が一斉に崩れるため）。各PRの完了条件は「その画面の既存テストがシナリオを変えずに通ること」（ロケータ更新は可、検証内容の変更は不可）。各PRで実機のスクリーンショットを撮って見た目を確認する。<strong>既存機能の網羅は禁止事項に列挙した機能一覧を各PRのチェックリストとして使い、どれか1つでも到達できなくなったらそのPRは未完了とする。</strong>
+</li>
 <li>停止条件: 採用ライブラリは確定済みで、これ以外を追加する場合は都度管理者に確認する。<code>motion</code>を使う以上、動きが操作の分かりにくさを招いていないかを画面ごとに確認し、見た目と分かりやすさが衝突した場合は分かりやすさを優先する（本タスクの絶対条件）。段階的置換の途中で既存機能を落とさざるを得ないと判明した場合は、落とさない代替案を検討し、それでも不可能なら止めて報告する。<code>src/renderer/</code>以外の変更が必要になった場合はその必要性を報告して確認を得る。</li>
 <li>進捗: モックアップ提案を作成し管理者へ提示済み（2026-08-05）。デザイン方針・4画面のモックアップ・既存機能16項目の網羅チェック表・ライブラリ提案・画面単位の置換順（PR 1〜6）を含む。承認待ちのため<code>src/renderer/</code>は未着手。</li>
 </ul>
