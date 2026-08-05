@@ -57,7 +57,6 @@
 <tbody>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル（BYO Agent）。未着手・最大の残スコープ（管理者判断で継続見送り中）</td><td>T03, T05</td></tr>
 <tr><td><a href="#t22">T22</a></td><td>T16/T17で見送ったE2Eシナリオの追加</td><td>T16, T17</td></tr>
-<tr><td><a href="#t24">T24</a></td><td>E2Eヘルパーの共通化（4specでの重複解消）</td><td>T22</td></tr>
 <tr><td><a href="#t25"><strong>T25</strong></a></td><td><strong>デスクトップアプリのUI一新（優先度: 高）</strong></td><td>T03, T05, T06, T15</td></tr>
 <tr><td><a href="#t26">T26</a></td><td>再取得の<code>await</code>後にガードを再判定していない問題（ノート・タスク共通）</td><td>T17, T23</td></tr>
 <tr><td><a href="#t27">T27</a></td><td>レンダラーのContent-Security-Policy設定（多層防御）</td><td>なし（推奨: T25の後）</td></tr>
@@ -91,6 +90,7 @@ flowchart LR
   T17 --> T23["T23 タスク詳細のリアルタイム反映"]
   T23 --> T26["T26 再取得ガードの再判定"]
   T22 --> T24["T24 E2Eヘルパー共通化"]
+  T25 -.-> T27["T27 CSP設定"]
   T15 --> T25["T25 UI一新<br/>（優先度 高）"]
   T06 --> T25
 
@@ -99,8 +99,8 @@ flowchart LR
   classDef todo fill:#f6d7d7,stroke:#a05050,color:#123;
   class T00,T03,T05,T15,T04,T06,T07,T08,T09,T10,T11 done;
   class T16,T17,T18,T19,T20,T21 done;
-  class T22,T23 done;
-  class T12,T24,T25,T26 todo;
+  class T22,T23,T24 done;
+  class T12,T25,T26,T27 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -396,13 +396,14 @@ flowchart LR
 
 <h3 id="t24">T24: E2Eヘルパーの共通化</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #46）</li>
 <li>依存: 必須: T22（4本目のspecが入り重複が確定すること）／推奨: なし</li>
 <li>目的: <code>tests/e2e/</code>の4つのspecが<code>buildLaunchEnv</code>/<code>callMcpTool</code>/<code>readNoteId</code>等をそれぞれ同一コードで重複定義している。グローバル規約のDRY原則に反し、ハーネスの仕様変更（ポート規約・環境変数の追加等）のたびに4箇所を直す必要がある。T22の実装者がスコープ外として意図的に見送った分。</li>
 <li>変更範囲: <code>tests/e2e/</code>のみ（共通ヘルパーファイルの新設と既存4specからの参照差し替え）。アプリ本体（<code>src/</code>）は変更しない。</li>
 <li>禁止事項: ヘルパー共通化に便乗してテストの内容（シナリオ・アサーション）を変更しない。テストを削除・スキップしない。過度な抽象化（1箇所でしか使わないものまでヘルパー化する）はしない。</li>
 <li>テスト: 既存E2E 9件が共通化の前後で同じく全て通ること（<code>xvfb-run -a npm run test:e2e</code>）。共通化の前後で各specの実行内容が変わっていないことを差分で確認する。</li>
-<li>停止条件: 共通化にあたりspecごとのポート番号やDB配置の規約を変更する必要が出た場合は、既存テストの安定性に影響するため管理者に確認する。特になし以外の判断が生じなければ自律的に進めてよい。</li>
+<li>停止条件: 共通化にあたりspecごとのポート番号やDB配置の規約を変更する必要が出た場合は、既存テストの安定性に影響するため管理者に確認する。</li>
+<li>実績（PR #46）: <code>tests/e2e/helpers.ts</code>（新規77行）に共通部分を抽出し、4specから計271行削除。差し替えは「ヘルパー呼び出しに<code>mcpPort</code>引数を追加」のみで、シナリオ・アサーション・待ち方・スクリーンショット名・ポート規約はいずれも無変更（<code>reviewer</code>が4spec分の差分を個別に読んで確認）。共通化の前後でE2Eを実行し、いずれも9件緑。</li>
 </ul>
 
 <h3 id="t25">T25: デスクトップアプリのUI一新</h3>
@@ -415,6 +416,26 @@ flowchart LR
 <li>禁止事項: <strong>既存機能を1つも落とさないこと</strong>（ノートのCRUD・検索・編集・Mermaid表示・画像添付・バージョン履歴・ゴミ箱と復元・リンク・タスクのリスト/カンバン表示・ステータス変更・UI連携ツールによる画面遷移・リアルタイム反映）。要求定義に無い新機能をデザイン刷新に便乗して追加しない。既存テストをデザイン変更に合わせて安易に削除・スキップしない（ロケータの更新は可、シナリオの削除は不可）。</li>
 <li>テスト: 刷新前後で既存の単体テスト・E2E（現時点で9件）が同じシナリオを満たすこと。加えて刷新後の各画面で主要導線（ノート作成→編集→保存、削除→ゴミ箱→復元、タスクのステータス変更、リンク作成）が実機（<code>xvfb-run</code>）で完走することを確認する。</li>
 <li>管理者確認済みの方針（2026-08-05）: (1) <strong>対象プラットフォーム</strong>=現行のElectronクロスプラットフォーム構成を維持し、Windowsを主ターゲットとして扱う（技術的転換は行わない）。(2) <strong>進め方</strong>=モックアップ承認 → 画面単位で段階的に置換。モックアップは承認済み。(3) <strong>採用ライブラリ確定</strong>: <code>tailwindcss</code> v4（スタイリング基盤）、<code>motion</code>（旧 Framer Motion。<strong>採用し、後続の画面実装はmotion前提で組む</strong>。開発管理者は「カンバン実装まで実物を見てから判断」を推奨したが、管理者判断で先行導入と決定）、<code>@radix-ui/react-*</code>（必要になった画面で個別に追加）。アイコンフォント／絵文字は採用しない。Webフォントは読み込まない（OS標準フォントスタックを使う）。</li>
+<li><strong>承認済みデザイントークン（2026-08-05）</strong>: 実装の<code>theme.css</code>はこの表を正とする。レビュー時はこの値と突き合わせること。配色の意味づけ（ピンク＝エージェント／アクア＝利用者）は装飾ではなく、<strong>画面のどこが自分以外の手で変わったのかを読む前に見て分かるようにする</strong>ためのもの。後続PRでこの割り当てを崩さないこと。
+<div class="tablewrap"><table>
+<thead><tr><th>トークン</th><th>ライト</th><th>ダーク</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><code>ink-pink</code></td><td><code>#ff3d8b</code></td><td><code>#ff5c9e</code></td><td><strong>エージェントの操作</strong>（変更通知、書き換えられた箇所）</td></tr>
+<tr><td><code>ink-aqua</code></td><td><code>#00b3c8</code></td><td><code>#2ad0e4</code></td><td><strong>利用者の操作</strong>・現在地・押せるもの</td></tr>
+<tr><td><code>ink-yellow</code></td><td><code>#ffc93c</code></td><td><code>#ffd45c</code></td><td>フォーカスリング専用。面には使わない</td></tr>
+<tr><td><code>paper</code></td><td><code>#eceff3</code></td><td><code>#0d1017</code></td><td>地色（アクア寄りに振った寒色グレー）</td></tr>
+<tr><td><code>paper-raised</code></td><td><code>#f7f9fb</code></td><td><code>#161b25</code></td><td>一段持ち上げた面</td></tr>
+<tr><td><code>line</code></td><td><code>#cdd5de</code></td><td><code>#2a3240</code></td><td>罫線・境界</td></tr>
+<tr><td><code>text</code></td><td><code>#10131c</code></td><td><code>#e6ebf1</code></td><td>本文</td></tr>
+<tr><td><code>text-soft</code></td><td><code>#5a6675</code></td><td><code>#a3b0bf</code></td><td>補助テキスト</td></tr>
+<tr><td><code>text-faint</code></td><td><code>#8896a5</code></td><td><code>#6f7d8c</code></td><td>ラベル・メタ情報</td></tr>
+<tr><td><code>ok</code></td><td><code>#17915c</code></td><td><code>#3ad18b</code></td><td>完了（セマンティック。アクセント2色とは別枠）</td></tr>
+<tr><td><code>warn</code></td><td><code>#b8730a</code></td><td><code>#e0a13a</code></td><td>進行中・注意</td></tr>
+<tr><td><code>crit</code></td><td><code>#cc2f3e</code></td><td><code>#ff6b78</code></td><td>危険・破壊的操作</td></tr>
+</tbody></table></div>
+フォント（Webフォントを読み込まないためOS標準スタックをトークン化）: display=<code>"Helvetica Neue", "Arial Black", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif</code> / body=<code>system-ui, -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic UI", sans-serif</code> / mono=<code>ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace</code>。
+</li>
+<li>追加決定（2026-08-05）: <code>motion</code>は<code>LazyMotion</code>による遅延ロード構成とする（素で読み込むとレンダラーのバンドルが+121kB／gzip +39kB増え起動時のパース時間に効くため）。<code>strict</code>を有効にし軽量な<code>m.*</code>の使用を強制する。Tailwindの<code>preflight</code>は土台PRでは読み込まず、画面をTailwindへ置き換える後続PRのいずれかで入れる。</li>
 <li>停止条件: 採用ライブラリは確定済みで、これ以外を追加する場合は都度管理者に確認する。<code>motion</code>を使う以上、動きが操作の分かりにくさを招いていないかを画面ごとに確認し、見た目と分かりやすさが衝突した場合は分かりやすさを優先する（本タスクの絶対条件）。段階的置換の途中で既存機能を落とさざるを得ないと判明した場合は、落とさない代替案を検討し、それでも不可能なら止めて報告する。<code>src/renderer/</code>以外の変更が必要になった場合はその必要性を報告して確認を得る。</li>
 <li>進捗: モックアップ提案を作成し管理者へ提示済み（2026-08-05）。デザイン方針・4画面のモックアップ・既存機能16項目の網羅チェック表・ライブラリ提案・画面単位の置換順（PR 1〜6）を含む。承認待ちのため<code>src/renderer/</code>は未着手。</li>
 </ul>
