@@ -1,26 +1,30 @@
 # Loop State — hanamask
 
-Last run: 2026-08-03T06:06Z (loop-triage, manual report-only)
+Last run: 2026-08-05T06:17Z (dev-loop, shipped — PR #45〜#52)
 
 ## High Priority (loop is acting or waiting on human)
 
-- **PR #4 の `deploy` ジョブが `AWS_DEPLOY_ROLE_ARN` 未設定で失敗している。** `.github/workflows/pr-preview.yml` の `configure-aws-credentials` ステップが `vars.AWS_DEPLOY_ROLE_ARN`（GitHub repo variable）を参照するが未設定のため `Could not load credentials from any providers` で失敗する（[run 30779426206](https://github.com/Tanar-tech/hanamask/actions/runs/30779426206)）。`build:lambda`/`build:migrate` 自体は成功しており、PR #2 の ENOENT バグ（下記）はこのPRでは再現しない＝修正が効いていることを確認した。
-  - 提案: `GithubDeployStack` を実AWSへデプロイし、発行されたOIDCロールARNを repo variable `AWS_DEPLOY_ROLE_ARN` に設定する必要がある。実AWSデプロイは docs/GOVERNANCE.md §6 により管理者承認事項のため、report-onlyのまま未着手。
+- **T25「デスクトップアプリのUI一新」（優先度: 高、管理者指示）が進行中。** モックアップは承認済み、PR 1（Tailwind・トークン・motionの土台）はマージ済み（PR #52）。次はPR 2（アプリの骨格とホーム画面）。PR分割とファイル所有範囲はPR #51で確定済みで、PR 3・4・5は並列着手できる。
+- **絶対条件の監視**: T25は「既存機能を1つも落とさない」「利用者が直観的に操作できる」が絶対条件。各PRで機能一覧をチェックリストとして使い、1つでも到達できなくなったらそのPRは未完了とする運用にしている。
 
 ## Resolved (this run)
 
-- **PR #2 の `ENOENT: prisma/migrations` バグ** — PR #4 で `scripts/build-migrate-lambda.mjs` に不在時ガードを追加済み（前回run 2026-08-03T02:05Z で発見、report-only）。PR #4 のCIログで `build:migrate` が正常終了することを確認し、修正の実効性を確認した。PR #2 自体はまだ本バグを含むブランチのため、`mergeStateStatus` は引き続き `UNSTABLE`（PR #4マージ後にPR #2をmainに追従させれば解消する見込み）。
-- **`scripts/dev.ps1` の要修正判断** — 内容を確認。`prisma/seed.ts`（白紙化で削除済み）への依存とwork-manager固有のDB名/ログイン情報を含み、アプリ仕様確定前は動作しない。仕様確定待ちのブロック状態は妥当と再確認（新規の対応は不要）。
+- **T24 E2Eヘルパーの共通化** — PR #46。4specの重複を`tests/e2e/helpers.ts`に抽出し271行削減。挙動変更ゼロを前後のE2E実行で確認。
+- **T26 再取得レースの修正** — PR #49。**停止条件が実際に発動した事例。** 当初想定の「`await`後のフラグ再判定」では塞げないことを実装者が再現テストで突き止め、自分で別方式を作らずに報告した。管理者判断で世代カウンタ方式を採用。実装者は指示に無かった編集保存経路の加算漏れも自力で発見して塞いでいる。
+- **T25 PR 1** — PR #52。レビューのMajor（Tailwindのスキャン範囲がリポジトリ全体で、`docs/html/*.html`や変数名からユーティリティを拾っていた）を`@source`のホワイトリスト方式で解消。`motion`はLazyMotionで遅延ロードし、アニメーション本体41kBを初期ロードから分離した。
+- **WSLでのスクリーンショット日本語表示** — PR #48。Linux側に日本語フォントが無く豆腐になっていた問題を、Windows側フォントを`FONTCONFIG_FILE`で参照する方法で解決し`e2e-runner`スキルに記録。UI刷新の各PRで見た目を確認するのに必須だった。
 
 ## Watch List
 
-- infra/ 配下のスタック名・ドメイン名は PR #4 で hanamask 向けに書き換え済み（マージ待ち）。`AWS_ACCOUNT_ID` は work-manager と同一のまま据え置き — 別アカウントにするかは管理者判断待ち。
-- PR #2 / #3 / #4 はいずれも未マージ。PR #2 と #4 は互いに素なファイルを触っており、どちらを先にマージしても後続のコンフリクトは想定されない。
+- **T28（画像添付の同種レース）** — 実装完了・レビュー待ち。T26と同型の問題で、画像専用カウンタを新設して解決している（既存の`mutationCount`に相乗りすると、画像添付のたびにノート本体の反映が捨てられる副作用が出るため分離した）。
+- **T27（レンダラーのCSP設定）** — 未着手。現状はリモートコンテンツを読まないため実害なしだが、ノート本文というエージェント由来の入力をmermaidでパースしているため多層防御として入れたい。T25でレンダラーを大きく書き換えるため、その後に着手する方が手戻りが少ない。
+- **T12（AIチャットパネル）** — 管理者判断で見送り継続中。要求定義由来の機能タスクで唯一残っているもの。
+- **preflightの導入タイミング** — T25 PR 6で入れる。途中で入れるとまだ置換していない画面の見た目が一斉に崩れるため、意図的に最後に回している。
 
 ## Recent Noise (ignored this run)
 
-- PR #2 の `build-and-test` / `semgrep` は green（変化なし）。
-- PR #4 の `build-and-test` / `semgrep` も green。
+- CIは`main`・各PRブランチとも一貫して緑（`build-and-test`・`semgrep`）。フレーキーな失敗は観測していない。
+- オープンなGitHub issueは無し。タスク管理は`docs/TASKS.md`で行っており、issueは使っていない。
 
 ---
 Run log: [loop-run-log.md](loop-run-log.md)
