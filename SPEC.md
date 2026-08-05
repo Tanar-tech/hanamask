@@ -1,7 +1,10 @@
-# SPEC.md — 基盤(1): Electron + MCPサーバー + SQLite の最小垂直スライス（ノートのみ）
+# SPEC — T25 PR 2: アプリの骨格とホーム画面
 
-作成日: 2026-08-03
-対象: docs/REQUIREMENTS.md §4.1（MCPサーバー）, §4.2（ノート、一部）, §4.6（リアルタイム反映）, §5（実行形態）, §6（Note部分）, §7.1（一部）
+作成日: 2026-08-05
+対象タスク: `docs/TASKS.md` T25（デスクトップアプリのUI一新）の **PR 2**
+前提: PR 1（Tailwind・デザイントークン・motion の土台、PR #52）はマージ済み。モックアップと配色は管理者承認済み。
+
+> 過去のSPEC（基盤(1) ノート機能の垂直スライス、2026-08-03）はPR #5 のコミットに残っている。このファイルは常に「いま実装中の機能」の正とする。
 
 ---
 
@@ -9,111 +12,126 @@
 
 ### 何を作るか
 
-hanamaskの要求定義（docs/REQUIREMENTS.md）が確定したので、ゼロベースで実装を開始する。今回はアプリ全体を一度に作るのではなく、最も検証したいコアの仕組み——**「AIエージェントがMCP経由でノートを作ると、開いているデスクトップ画面に自動で反映される」**——を、ノート機能だけに絞って最初に通す。タスク・リンク・画像・図・AIチャット・削除/復元・編集履歴は次回以降のSPECで追加する。
+アプリを開いたときの画面を作り替える。今は「ノート一覧・タスク一覧・カンバンが縦に積まれ、下にゴミ箱ボタンがある」だけの、スタイルの当たっていない画面になっている。これを、**左側にいつも同じ場所にある案内（レール）があり、右側に内容が出る**形にする。
 
-### なぜこの範囲を最初にやるか
+最初に開く画面は「ホーム」で、最近のノートと進行中のタスクが1画面で見渡せる。
 
-このアプリの一番の差別化点（§1）は「MCPネイティブ」と「デスクトップUIへのリアルタイム反映」であり、ここが技術的に一番不確実な部分でもある。他の機能（タスク管理、画像添付等）は一度この土台が動けば同じパターンの横展開で追加できるため、最初に最小構成で通して土台の妥当性を確認する。
+### なぜ作るか
 
-### 技術的な決定事項（このSPECで新たに確定するもの）
+- 今は自分がどこにいるのか、他に何ができるのかが画面から読み取れない。左レールが常にあれば「ノート・タスク・ゴミ箱がある」ことが一目で分かる。
+- ノートとタスクを行き来するのに毎回一覧の上下を探す必要がある。ホームに両方を出せば、開いた瞬間に状況が分かる。
+- hanamaskの特徴は「自分が見ている画面が、AIエージェントの手でも変わる」こと。**エージェントが書き換えたばかりのノートをピンクで示す**ことで、それが一目で分かるようにする。
 
-要求定義（docs/REQUIREMENTS.md）で「実装時に確定/検証する」とされていた点のうち、この基盤実装に必要な範囲を以下のとおり決定する。矛盾・要確認事項ではなく、実装を進めるための具体化。
+### 画面イメージ
 
-- **SQLiteアクセス**: `better-sqlite3`（同期API、Electronのmainプロセスとの相性、追加ネイティブ依存が少ない点を優先）。Prisma等のORMは導入しない。
-- **MCP SDK**: `@modelcontextprotocol/sdk`（公式Node.js製）。Streamable HTTPトランスポートでlocalhostの固定ポートに待ち受ける。
-- **レンダラーUI**: 旧work-manager由来のNext.js(App Router)資産は、SSR/静的エクスポート前提でElectronレンダラー（単純なSPA）に不向きと判断し流用しない（既にPR #2で削除済み）。代わりに **Vite + React + TypeScript** の素のSPA構成を新規採用する。Tailwind CSSはREQUIREMENTS.md §5の記載通り引き続き採用する。
-- **パッケージマネージャ**: 既存の `package-lock.json`（npm）をそのまま使う（グローバル規約の「既存ロックファイルに従う」に該当）。
+📸 ホーム画面（左レール＋最近のノート＋進行中のタスク）
+
+```
+┌──────────────┬───────────────────────────────────┐
+│ hanamask     │  ノートとタスクを検索      Ctrl K  │
+│              │                                    │
+│ ワークスペース │  最近のノート           すべて見る │
+│ ▸ ホーム      │  ┌────────┐ ┌────────┐ ┌────────┐│
+│   ノート   24 │  │ピンクの │ │        │ │        ││
+│   タスク    7 │  │縦線＝AI │ │        │ │        ││
+│   ゴミ箱    3 │  │が更新   │ │        │ │        ││
+│              │  └────────┘ └────────┘ └────────┘│
+│              │                                    │
+│              │  進行中のタスク       カンバンで見る│
+│              │  [進行中] UI一新のモックアップ 08/05│
+│              │  [未着手] E2Eヘルパーを共通化     — │
+└──────────────┴───────────────────────────────────┘
+```
+
+- 左レールの現在地はアクア色で示す。
+- ノートのカードは、エージェントが更新した直後だけピンクの縦線が付き、「たった今 · エージェントが更新」と**文字でも**表示する（色だけに意味を持たせない）。時間が経つと消える。
+- タスクの状態は「未着手／進行中／完了」を文字と色の両方で示す（完了＝緑、進行中＝橙）。
 
 ### 受け入れ条件
 
-- [ ] `npm run dev` 相当のコマンドで、"hanamask" というタイトルのElectronウィンドウが起動し、ノート一覧画面（初期状態は空）が表示される 📸
-- [ ] MCPクライアント（Claude Code等）がlocalhostのMCPエンドポイントに接続し、`create_note`（title, body, tags）を呼び出すと、SQLiteにノートが保存される
-- [ ] `create_note` 呼び出し直後、起動済みのElectronウィンドウのノート一覧が**手動リロードなしに**新しいノートを表示する 📸
-- [ ] `search_notes`（キーワード）で、title/bodyに一致するノートが返る
-- [ ] `get_note`（id）で、1件のノート詳細が返る
-- [ ] アプリを終了し再起動しても、作成済みのノートが表示される（SQLiteファイルへの永続化）
+- [ ] アプリを開くとホーム画面が表示され、左レールに「ホーム／ノート／タスク／ゴミ箱」が並ぶ。
+- [ ] 左レールの現在地が視覚的に分かる。
+- [ ] ホームに最近のノートが表示され、クリックするとノート詳細が開く。
+- [ ] ホームに進行中のタスクが表示され、クリックするとタスク詳細が開く。
+- [ ] 左レールの「ノート」でノート一覧、「タスク」でタスク一覧とカンバン、「ゴミ箱」でゴミ箱が開く。
+- [ ] ノートが1件も無いときは「ノートはまだありません」、タスクが無いときは「タスクはまだありません」と表示される（現在の文言を変えない）。
+- [ ] ノートの削除ボタンが従来どおり動き、確認ダイアログが出る。
+- [ ] MCPツールでノート／タスクを作成・更新すると、ホームの表示が**手動リロードなしで**更新される。
+- [ ] エージェントが更新したノートが、他と区別できる形で表示される。
+- [ ] 画面のどのボタンも、アイコンだけでなく文字のラベルを持つ。
+- [ ] キーボードのTabで操作でき、今どこにフォーカスがあるか分かる。
+- [ ] ライト／ダークどちらのテーマでも文字が読める。
 
-### 今回のスコープ外（次回以降のSPECで対応）
+### やらないこと（このPRの範囲外）
 
-タスク/リンク/画像/NoteVersion（編集履歴）エンティティ、`delete_note`等のソフトデリート・確認フラグ・復元、Mermaidレンダリング、画像添付、AIチャットパネル（BYO Agent接続）、`open_note`等のUI連携ツール、カンバン表示、インストーラーパッケージング（electron-builder実配布）。
+- ノート詳細・タスク詳細・カンバン・ゴミ箱・検索結果の**中身**の作り替え（PR 3〜5で行う）。このPRではそれらの画面へ「行けること」だけを担保する。
+- 新機能の追加。検索バーは見た目を作るが、**動作は既存の検索に接続するだけ**とする。
+- Tailwindのpreflight（リセットCSS）の導入。PR 6で行う（途中で入れると未置換の画面が一斉に崩れるため）。
+
+### 未確定・確認したいこと
+
+1. **「最近のノート」「進行中のタスク」の表示件数**。モックアップは各3件だが、多すぎると窮屈、少なすぎると使いにくい。**ノート6件・タスク5件**を既定とし、実機のスクリーンショットを見て調整する。
+2. **`Ctrl K` の検索ショートカット**。モックアップに描かれているが、既存アプリにキーボードショートカットの仕組みが無い。**このPRでは見た目のみとし、キー割り当ては行わない**（新機能の追加を避けるため）。必要なら別タスクにする。
+3. **左レールのタグ一覧**（モックアップの `#設計` 等）。タグでの絞り込みは要求定義に無いため、**このPRでは実装しない**。
 
 ---
 
 ## Part 2: AI用（実装セット定義）
 
-### 共有コントラクト（Phase 3開始前に確定する型・関数シグネチャ）
+### 前提となる既存実装（読み取りのみ、編集しない）
 
-以降の全セットはこの契約に従って実装する。契約自体の変更が必要になった場合はPhase 4統合ゲートでのみ行う。
+- `NoteDetail.tsx` / `TaskDetail.tsx` / `TrashView.tsx` / `SearchResults.tsx` / `KanbanView.tsx` — PR 3〜5が所有。**呼び出すだけで中身を変えない。**
+- `src/shared/preload-api.ts` — `NavigateTarget` は `{kind:"list"|"note"|"task"|"trash"|"search"}`。**このPRで型を変更しない。** ホームは `kind:"list"` をそのまま使う。
+- `src/renderer/styles/theme.css` — 配色トークン。PR 1で定義済み。
+- `src/renderer/styles/motion.ts` — `TRANSITION` プリセットと `loadMotionFeatures`。アニメーションは `m.*`（`motion/react-m`）のみ使用可。`motion.*` はESLintと`strict`で禁止済み。
 
-```ts
-// Note エンティティ（SQLiteの notes テーブルに対応）
-interface Note {
-  id: string;        // uuid
-  title: string;
-  body: string;       // Markdown（Mermaidはコードフェンスとしてインライン）
-  tags: string[];
-  createdAt: string;  // ISO8601
-  updatedAt: string;
-}
+### 実装セット
 
-// src/main/db/notes-repo.ts が公開する関数（Set A が実装）
-function createNote(input: { title: string; body: string; tags: string[] }): Note;
-function getNote(id: string): Note | null;
-function searchNotes(query: string): Note[];
+#### セット A: アプリの骨格（レール＋ルーティング＋E2Eロケータ更新）
 
-// src/main/mcp/change-emitter.ts が公開する型（Set B が実装）
-// notes-repo経由でDBが変更された直後に発火する、Electron非依存のイベント発行者
-interface ChangeEmitter {
-  emitNotesChanged(): void;
-  onNotesChanged(listener: () => void): () => void; // 戻り値は購読解除関数
-}
+- 目的: 受け入れ条件のうち「左レール」「現在地」「各画面への遷移」「Tab操作・フォーカス」。
+- 触ってよいファイル: `src/renderer/App.tsx`, `src/renderer/components/AppShell.tsx`（新規）, `tests/renderer/App.test.tsx`, `tests/e2e/helpers.ts`, `tests/e2e/*.spec.ts`
+- 内容:
+  - `AppShell` を新規作成し、左レールと右ペインの2カラムにする。レール項目は「ホーム／ノート／タスク／ゴミ箱」。
+  - `App.tsx` は `AppShell` でラップし、`view.kind` に応じて中身を差し替える。`LazyMotion` のラップと `onNavigate` の購読は現状のまま維持する。
+  - 現在地は `aria-current="page"` で示し、視覚的にもアクア色で示す。
+- テスト: `tests/renderer/App.test.tsx`
 
-// preloadがrendererに公開するAPI（Set C が実装、Set D はこの型に対して実装する）
-interface HanamaskPreloadApi {
-  listNotes(): Promise<Note[]>;
-  onNotesChanged(callback: () => void): () => void;
-}
-// window.hanamask: HanamaskPreloadApi としてグローバルに公開する
-```
+#### セット B: ホーム画面
 
-### 実装セット一覧
+- 目的: 受け入れ条件のうち「最近のノート／進行中のタスク」「クリックで詳細」「エージェント更新の区別」「リアルタイム反映」。
+- 触ってよいファイル: `src/renderer/components/Home.tsx`（新規）, `tests/renderer/Home.test.tsx`（新規）
+- 内容:
+  - `listNotes` / `listTasks` を呼び、最近のノート6件・進行中のタスク5件を表示する。**件数は名前付き定数にする。**
+  - `onNotesChanged` / `onTasksChanged` を購読して再取得する（既存の `NoteList` と同じ方式）。
+  - エージェント更新の区別は、`updatedAt` が直近のノートにピンクの縦線と「たった今 · エージェントが更新」の文字を付ける。**しきい値は名前付き定数にする。**
+  - 検索バーは見た目のみ。入力すると既存の `kind:"search"` 経路に繋ぐ。
+- テスト: `tests/renderer/Home.test.tsx`（新規）
 
-#### Set A: DBレイヤー（`src/main/db/`）
-- 目的: ノートの永続化。受け入れ条件の「SQLite保存」「再起動後も残る」を満たす。
-- 新規作成してよいファイル: `src/main/db/schema.sql`（`notes`テーブルのみ定義）, `src/main/db/db.ts`（`app.getPath('userData')` 配下にDBファイルを開き、`notes`テーブルが無ければ`schema.sql`を実行する接続シングルトン）, `src/main/db/notes-repo.ts`（共有コントラクトの3関数を実装）
-- 読み取りのみ依存する既存ファイル: なし
-- テスト置き場: `tests/main/db/notes-repo.test.ts`（一時ファイルDBを使い、`createNote`→`getNote`→`searchNotes`のラウンドトリップを検証）
+#### セット C: 一覧のTailwind化
 
-#### Set D: レンダラーUI（`src/renderer/`）
-- 目的: ノート一覧表示・リアルタイム反映のUI側。受け入れ条件の画面表示・自動更新を満たす。
-- 新規作成してよいファイル: `index.html`, `vite.config.ts`, `src/renderer/main.tsx`, `src/renderer/App.tsx`, `src/renderer/components/NoteList.tsx`, `src/renderer/types/preload.d.ts`（`HanamaskPreloadApi`の型宣言。共有コントラクトのコピーでよい）
-- 読み取りのみ依存する既存ファイル: なし（`window.hanamask`はこのセット内でモックして単体テストする。実物との結線はPhase 4）
-- テスト置き場: `tests/renderer/NoteList.test.tsx`（`window.hanamask`をモックし、ノート一覧のレンダリングと`onNotesChanged`発火時の再取得を検証）
-
-Set A・Set Dは互いに触るファイルが重複せず、共有コントラクトのみに依存するため**並列グループ1**として同時実装する。
-
-#### Set B: MCPサーバー（`src/main/mcp/`）
-- 目的: 外部AIエージェントからの`create_note`/`get_note`/`search_notes`呼び出しを受け付ける。受け入れ条件のMCP経由操作を満たす。
-- 新規作成してよいファイル: `src/main/mcp/server.ts`（`@modelcontextprotocol/sdk`のStreamable HTTPサーバーをlocalhost固定ポートで起動）, `src/main/mcp/tools.ts`（3ツールのスキーマ定義とハンドラ。ハンドラは`notes-repo`の関数を呼び、成功時に`change-emitter`へ通知する）, `src/main/mcp/change-emitter.ts`（共有コントラクトの`ChangeEmitter`実装。Node標準の`EventEmitter`で十分）
-- 読み取りのみ依存する既存ファイル: `src/main/db/notes-repo.ts`（Set Aの実装、実物を呼ぶ）
-- テスト置き場: `tests/main/mcp/tools.test.ts`（ツールハンドラを直接呼び出し、`notes-repo`への反映と`change-emitter`発火を検証。実DBの代わりに一時ファイルDBを使ってよい）
-
-#### Set C: Electronシェル（`src/main/index.ts`, `src/preload/index.ts`）
-- 目的: アプリの起動、ウィンドウ生成、preload経由のIPC公開、MCPサーバー起動、DB変更のレンダラーへの通知配線。
-- 新規作成してよいファイル: `src/main/index.ts`（`app.whenReady`でBrowserWindow生成、Set Bの`startMcpServer()`相当を呼ぶ、`change-emitter`の発火を`webContents.send('notes:changed')`へ橋渡し）, `src/preload/index.ts`（`contextBridge.exposeInMainWorld('hanamask', ...)` で共有コントラクトの`HanamaskPreloadApi`を実装。`listNotes`は`ipcMain.handle`経由で`notes-repo.searchNotes('')`相当を呼ぶ）
-- 読み取りのみ依存する既存ファイル: `src/main/db/notes-repo.ts`（Set A）, `src/main/mcp/server.ts` / `change-emitter.ts`（Set B）
-- テスト置き場: `tests/main/index.test.ts`（IPCハンドラ登録のユニットテスト。実ウィンドウ生成はテスト対象外とし、e2e相当の確認はPhase 4/5の手動起動で行う）
-
-Set B・Set CはSet Aの実物に依存するため、Set A完了後に**並列グループ2**として同時実装する（Set B・C間はファイルが重複しない）。
+- 目的: 受け入れ条件のうち「空状態の文言維持」「削除ボタンの動作維持」「ライト／ダーク両対応」。
+- 触ってよいファイル: `NoteList.tsx`, `TaskList.tsx`, `tests/renderer/NoteList.test.tsx`, `tests/renderer/TaskList.test.tsx`
+- 内容: 既存のロジック（取得・購読・削除・エラー表示）を**一切変えず**、見た目のみTailwindユーティリティで整える。
+- **文言を変えないこと**: 「ノートはまだありません」「タスクはまだありません」「削除」「ゴミ箱」はE2Eが依存している。
 
 ### 並列グループ宣言
 
-1. **並列グループ1**（先行・依存なし）: Set A, Set D
-2. **並列グループ2**（Set A完了後）: Set B, Set C
-3. **Phase 4 統合ゲート（共有ファイルはここでのみ編集）**: `package.json`（`dev`/`build`/`test`スクリプト追加、`electron`/`vite`/`better-sqlite3`/`@modelcontextprotocol/sdk`等の依存追加）, `tsconfig.json`分割（main/preload用・renderer用）, `.gitignore`（`dist/`, `*.sqlite3`追加）, `src/preload/index.ts`とSet Dのレンダラーの実結線, `src/main/index.ts`とSet B/Set Aの実結線。結線後、実際に`npm run dev`でアプリを起動し、Part 1の受け入れ条件を手動で一通り確認する（MCPクライアント役はcurl等でHTTPを直接叩いてもよい）。
+1. **先行（単独）**: セット B が `Home.tsx` の骨格（propsとexport）だけを先に作る。セット A が import できるようにするため。
+2. **並列グループ**: セット A ／ セット B（中身の実装）／ セット C の3つ。触るファイルが重複しない。
+3. **Phase 4 統合ゲートでのみ編集**: なし（共有ファイルの編集は発生しない）。
 
-### 完了条件
+### E2Eへの影響（セット A の担当）
 
-- `npm run lint` / `npm run typecheck` / `npm test` が全て緑
-- Phase 4で`npm run dev`を実行し、Part 1の受け入れ条件6項目を全て手動確認できる
-- 3回までの自己修正ループで解決しない失敗があれば、そこで止めて報告する（無条件の自走はしない）
+DOM構造が変わるため以下が壊れる。**シナリオは変えず、ロケータのみ更新する。**
+
+- `tests/e2e/helpers.ts` の `noteListOf` = `window.locator("main > ul").first()`
+- `tests/e2e/task-flow.spec.ts` の `window.locator("main > ul")`
+- 「ゴミ箱」ボタンはレール内の項目になるため、`getByRole("button", { name: "ゴミ箱" })` の一意性を確認すること。
+
+### 完了条件（機械判定）
+
+- `npm test` / `npm run typecheck` / `npm run lint` / `npm run build` がすべて緑。
+- `xvfb-run -a npm run test:e2e` の9件がすべて緑（**シナリオを変えずに**）。
+- `docs/TASKS.md` T25の禁止事項に列挙された既存機能に、すべて到達できる。
+- 実機スクリーンショットを撮り、ライト／ダーク両方で文字が読めることを確認する（日本語表示は `.claude/skills/e2e-runner/SKILL.md` の `FONTCONFIG_FILE` 手順）。
