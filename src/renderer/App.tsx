@@ -1,3 +1,4 @@
+import { LazyMotion } from "motion/react";
 import { useEffect, useState, type JSX } from "react";
 import { KanbanView } from "./components/KanbanView";
 import { NoteDetail } from "./components/NoteDetail";
@@ -6,6 +7,7 @@ import { SearchResults } from "./components/SearchResults";
 import { TaskDetail } from "./components/TaskDetail";
 import { TaskList } from "./components/TaskList";
 import { TrashView } from "./components/TrashView";
+import { loadMotionFeatures } from "./styles/motion";
 import type { NavigateTarget } from "../shared/preload-api";
 
 const LIST_VIEW: NavigateTarget = { kind: "list" };
@@ -19,45 +21,48 @@ export const App = (): JSX.Element => {
   // MCPのUI連携ツール（open_note等）はこのIPCイベント経由で画面を切り替える。
   useEffect(() => window.hanamask.onNavigate(setView), []);
 
+  // strict: アニメーションは m.* のみ許可し、初期ロードの重い motion.* を使えなくする。
   return (
-    <main>
-      <h1>hanamask</h1>
-      {/* keyで再マウントさせないと、応答待ちの非同期処理が切替後のノートを上書きしうる。 */}
-      {view.kind === "note" && <NoteDetail key={view.id} noteId={view.id} onBack={backToList} />}
-      {view.kind === "task" && <TaskDetail key={view.id} taskId={view.id} onBack={backToList} />}
-      {view.kind === "trash" && <TrashView onBack={backToList} />}
-      {view.kind === "search" && (
-        <SearchResults
-          query={view.query}
-          onSelectNote={(id) => {
-            setView({ kind: "note", id });
-          }}
-          onBack={backToList}
-        />
-      )}
-      {view.kind === "list" && (
-        <>
-          <NoteList
+    <LazyMotion features={loadMotionFeatures} strict>
+      <main>
+        <h1>hanamask</h1>
+        {/* keyで再マウントさせないと、応答待ちの非同期処理が切替後のノートを上書きしうる。 */}
+        {view.kind === "note" && <NoteDetail key={view.id} noteId={view.id} onBack={backToList} />}
+        {view.kind === "task" && <TaskDetail key={view.id} taskId={view.id} onBack={backToList} />}
+        {view.kind === "trash" && <TrashView onBack={backToList} />}
+        {view.kind === "search" && (
+          <SearchResults
+            query={view.query}
             onSelectNote={(id) => {
               setView({ kind: "note", id });
             }}
+            onBack={backToList}
           />
-          <TaskList
-            onSelectTask={(id) => {
-              setView({ kind: "task", id });
-            }}
-          />
-          <KanbanView />
-          <button
-            type="button"
-            onClick={() => {
-              setView({ kind: "trash" });
-            }}
-          >
-            ゴミ箱
-          </button>
-        </>
-      )}
-    </main>
+        )}
+        {view.kind === "list" && (
+          <>
+            <NoteList
+              onSelectNote={(id) => {
+                setView({ kind: "note", id });
+              }}
+            />
+            <TaskList
+              onSelectTask={(id) => {
+                setView({ kind: "task", id });
+              }}
+            />
+            <KanbanView />
+            <button
+              type="button"
+              onClick={() => {
+                setView({ kind: "trash" });
+              }}
+            >
+              ゴミ箱
+            </button>
+          </>
+        )}
+      </main>
+    </LazyMotion>
   );
 };
