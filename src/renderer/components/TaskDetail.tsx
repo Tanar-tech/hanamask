@@ -24,6 +24,8 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
   const [error, setError] = useState<string | null>(null);
   const [reloadError, setReloadError] = useState<string | null>(null);
   // 変更通知のコールバックは購読時のstateを閉じ込めてしまうため、判断材料は都度refから読む。
+  // 描画に使わないのでstateにはしない。stateにするとsetStateからeffectでのref同期までの間に
+  // 通知が届いたとき古い値で判断してしまう（NoteDetailの`editing`/`restoring`は描画に使うため別）。
   const liveStateRef = useRef({ changingStatus: false });
 
   useEffect(() => {
