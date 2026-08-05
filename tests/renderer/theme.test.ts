@@ -76,6 +76,13 @@ describe("theme.css", () => {
     expect(themeCss).not.toMatch(/https?:\/\//);
   });
 
+  it("クラス候補のスキャン範囲をレンダラーのソースだけに限定する", () => {
+    expect(themeCss).toContain("source(none)");
+    expect(themeCss).toContain('@source "../**/*.tsx"');
+    expect(themeCss).toContain('@source "../**/*.ts"');
+    expect(themeCss).not.toContain("@source not");
+  });
+
   it("既存の見た目を変えないよう preflight を読み込まない", () => {
     expect(themeCss).not.toContain('@import "tailwindcss"');
     expect(themeCss).not.toContain('@import "tailwindcss/preflight');

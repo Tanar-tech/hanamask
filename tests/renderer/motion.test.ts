@@ -6,13 +6,16 @@ import {
   EASING,
   REDUCED_MOTION_POLICY,
   TRANSITION,
+  loadMotionFeatures,
   prefersReducedMotion,
 } from "../../src/renderer/styles/motion";
 
-const themeCss = readFileSync(
-  fileURLToPath(new URL("../../src/renderer/styles/theme.css", import.meta.url)),
-  "utf-8",
-);
+const readSource = (relativePath: string): string =>
+  readFileSync(fileURLToPath(new URL(relativePath, import.meta.url)), "utf-8");
+
+const themeCss = readSource("../../src/renderer/styles/theme.css");
+const motionSource = readSource("../../src/renderer/styles/motion.ts");
+const appSource = readSource("../../src/renderer/App.tsx");
 
 describe("モーションの共通定数", () => {
   it("duration / easing を1箇所で定義している", () => {
@@ -31,6 +34,17 @@ describe("モーションの共通定数", () => {
 
   it("reduced motion の方針を motion 側にも公開している", () => {
     expect(REDUCED_MOTION_POLICY).toBe("user");
+  });
+
+  it("アニメーション機能を動的importで遅延ロードする", async () => {
+    expect(motionSource).toContain('import("./motion-features")');
+    await expect(loadMotionFeatures()).resolves.toBeTypeOf("object");
+  });
+
+  it("App が LazyMotion を strict で張り、遅延ロードのローダーを渡す", () => {
+    expect(appSource).toContain("<LazyMotion");
+    expect(appSource).toContain("strict");
+    expect(appSource).toContain("features={loadMotionFeatures}");
   });
 
   it("prefers-reduced-motion の判定をOSの設定から読む", () => {
