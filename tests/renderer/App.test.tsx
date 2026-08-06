@@ -96,32 +96,32 @@ afterEach(() => {
 });
 
 describe("App のナビゲーション", () => {
-  it("初期表示ではノート一覧・タスク一覧・カンバンを表示する", async () => {
+  it("初期表示ではホーム画面を表示する", async () => {
     mockHanamask();
 
     render(<App />);
 
     expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "MCPサーバーを実装する" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "進行中" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "最近のノート" })).toBeTruthy();
   });
 
-  it("ノートタイトルをクリックすると詳細画面に遷移し、戻るで一覧に戻る", async () => {
+  it("ノートタイトルをクリックすると詳細画面に遷移し、戻るでホームに戻る", async () => {
     mockHanamask();
 
     render(<App />);
     await clickButton("設計メモ");
 
     expect(await screen.findByText("MCPサーバーの設計についてのメモ本文")).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "進行中" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
 
     await clickButton("戻る");
 
     expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "進行中" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "最近のノート" })).toBeTruthy();
   });
 
-  it("タスクタイトルをクリックするとタスク詳細画面に遷移し、戻るで一覧に戻る", async () => {
+  it("タスクタイトルをクリックするとタスク詳細画面に遷移し、戻るでホームに戻る", async () => {
     mockHanamask();
 
     render(<App />);
@@ -147,20 +147,120 @@ describe("App のナビゲーション", () => {
   });
 });
 
+describe("App の左レール", () => {
+  it("現在地を aria-current=page で示す", async () => {
+    mockHanamask();
+
+    render(<App />);
+
+    expect((await screen.findByRole("button", { name: "ホーム" })).getAttribute("aria-current")).toBe(
+      "page",
+    );
+
+    await clickButton("ノート");
+
+    expect(screen.getByRole("button", { name: "ノート" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: "ホーム" }).getAttribute("aria-current")).toBeNull();
+  });
+
+  it("「ノート」でノート一覧を開き、ホームは表示しない", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await clickButton("ノート");
+
+    expect(await screen.findByRole("list", { name: "ノート一覧" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+  });
+
+  it("「タスク」でタスク一覧とカンバンを開く", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await clickButton("タスク");
+
+    expect(await screen.findByRole("list", { name: "タスク一覧" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "進行中" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+  });
+
+  // Home と NoteList/TaskList は空状態の文言が同一なので、同時に描画されると E2E の
+  // getByText が多重ヒットして落ちる。排他描画がその唯一の防波堤なのでテストで固定する。
+  it("ホーム表示中はノート一覧・タスク一覧を描画しない", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "最近のノート" });
+
+    expect(screen.queryByRole("list", { name: "ノート一覧" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "タスク一覧" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "進行中" })).toBeNull();
+  });
+
+  it("「ノート」へ移動するとホームとタスク一覧を描画しない", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await clickButton("ノート");
+    await screen.findByRole("list", { name: "ノート一覧" });
+
+    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "進行中のタスク" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "タスク一覧" })).toBeNull();
+  });
+
+  it("空状態の文言はホームでも一覧でも1件しかヒットしない", async () => {
+    mockHanamask();
+    window.hanamask.listNotes = vi.fn(async () => []);
+    window.hanamask.listTasks = vi.fn(async () => []);
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "最近のノート" });
+
+    expect(screen.getAllByText("ノートはまだありません")).toHaveLength(1);
+    expect(screen.getAllByText("タスクはまだありません")).toHaveLength(1);
+
+    await clickButton("ノート");
+
+    expect(screen.getAllByText("ノートはまだありません")).toHaveLength(1);
+    expect(screen.queryByText("タスクはまだありません")).toBeNull();
+
+    await clickButton("タスク");
+
+    expect(screen.getAllByText("タスクはまだありません")).toHaveLength(1);
+    expect(screen.queryByText("ノートはまだありません")).toBeNull();
+  });
+
+  it("ノート一覧から詳細を開いて戻ると、ホームではなくノート一覧に戻る", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await clickButton("ノート");
+    await clickButton("設計メモ");
+    await screen.findByText("MCPサーバーの設計についてのメモ本文");
+
+    await clickButton("戻る");
+
+    expect(await screen.findByRole("list", { name: "ノート一覧" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+  });
+});
+
 describe("App のゴミ箱画面", () => {
-  it("ゴミ箱ボタンで削除済みノート一覧に遷移し、戻るで一覧に戻る", async () => {
+  it("ゴミ箱ボタンで削除済みノート一覧に遷移し、戻るでホームに戻る", async () => {
     mockHanamask();
 
     render(<App />);
     await clickButton("ゴミ箱");
 
     expect(await screen.findByText("消したメモ")).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "進行中" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+    expect(screen.getByRole("button", { name: "ゴミ箱" }).getAttribute("aria-current")).toBe("page");
 
     await clickButton("戻る");
 
     expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "進行中" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "最近のノート" })).toBeTruthy();
   });
 });
 
@@ -196,7 +296,7 @@ describe("App のMCP経由の画面遷移", () => {
 
     expect(await screen.findByRole("heading", { name: "「設計」の検索結果" })).toBeTruthy();
     expect(window.hanamask.searchNotes).toHaveBeenCalledWith("設計");
-    expect(screen.queryByRole("heading", { name: "進行中" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
   });
 
   it("検索結果画面からノートを選ぶとノート詳細を開く", async () => {
@@ -209,7 +309,7 @@ describe("App のMCP経由の画面遷移", () => {
     expect(await screen.findByText("MCPサーバーの設計についてのメモ本文")).toBeTruthy();
   });
 
-  it("listの遷移指示で一覧画面に戻る", async () => {
+  it("listの遷移指示でホーム画面に戻る", async () => {
     mockHanamask();
 
     render(<App />);
@@ -217,7 +317,7 @@ describe("App のMCP経由の画面遷移", () => {
     await screen.findByText("MCPサーバーの設計についてのメモ本文");
     await emitNavigate({ kind: "list" });
 
-    expect(await screen.findByRole("heading", { name: "進行中" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "最近のノート" })).toBeTruthy();
   });
 
   it("アンマウント時に遷移指示の購読を解除する", async () => {
