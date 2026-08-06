@@ -126,6 +126,7 @@ Mermaid図は専用ツールを持たず、ノート本文へのインライン�
 - [docs/TASKS.md](docs/TASKS.md): 実装タスクの分解・依存関係・進捗
 - [docs/TESTING.md](docs/TESTING.md): テストケース作成方針
 - [docs/PACKAGING.md](docs/PACKAGING.md): Windowsインストーラーのビルド手順
+- [docs/WSL.md](docs/WSL.md): WSLのAIエージェントからWindowsアプリのMCPへ接続する設定
 - [docs/GOVERNANCE.md](docs/GOVERNANCE.md): 体制・運用ルール
 - [docs/HERDR.md](docs/HERDR.md) / [docs/CODEX.md](docs/CODEX.md): 並列開発（herdr・Codex CLI）のセットアップ
 - [docs/safety.md](docs/safety.md): 自律ループに許可する範囲

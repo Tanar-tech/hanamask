@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WSLからWindowsアプリのMCPサーバーへ接続する</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../WSL.md">docs/WSL.md</a></p>
+
+<h1>WSLからWindowsアプリのMCPサーバーへ接続する</h1>
+
+<p>WSL上でClaude Code等のAIエージェントを動かし、Windows上でhanamaskアプリを起動している構成で、<strong>エージェントが作ったノートをアプリで参照できるようにする</strong>ための設定手順。<a href="TASKS.html#t31">docs/TASKS.md</a> T31に対応する。</p>
+
+<h2 id="why">なぜ設定が必要か</h2>
+
+<p>hanamaskのMCPサーバーは<code>127.0.0.1</code>にのみ待ち受ける（<code>src/main/mcp/server.ts</code>）。<strong>WSL2は既定でWindowsとは別のネットワークを持つため、WSL側から見た<code>127.0.0.1</code>はWSL自身</strong>であり、Windows側のアプリには届かない。</p>
+
+<p>Windows→WSLの方向だけは転送が用意されている（WSLで立てたサーバーにWindowsのブラウザから<code>localhost</code>でアクセスできるのはこのため）が、<strong>逆方向の転送は無い。</strong></p>
+
+<pre class="mermaid">
+flowchart LR
+  subgraph NAT["既定（NATモード）"]
+    W1["WSL<br/>localhost = WSL自身"]
+    N1["Windows<br/>localhost = Windows自身"]
+    W1 -. "届かない" .-> N1
+    N1 -- "転送あり" --> W1
+  end
+  subgraph MIRROR["ミラーモード"]
+    W2["WSL"]
+    N2["Windows"]
+    W2 <-- "localhost を共有" --> N2
+  end
+</pre>
+
+<h2 id="why-mirrored">なぜミラーモードを使うのか</h2>
+
+<p>待ち受けアドレスを<code>0.0.0.0</code>等に広げれば届くようになるが、<strong>MCPサーバーには認証もOrigin検証も無く、接続できた相手はノート・タスクの全読み書き（削除を含む）ができる。</strong>ローカルネットワークへ露出させる選択は取らない。</p>
+
+<p>ミラーモードはWSLがWindowsのネットワークを写し取る仕組みで、<strong>両者で<code>localhost</code>が同じものを指すようになる。</strong>アプリは<code>127.0.0.1</code>のまま変更不要で、ネットワークへの露出も増えない。</p>
+
+<h2 id="setup">設定手順</h2>
+
+<ol>
+<li><p><code>C:\Users\&lt;ユーザー名&gt;\.wslconfig</code> を作成する（既にあれば<code>[wsl2]</code>セクションに追記する）。</p>
+<pre><code>[wsl2]
+networkingMode=mirrored</code></pre></li>
+<li><p><strong>Windows側の PowerShell / コマンドプロンプトから</strong> WSLを再起動する。</p>
+<pre><code>wsl --shutdown</code></pre>
+<p><strong>この操作はWSL上で動いているプロセス（開発用のClaude Codeセッションを含む）をすべて終了させる。</strong>作業中のものが無いことを確認してから実行する。</p></li>
+<li><p>WSLを起動し直す。</p></li>
+</ol>
+
+<h2 id="verify">動作確認</h2>
+
+<p>Windows側でhanamaskアプリを起動したうえで、WSLから次を実行する。</p>
+
+<pre><code>curl -s -m 5 http://127.0.0.1:39217/mcp -o /dev/null -w '%{http_code}\n'</code></pre>
+
+<p>接続できていれば応答が返る（到達できない場合は<code>000</code>）。<strong>最終的な確認は、WSL側のAIエージェントから<code>create_note</code>を実行し、Windowsアプリの画面に手動リロードなしでノートが現れること。</strong></p>
+
+<h2 id="requirements">前提バージョン</h2>
+
+<ul>
+<li>Windows 11 22H2 以降（build 22621 以上）</li>
+<li>WSL 2.0.0 以降</li>
+</ul>
+
+<p><code>wsl.exe --version</code> と <code>winver</code> で確認できる。</p>
+
+<h2 id="rollback">切り戻し</h2>
+
+<p><code>.wslconfig</code> から <code>networkingMode=mirrored</code> の行を消す（またはファイルごと削除する）。その後もう一度 <code>wsl --shutdown</code> を実行すれば既定のNATモードに戻る。</p>
+
+<h2 id="caveats">注意点</h2>
+
+<p>ミラーモードはWSLのネットワーク挙動を全体的に変える。他のプロジェクトでポート転送やコンテナのネットワークに依存している場合、挙動が変わる可能性がある。</p>
+
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+  });
+</script>
+</body>
+</html>
