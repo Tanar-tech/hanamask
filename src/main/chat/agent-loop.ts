@@ -1,4 +1,6 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+// 型はレンダラーとも共有するため、共有コントラクトを唯一の定義元にする。
+import type { ChatContentBlock, ChatEvent, ChatMessage } from "../../shared/preload-api.js";
 import { linkTools, noteTools, taskTools, uiTools, type McpTool } from "../mcp/tools.js";
 
 /*
@@ -31,15 +33,6 @@ export interface ChatAssistantReply {
   stopReason: string | null;
 }
 
-export type ChatContentBlock =
-  | { type: "text"; text: string }
-  | { type: "tool_use"; id: string; name: string; input: unknown }
-  | { type: "tool_result"; tool_use_id: string; content: string; is_error: boolean };
-
-export interface ChatMessage {
-  role: "user" | "assistant";
-  content: ChatContentBlock[];
-}
 
 // モデルへ渡すツールの形。MCPの inputSchema と名前が違うのでここで揃える。
 export interface ChatToolDefinition {
@@ -61,12 +54,6 @@ export interface ChatModelClient {
   }): Promise<ChatAssistantReply>;
 }
 
-export interface ChatEvent {
-  kind: "assistant-text" | "tool-started" | "tool-finished" | "tool-failed";
-  text?: string;
-  toolName?: string;
-  detail?: string;
-}
 
 const findTool = (name: string): McpTool | undefined =>
   allTools.find((tool) => tool.definition.name === name);
@@ -107,6 +94,7 @@ export const runChatTurn = async (input: {
   history: ChatMessage[];
   userText: string;
   onEvent: (event: ChatEvent) => void;
+  shouldAbort?: () => boolean;
 }): Promise<ChatMessage[]> => {
   const messages: ChatMessage[] = [
     ...input.history,
@@ -114,6 +102,11 @@ export const runChatTurn = async (input: {
   ];
 
   for (let turn = 0; turn < MAX_TURNS; turn += 1) {
+    // 中止はターンの区切りで効かせる。実行中のツールは途中で止められない。
+    if (input.shouldAbort?.() === true) {
+      input.onEvent({ kind: "aborted" });
+      return messages;
+    }
     const reply = await input.client.send({
       model: input.model,
       system: SYSTEM_PROMPT,

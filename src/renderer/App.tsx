@@ -1,6 +1,7 @@
 import { LazyMotion } from "motion/react";
 import { useEffect, useState, type JSX } from "react";
 import { AppShell, type ShellSection } from "./components/AppShell";
+import { ChatPanel } from "./components/ChatPanel";
 import { ChatSettings } from "./components/ChatSettings";
 import { Home } from "./components/Home";
 import { KanbanView } from "./components/KanbanView";
@@ -51,7 +52,17 @@ export const App = (): JSX.Element => {
   // strict: アニメーションは m.* のみ許可し、初期ロードの重い motion.* を使えなくする。
   return (
     <LazyMotion features={loadMotionFeatures} strict>
-      <AppShell current={view.kind === "trash" ? "trash" : section} onSelect={selectSection}>
+      <AppShell
+        current={view.kind === "trash" ? "trash" : section}
+        onSelect={selectSection}
+        aside={
+          <ChatPanel
+            onOpenSettings={() => {
+              selectSection("settings");
+            }}
+          />
+        }
+      >
         {view.kind === "list" && section === "settings" ? (
           <ChatSettings />
         ) : view.kind === "list" && section === "home" ? (

@@ -31,6 +31,24 @@ export interface ChatSettings {
 
 export const DEFAULT_CHAT_MODEL = "claude-sonnet-4-5";
 
+/** チャット1往復の経過。UIはこれを順に積んで見せる。 */
+export interface ChatEvent {
+  kind: "assistant-text" | "tool-started" | "tool-finished" | "tool-failed" | "aborted";
+  text?: string;
+  toolName?: string;
+  detail?: string;
+}
+
+export type ChatContentBlock =
+  | { type: "text"; text: string }
+  | { type: "tool_use"; id: string; name: string; input: unknown }
+  | { type: "tool_result"; tool_use_id: string; content: string; is_error: boolean };
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: ChatContentBlock[];
+}
+
 export interface NoteInput {
   title: string;
   body: string;
@@ -107,6 +125,9 @@ export interface HanamaskPreloadApi {
   listDeletedNotes(): Promise<DeletedNote[]>;
   restoreNote(id: string): Promise<Note | null>;
   readChatSettings(): Promise<ChatSettings>;
+  sendChatMessage(history: ChatMessage[], userText: string): Promise<ChatMessage[]>;
+  abortChat(): Promise<void>;
+  onChatEvent(callback: (event: ChatEvent) => void): () => void;
   saveChatApiKey(apiKey: string): Promise<ChatSettings>;
   clearChatApiKey(): Promise<ChatSettings>;
   saveChatModel(model: string): Promise<ChatSettings>;
