@@ -149,6 +149,14 @@ describe("EntityLinks", () => {
     expect(screen.queryByText(/task-1/)).toBeNull();
   });
 
+  it("一覧に何の一覧かが分かるラベルを付ける", async () => {
+    mockHanamask({ listLinks: async () => [makeLink()] });
+
+    render(<EntityLinks entityType="note" entityId="note-1" />);
+
+    expect(await screen.findByRole("list", { name: "リンク一覧" })).toBeTruthy();
+  });
+
   it("リンクが0件のときは空状態メッセージを表示する", async () => {
     mockHanamask({ listLinks: async () => [] });
 

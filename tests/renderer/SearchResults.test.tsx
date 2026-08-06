@@ -80,6 +80,14 @@ describe("SearchResults", () => {
     expect(screen.getByRole("heading", { name: "「設計」の検索結果" })).toBeTruthy();
   });
 
+  it("一覧に何の一覧かが分かるラベルを付ける", async () => {
+    mockHanamask(async () => [makeNote()]);
+
+    render(<SearchResults query="設計" onSelectNote={noop} onBack={noop} />);
+
+    expect(await screen.findByRole("list", { name: "検索結果" })).toBeTruthy();
+  });
+
   it("一致するノートが0件なら該当なしと表示する", async () => {
     mockHanamask(async () => []);
 

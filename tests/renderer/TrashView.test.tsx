@@ -78,6 +78,14 @@ describe("TrashView", () => {
     expect(screen.getAllByRole("button", { name: "復元" })).toHaveLength(2);
   });
 
+  it("一覧に何の一覧かが分かるラベルを付ける", async () => {
+    mockHanamask();
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect(await screen.findByRole("list", { name: "削除済みノート" })).toBeTruthy();
+  });
+
   it("削除済みノートが無いときは空状態を表示する", async () => {
     mockHanamask({ listDeletedNotes: async () => [] });
 
