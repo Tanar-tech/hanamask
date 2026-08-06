@@ -26,7 +26,7 @@ const RESET_LIST = "list-none m-0 p-0";
 const RESET_TEXT = "m-0";
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
-const TITLE_BUTTON = `${RESET_TEXT} appearance-none border-0 bg-transparent p-0 text-left font-body text-base font-bold text-ink-aqua underline-offset-2 hover:underline cursor-pointer ${FOCUS_RING}`;
+const TITLE_BUTTON = `${RESET_TEXT} appearance-none border-0 bg-transparent p-0 text-left font-body text-base font-bold text-ink-aqua-text underline-offset-2 hover:underline cursor-pointer ${FOCUS_RING}`;
 const CARD = "rounded-lg border border-line bg-paper-raised p-3";
 const SECTION_HEADING = `${RESET_TEXT} font-display text-sm tracking-wide text-text-faint`;
 
@@ -85,7 +85,7 @@ const SearchBar = ({ onSearch }: { onSearch: (query: string) => void }): JSX.Ele
       />
       <button
         type="submit"
-        className={`rounded-md border border-ink-aqua bg-transparent px-3 py-2 font-body text-sm text-ink-aqua cursor-pointer ${FOCUS_RING}`}
+        className={`rounded-md border border-ink-aqua bg-transparent px-3 py-2 font-body text-sm text-ink-aqua-text cursor-pointer ${FOCUS_RING}`}
       >
         検索
       </button>

@@ -19,7 +19,7 @@ const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
 const ALERT =
   "m-0 rounded-md border border-crit bg-paper-raised px-4 py-3 font-body text-sm text-crit";
-const RESTORE_BUTTON = `${FOCUS_RING} m-0 cursor-pointer appearance-none rounded-md border border-ink-aqua bg-transparent px-3 py-1.5 font-body text-sm text-ink-aqua transition-colors duration-[var(--duration-fast)] ease-standard hover:bg-ink-aqua/10 disabled:cursor-not-allowed disabled:opacity-50`;
+const RESTORE_BUTTON = `${FOCUS_RING} m-0 cursor-pointer appearance-none rounded-md border border-ink-aqua bg-transparent px-3 py-1.5 font-body text-sm text-ink-aqua-text transition-colors duration-[var(--duration-fast)] ease-standard hover:bg-ink-aqua/10 disabled:cursor-not-allowed disabled:opacity-50`;
 
 const toBodyPreview = (body: string): string =>
   body.length <= BODY_PREVIEW_MAX_LENGTH ? body : `${body.slice(0, BODY_PREVIEW_MAX_LENGTH)}…`;

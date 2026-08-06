@@ -114,7 +114,7 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
         <button
           type="button"
           onClick={onBack}
-          className={`cursor-pointer rounded-md border border-line bg-paper-raised px-3 py-2 font-body text-sm text-text-soft transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua hover:text-ink-aqua ${FOCUS_RING}`}
+          className={`cursor-pointer rounded-md border border-line bg-paper-raised px-3 py-2 font-body text-sm text-text-soft transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua hover:text-ink-aqua-text-text ${FOCUS_RING}`}
         >
           戻る
         </button>

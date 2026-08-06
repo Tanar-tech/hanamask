@@ -1,11 +1,25 @@
 /*
  * Tailwind v4 のデザイントークン定義。
- * preflight は読み込まない: 既存画面はブラウザ既定スタイルに依存しており、
- * リセットを入れると本PRのスコープ外である見た目の変化が起きるため。
- * 画面をTailwindへ置き換える後続PRで導入可否を判断する。
+ * preflight は全画面をTailwindへ置き換え終えたPR 6で導入した。途中で入れると
+ * 未置換の画面が一斉に崩れるため、意図的に最後に回している。
  */
 @layer theme, base, components, utilities;
 
+/*
+ * select・input のネイティブ描画（Chromium が OS 側で描く部分）は Tailwind の
+ * 背景色が効かない。color-scheme を伝えるとブラウザ側がダーク用に描き直す。
+ * preflight を入れていないので、この 1 箇所だけ素の CSS で持つ。
+ */
+:root {
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}
+
+@import "tailwindcss/preflight.css" layer(base);
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities) source(none);
 
@@ -23,6 +37,13 @@
   --color-ink-pink: #ff3d8b;
   /* 利用者の操作・現在地・押せるもの */
   --color-ink-aqua: #00b3c8;
+  /*
+   * 文字にアクアを使うとき専用。ink-aqua をライトの地色に載せると 2.40:1 で
+   * WCAG AA（通常文字 4.5:1）に届かないため、文字だけ濃い方に振る（4.48:1）。
+   * 罫線・現在地のバー・hover の強調は ink-aqua のまま鮮やかさを保つ。
+   * ダークでは ink-aqua が 9.23:1 あるので同値にしてある。
+   */
+  --color-ink-aqua-text: #0a7f8f;
   /* フォーカスリング専用 */
   --color-ink-yellow: #ffc93c;
 
@@ -70,6 +91,7 @@
   :root {
     --color-ink-pink: #ff5c9e;
     --color-ink-aqua: #2ad0e4;
+    --color-ink-aqua-text: #2ad0e4;
     --color-ink-yellow: #ffd45c;
 
     --color-paper: #0d1017;

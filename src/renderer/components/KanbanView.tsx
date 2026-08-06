@@ -149,7 +149,7 @@ export const KanbanView = (): JSX.Element => {
 
               {isDropTarget && (
                 <p
-                  className={`${RESET_TEXT} rounded-md border border-dashed border-ink-aqua px-3 py-3 text-center font-body text-xs text-ink-aqua`}
+                  className={`${RESET_TEXT} rounded-md border border-dashed border-ink-aqua px-3 py-3 text-center font-body text-xs text-ink-aqua-text`}
                 >
                   {`ここにドロップして「${label}」にする`}
                 </p>
