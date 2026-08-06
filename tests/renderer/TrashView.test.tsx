@@ -2,20 +2,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { TrashView } from "../../src/renderer/components/TrashView";
-import type { Note } from "../../src/shared/preload-api";
+import type { DeletedNote, Note } from "../../src/shared/preload-api";
 
-const makeNote = (overrides: Partial<Note> = {}): Note => ({
+const DAY_MS = 24 * 60 * 60 * 1000;
+const isoDaysAgo = (days: number): string => new Date(Date.now() - days * DAY_MS).toISOString();
+
+const makeNote = (overrides: Partial<DeletedNote> = {}): DeletedNote => ({
   id: "note-1",
   title: "消したメモ",
   body: "消したメモの本文",
   tags: ["design"],
   createdAt: "2026-08-03T00:00:00.000Z",
   updatedAt: "2026-08-03T10:00:00.000Z",
+  deletedAt: isoDaysAgo(0),
   ...overrides,
 });
 
 interface TrashApiOverrides {
-  listDeletedNotes?: () => Promise<Note[]>;
+  listDeletedNotes?: () => Promise<DeletedNote[]>;
   restoreNote?: (id: string) => Promise<Note | null>;
 }
 
@@ -203,10 +207,10 @@ describe("TrashView", () => {
   });
 
   it("アンマウント後に届いた取得結果で状態を更新しない", async () => {
-    let resolveList: ((notes: Note[]) => void) | undefined;
+    let resolveList: ((notes: DeletedNote[]) => void) | undefined;
     mockHanamask({
       listDeletedNotes: () =>
-        new Promise<Note[]>((resolve) => {
+        new Promise<DeletedNote[]>((resolve) => {
           resolveList = resolve;
         }),
     });
@@ -220,5 +224,44 @@ describe("TrashView", () => {
 
     expect(errorSpy).not.toHaveBeenCalled();
     expect(screen.queryByText("消したメモ")).toBeNull();
+  });
+  it("削除直後は猶予いっぱいの残り日数を表示する", async () => {
+    mockHanamask({ listDeletedNotes: async () => [makeNote({ deletedAt: isoDaysAgo(0) })] });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect(await screen.findByText("あと 30 日")).toBeTruthy();
+  });
+
+  it("29日経過したノートはあと1日と表示する", async () => {
+    mockHanamask({ listDeletedNotes: async () => [makeNote({ deletedAt: isoDaysAgo(29) })] });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect(await screen.findByText("あと 1 日")).toBeTruthy();
+  });
+
+  it("猶予を過ぎたノートでも負の日数は出さない", async () => {
+    mockHanamask({ listDeletedNotes: async () => [makeNote({ deletedAt: isoDaysAgo(31) })] });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect(await screen.findByText("あと 0 日")).toBeTruthy();
+  });
+
+  it("期限が近いノートだけ色で区別する", async () => {
+    mockHanamask({
+      listDeletedNotes: async () => [
+        makeNote({ id: "note-1", title: "まだ余裕", deletedAt: isoDaysAgo(1) }),
+        makeNote({ id: "note-2", title: "もうすぐ消える", deletedAt: isoDaysAgo(28) }),
+      ],
+    });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    const soon = await screen.findByText("あと 2 日");
+    const later = screen.getByText("あと 29 日");
+    expect(soon.className).toContain("text-crit");
+    expect(later.className).not.toContain("text-crit");
   });
 });

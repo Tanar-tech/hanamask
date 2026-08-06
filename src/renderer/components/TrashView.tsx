@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type JSX } from "react";
-import type { Note } from "../../shared/preload-api";
+import { NOTE_RETENTION_DAYS, type DeletedNote } from "../../shared/preload-api";
 
 interface TrashViewProps {
   onBack: () => void;
@@ -17,16 +17,27 @@ const BODY_PREVIEW_MAX_LENGTH = 80;
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
 const BUTTON_BASE = `${FOCUS_RING} m-0 cursor-pointer appearance-none rounded-md border border-solid bg-transparent px-3 py-1.5 font-body text-sm transition-colors duration-[var(--duration-fast)] ease-standard`;
-const BUTTON_QUIET = `${BUTTON_BASE} border-line text-text-soft hover:border-ink-aqua hover:text-ink-aqua-text-text`;
+const BUTTON_QUIET = `${BUTTON_BASE} border-line text-text-soft hover:border-ink-aqua hover:text-ink-aqua-text`;
 const BUTTON_PRIMARY = `${BUTTON_BASE} border-ink-aqua text-ink-aqua-text hover:bg-ink-aqua/10 disabled:cursor-not-allowed disabled:border-line disabled:text-text-faint disabled:hover:bg-transparent`;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+// 期限が近いものだけ色を変える。何日から「近い」かは要求定義に無いので、猶予30日に対して
+// 1週間を切ったら、という線を定数で持つ。
+const SOON_THRESHOLD_DAYS = 7;
+
+// 切り上げる。当日いっぱい残っている状態を「あと0日」と表示しないため。
+const remainingDaysOf = (deletedAt: string, nowMs: number): number =>
+  Math.max(Math.ceil(NOTE_RETENTION_DAYS - (nowMs - Date.parse(deletedAt)) / MS_PER_DAY), 0);
 
 const toBodyPreview = (body: string): string =>
   body.length <= BODY_PREVIEW_MAX_LENGTH ? body : `${body.slice(0, BODY_PREVIEW_MAX_LENGTH)}…`;
 
 export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<DeletedNote[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
+  // 一覧を取り直したときだけ現在時刻を更新する。描画のたびに読むと同じ画面で値がぶれる。
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const mounted = useRef(true);
 
   // StrictModeの二重マウントで再利用されるため、初期値ではなくマウント時に立て直す。
@@ -45,6 +56,7 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
         const loaded = await window.hanamask.listDeletedNotes();
         if (!current) return;
         setNotes(loaded);
+        setNowMs(Date.now());
         setError(null);
       } catch (cause) {
         if (current) setError(`削除済みノートの読み込みに失敗しました: ${String(cause)}`);
@@ -69,7 +81,10 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
         return;
       }
       const reloaded = await window.hanamask.listDeletedNotes();
-      if (mounted.current) setNotes(reloaded);
+      if (mounted.current) {
+        setNotes(reloaded);
+        setNowMs(Date.now());
+      }
     } catch (cause) {
       if (mounted.current) setError(`ノートの復元に失敗しました: ${String(cause)}`);
     } finally {
@@ -111,6 +126,15 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
                   {toBodyPreview(note.body)}
                 </p>
               </div>
+              <span
+                className={`shrink-0 self-center font-mono text-xs tabular-nums ${
+                  remainingDaysOf(note.deletedAt, nowMs) <= SOON_THRESHOLD_DAYS
+                    ? "text-crit"
+                    : "text-warn"
+                }`}
+              >
+                あと {remainingDaysOf(note.deletedAt, nowMs)} 日
+              </span>
               <button
                 type="button"
                 disabled={restoring}

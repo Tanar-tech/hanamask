@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
-import type { Note, NoteInput, NoteVersion } from "../../shared/preload-api.js";
+import type { DeletedNote, Note, NoteInput, NoteVersion } from "../../shared/preload-api.js";
 
 interface NoteRow {
   id: string;
@@ -129,7 +129,7 @@ export const searchNotes = (query: string): Note[] => {
   });
 };
 
-export const listDeletedNotes = (): Note[] => {
+export const listDeletedNotes = (): DeletedNote[] => {
   const rows: unknown[] = getDb()
     .prepare(
       // Two deletions can share a millisecond, so rowid breaks the tie by insertion order.
@@ -140,7 +140,10 @@ export const listDeletedNotes = (): Note[] => {
     if (!isNoteRow(row)) {
       throw new Error("Unexpected notes row shape in deleted notes");
     }
-    return toNote(row);
+    if (row.deleted_at === null) {
+      throw new Error("A deleted note came back without deleted_at");
+    }
+    return { ...toNote(row), deletedAt: row.deleted_at };
   });
 };
 

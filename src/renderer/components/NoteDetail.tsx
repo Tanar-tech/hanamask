@@ -40,7 +40,7 @@ const RESET_LIST = "m-0 list-none p-0";
 const BUTTON_BASE = `${FOCUS_RING} m-0 cursor-pointer appearance-none rounded-md border bg-transparent px-3 py-2 font-body text-sm transition-colors duration-[var(--duration-fast)] ease-standard disabled:cursor-not-allowed disabled:opacity-50`;
 // アクア＝利用者の操作。主たる操作だけ面を薄く敷いて他と見分けられるようにする。
 const BUTTON_PRIMARY = `${BUTTON_BASE} border-ink-aqua bg-ink-aqua/10 font-semibold text-ink-aqua-text`;
-const BUTTON_SECONDARY = `${BUTTON_BASE} border-line text-text-soft hover:border-ink-aqua hover:text-ink-aqua-text-text`;
+const BUTTON_SECONDARY = `${BUTTON_BASE} border-line text-text-soft hover:border-ink-aqua hover:text-ink-aqua-text`;
 const ALERT =
   "m-0 rounded-md border border-crit bg-paper-raised px-4 py-3 font-body text-sm text-crit";
 const FIELD_LABEL = "font-display text-xs tracking-wide text-text-faint";
