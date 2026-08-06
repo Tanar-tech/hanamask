@@ -12,7 +12,7 @@ copyFileSync(schemaFrom, schemaTo);
 
 // Electron's sandboxed preload loader can only execute CommonJS, but package.json's
 // "type": "module" makes plain .js ambiguous; .cjs makes tsc's CommonJS output unambiguous.
-const preloadCompiledPath = join(repoRoot, "dist/preload-build/preload/index.js");
+const preloadCompiledPath = join(repoRoot, ".preload-build/preload/index.js");
 const preloadCjsPath = join(repoRoot, "dist/preload/index.cjs");
 mkdirSync(dirname(preloadCjsPath), { recursive: true });
 copyFileSync(preloadCompiledPath, preloadCjsPath);
