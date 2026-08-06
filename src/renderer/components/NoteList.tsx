@@ -1,4 +1,7 @@
+import { li as MotionLi } from "motion/react-m";
 import { useCallback, useEffect, useState, type JSX } from "react";
+import { useNewlyArrived } from "../hooks/useNewlyArrived";
+import { ENTRY_MOTION } from "../styles/motion";
 import type { Note } from "../../shared/preload-api";
 
 const BODY_PREVIEW_LENGTH = 120;
@@ -44,6 +47,8 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
     });
   }, [reload]);
 
+  const newlyArrived = useNewlyArrived(notes.map((note) => note.id));
+
   if (error !== null) {
     return (
       <p
@@ -66,7 +71,8 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
   return (
     <ul aria-label="ノート一覧" className="m-0 flex list-none flex-col gap-3 p-0">
       {notes.map((note) => (
-        <li
+        <MotionLi
+          {...(newlyArrived.has(note.id) ? ENTRY_MOTION : {})}
           key={note.id}
           className="flex flex-col gap-2 rounded-lg border border-line bg-paper-raised px-4 py-3 transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua"
         >
@@ -93,7 +99,7 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
           >
             削除
           </button>
-        </li>
+        </MotionLi>
       ))}
     </ul>
   );
