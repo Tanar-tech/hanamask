@@ -55,6 +55,7 @@
 <table>
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th></tr></thead>
 <tbody>
+<tr><td><a href="#t31"><strong>T31</strong></a></td><td><strong>WSLでの開発体験を整える（優先度: 高）</strong></td><td>T13, T12</td></tr>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル（BYO Agent）。未着手・最大の残スコープ（管理者判断で継続見送り中）</td><td>T03, T05</td></tr>
 <tr><td><a href="#t22">T22</a></td><td>T16/T17で見送ったE2Eシナリオの追加</td><td>T16, T17</td></tr>
 </tbody>
@@ -100,7 +101,7 @@ flowchart LR
   class T22,T23,T24,T26,T27,T28 done;
   class T25 done;
   class T29,T30 done;
-  class T12 todo;
+  class T12,T31 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -534,6 +535,16 @@ flowchart LR
 <li>テスト: 既存E2E 9件が緑であること。<strong>さらに2つのE2Eプロセスを同時に起動して両方が緑になることを実際に確認する</strong>（これができなければ対策になっていない）。</li>
 <li>停止条件: 動的採番にすると<code>HANAMASK_MCP_PORT</code>の受け渡しやアプリ起動の待ち方に変更が必要となり<code>src/</code>に手を入れざるを得ない場合は管理者に確認する。</li>
 <li>実績（PR #67）: <code>reserveMcpPort()</code> を追加し各specの固定値を <code>beforeAll</code> での採番に置き換えた。<strong>対策が効いていることを修正前後の両方で実測</strong>（修正前は2プロセス同時実行で両方1件失敗、修正後は両方9件緑）。予約→解放→bindの隙間に他プロセスが同じ番号を取る可能性は原理的に残るが、確実な方式は<code>src/</code>の変更が必要（停止条件に該当）なため採らず、判断をコードコメントに残した。</li>
+</ul>
+
+<h3 id="t31">T31: WSLでの開発体験を整える</h3>
+<ul>
+<li>ステータス: 未着手（<strong>スコープの確認が必要</strong>）</li>
+<li>優先度: <strong>高</strong>（管理者指示、2026-08-06）</li>
+<li>目的: WSLだからこそ手作業や回避策が必要な箇所が複数あり、その都度コストを払っている。(1) <strong>インストーラーのビルドが手作業</strong>——Linux側では<code>node-gyp</code>がクロスコンパイル非対応で完走せず、UNCパス上では<code>npm</code>が動かないため、ソースをWindowsネイティブパスへ手でコピーしている。(2) <strong><code>safeStorage</code>がWSLでは使えない</strong>——T12の設計で暗号化不可の環境では保存を断るため、WSL上ではAPIキーを保存できずAIチャットを動かせない。(3) <strong>E2Eのスクリーンショットで日本語が豆腐になる</strong>——Linux側に日本語フォントが無く<code>FONTCONFIG_FILE</code>の回避策が要る。</li>
+<li>禁止事項: <strong>本番で<code>safeStorage</code>を迂回する経路を作らないこと。</strong>開発時の利便のために平文保存へフォールバックすると、利用者のAPIキーが平文で置かれる事故に直結する。開発用の緩和を入れる場合は本番ビルドに絶対に混入しないことをテストで固定する（T27のCSPで同じ問題を扱った前例がある）。</li>
+<li>テスト: ビルド自動化は<strong>実際にWSLから実行して<code>.exe</code>が生成されるところまで確認する</strong>（手順を書いただけで終わらせない）。</li>
+<li>停止条件: <strong>「WSL対応」の意図するスコープを管理者に確認してから着手する。</strong>上記1〜3は観測した具体的な痛点だが、他に意図している範囲（WSLgでのGUI起動、Windows側とLinux側でのDB共有、開発環境の完全なWindows移行など）があれば先に確認する。</li>
 </ul>
 
 </main>
