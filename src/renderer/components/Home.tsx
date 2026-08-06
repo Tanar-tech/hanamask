@@ -6,6 +6,9 @@ const ACTIVE_TASK_LIMIT = 5;
 // この幅より新しい更新を「エージェントが書き換えたばかり」として示す。利用者自身の編集も
 // 入りうるが、直後に画面が変わったことに気づけることの方を優先する。
 const AGENT_UPDATE_WINDOW_MS = 120_000;
+// しきい値を跨いだことに気づくまでの遅れをこの間隔以内に抑える。表示中に「更新直後」の
+// ノートが1件も無い間はタイマーを止めるので、常時動き続けることはない。
+const AGENT_UPDATE_TICK_MS = AGENT_UPDATE_WINDOW_MS / 8;
 const BODY_PREVIEW_LENGTH = 80;
 const AGENT_UPDATE_MARK = "たった今 · エージェントが更新";
 
@@ -132,9 +135,14 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
   const [noteError, setNoteError] = useState<string | null>(null);
   const [taskError, setTaskError] = useState<string | null>(null);
 
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
   const reloadNotes = useCallback(async () => {
     try {
       setNotes(await window.hanamask.listNotes());
+      // 取得のたびに現在時刻を取り直す。タイマーが止まっている間に時間が進むと、
+      // 古い基準では「更新直後」の判定が実際より長く続いてしまうため。
+      setNowMs(Date.now());
       setNoteError(null);
     } catch (cause) {
       setNoteError(`ノートの読み込みに失敗しました: ${String(cause)}`);
@@ -164,9 +172,19 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
     });
   }, [reloadTasks]);
 
-  const renderedAtMs = Date.now();
   const visibleNotes = recentNotesOf(notes);
   const visibleTasks = activeTasksOf(tasks);
+  const hasJustUpdatedNote = visibleNotes.some((note) => isJustUpdated(note, nowMs));
+
+  useEffect(() => {
+    if (!hasJustUpdatedNote) return;
+    const timer = setInterval(() => {
+      setNowMs(Date.now());
+    }, AGENT_UPDATE_TICK_MS);
+    return () => {
+      clearInterval(timer);
+    };
+  }, [hasJustUpdatedNote]);
 
   return (
     <div className="flex flex-col gap-6 p-6 font-body text-text">
@@ -190,7 +208,7 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
               <NoteCard
                 key={note.id}
                 note={note}
-                justUpdated={isJustUpdated(note, renderedAtMs)}
+                justUpdated={isJustUpdated(note, nowMs)}
                 onSelect={() => {
                   onSelectNote(note.id);
                 }}
