@@ -7,6 +7,17 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   done: "完了",
 };
 
+const STATUS_BADGE_CLASSES: Record<TaskStatus, string> = {
+  todo: "border-line text-text-soft",
+  in_progress: "border-warn text-warn",
+  done: "border-ok text-ok",
+};
+
+/* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
+const FOCUS_RING =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
+const BARE_BUTTON = `cursor-pointer appearance-none border-0 bg-transparent p-0 font-body ${FOCUS_RING}`;
+
 interface TaskListProps {
   onSelectTask: (id: string) => void;
 }
@@ -32,20 +43,35 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
   }, [reload]);
 
   if (error !== null) {
-    return <p role="alert">{error}</p>;
+    return (
+      <p
+        role="alert"
+        className="m-0 rounded-md border border-crit bg-paper-raised px-4 py-3 font-body text-sm text-crit"
+      >
+        {error}
+      </p>
+    );
   }
 
   if (tasks.length === 0) {
-    return <p>タスクはまだありません</p>;
+    return (
+      <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center font-body text-sm text-text-faint">
+        タスクはまだありません
+      </p>
+    );
   }
 
   return (
-    <ul>
+    <ul aria-label="タスク一覧" className="m-0 flex list-none flex-col gap-3 p-0">
       {tasks.map((task) => (
-        <li key={task.id}>
-          <h2>
+        <li
+          key={task.id}
+          className="flex flex-col gap-2 rounded-lg border border-line bg-paper-raised px-4 py-3 transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua"
+        >
+          <h2 className="m-0 font-display text-base leading-snug font-semibold">
             <button
               type="button"
+              className={`${BARE_BUTTON} text-left text-base font-semibold text-ink-aqua underline-offset-4 hover:underline`}
               onClick={() => {
                 onSelectTask(task.id);
               }}
@@ -53,8 +79,16 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
               {task.title}
             </button>
           </h2>
-          <p>{STATUS_LABELS[task.status]}</p>
-          {task.dueDate !== null && <p>{task.dueDate}</p>}
+          <div className="flex items-center gap-3">
+            <p
+              className={`m-0 rounded-full border px-2 py-0.5 font-body text-xs font-semibold ${STATUS_BADGE_CLASSES[task.status]}`}
+            >
+              {STATUS_LABELS[task.status]}
+            </p>
+            {task.dueDate !== null && (
+              <p className="m-0 font-body text-xs text-text-faint">{task.dueDate}</p>
+            )}
+          </div>
         </li>
       ))}
     </ul>

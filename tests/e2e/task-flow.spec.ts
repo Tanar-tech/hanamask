@@ -3,7 +3,14 @@ import { type ElectronApplication } from "playwright";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SCREENSHOT_DIR, type CallToolResult, callMcpTool, launchApp } from "./helpers.js";
+import {
+  SCREENSHOT_DIR,
+  type CallToolResult,
+  callMcpTool,
+  launchApp,
+  openTaskList,
+  taskListOf,
+} from "./helpers.js";
 
 // A fixed, non-default port that also differs from the one note-flow.spec.ts uses, so the
 // two specs cannot collide even if they are ever run in parallel.
@@ -59,9 +66,12 @@ describe("task flow (Electron app + MCP server + renderer)", () => {
     const window = await app.firstWindow();
     await window.waitForLoadState();
 
+    // The app opens on the home screen; this test operates on the task list itself.
+    await openTaskList(window);
+
     // TaskList and KanbanView both render every task's title, so scope to TaskList's
-    // own <ul> (a direct child of <main>) to keep locators unambiguous.
-    const taskList = window.locator("main > ul");
+    // own <ul> by its accessible name to keep locators unambiguous.
+    const taskList = taskListOf(window);
 
     await window.getByText("タスクはまだありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "task-01-empty.png") });

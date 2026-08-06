@@ -10,6 +10,7 @@ import {
   launchApp,
   noteListOf,
   openNoteDetail,
+  openNoteList,
 } from "./helpers.js";
 
 // A fixed, non-default port that also differs from the ones note-flow.spec.ts (39299),
@@ -41,6 +42,8 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
       void dialog.accept();
     });
     await window.waitForLoadState();
+    // The app opens on the home screen; these tests operate on the note list itself.
+    await openNoteList(window);
     return window;
   };
 
