@@ -28,7 +28,7 @@ const DEFAULT_TARGET_TYPE: EntityType = "note";
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
 const BUTTON_BASE = `${FOCUS_RING} m-0 cursor-pointer appearance-none rounded-md border border-solid bg-transparent px-3 py-1.5 font-body text-sm transition-colors duration-[var(--duration-fast)] ease-standard`;
-const BUTTON_PRIMARY = `${BUTTON_BASE} border-ink-aqua text-ink-aqua hover:bg-ink-aqua/10`;
+const BUTTON_PRIMARY = `${BUTTON_BASE} border-ink-aqua text-ink-aqua-text hover:bg-ink-aqua/10`;
 // 解除はリンクを消す破壊的操作なので、他のボタンと色で区別する。
 const BUTTON_DESTRUCTIVE = `${BUTTON_BASE} border-crit text-crit hover:bg-crit/10`;
 const FIELD = `${FOCUS_RING} m-0 rounded-md border border-solid border-line bg-paper-raised px-3 py-1.5 font-body text-sm text-text`;

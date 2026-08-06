@@ -83,8 +83,20 @@ describe("theme.css", () => {
     expect(themeCss).not.toContain("@source not");
   });
 
-  it("既存の見た目を変えないよう preflight を読み込まない", () => {
-    expect(themeCss).not.toContain('@import "tailwindcss"');
-    expect(themeCss).not.toContain('@import "tailwindcss/preflight');
+  // PR 1〜5 の間は「preflight を読み込まない」ことを固定していた。全画面の置き換えが
+  // 終わった PR 6 で導入したので、逆に「読み込んでいること」を固定する。
+  it("preflight を base レイヤーに読み込む", () => {
+    expect(themeCss).toContain('@import "tailwindcss/preflight.css" layer(base)');
+    // フルセットの @import "tailwindcss" はスキャン範囲の限定が効かなくなるため使わない。
+    expect(themeCss).not.toContain('@import "tailwindcss";');
+  });
+
+  it("ネイティブ描画のフォームをテーマに追従させる color-scheme を持つ", () => {
+    expect(themeCss).toContain("color-scheme: light");
+    expect(themeCss).toContain("color-scheme: dark");
+  });
+
+  it("文字に使うアクアはライトで AA を満たす別トークンにする", () => {
+    expect(themeCss).toContain("--color-ink-aqua-text: #0a7f8f");
   });
 });

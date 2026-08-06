@@ -73,7 +73,7 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
           <h2 className="m-0 font-display text-base leading-snug font-semibold">
             <button
               type="button"
-              className={`${BARE_BUTTON} text-left text-base font-semibold text-ink-aqua underline-offset-4 hover:underline`}
+              className={`${BARE_BUTTON} text-left text-base font-semibold text-ink-aqua-text underline-offset-4 hover:underline`}
               onClick={() => {
                 onSelectNote(note.id);
               }}

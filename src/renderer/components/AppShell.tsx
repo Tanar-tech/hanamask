@@ -19,7 +19,7 @@ const RAIL_ITEMS: readonly RailItem[] = [
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
 const RAIL_BUTTON = `${FOCUS_RING} m-0 block w-full cursor-pointer appearance-none rounded-md border-0 border-l-2 bg-transparent px-3 py-2 text-left font-body text-sm transition-colors duration-[var(--duration-fast)] ease-standard`;
-const RAIL_BUTTON_CURRENT = "border-l-ink-aqua bg-ink-aqua/10 font-semibold text-ink-aqua";
+const RAIL_BUTTON_CURRENT = "border-l-ink-aqua bg-ink-aqua/10 font-semibold text-ink-aqua-text";
 const RAIL_BUTTON_IDLE = "border-l-transparent text-text-soft hover:text-text";
 
 interface AppShellProps {
@@ -35,7 +35,7 @@ export const AppShell = ({ current, onSelect, children }: AppShellProps): JSX.El
       aria-label="メインナビゲーション"
       className="w-52 shrink-0 overflow-y-auto border-0 border-r border-solid border-line bg-paper-raised px-3 py-4"
     >
-      <h1 className="m-0 px-3 font-display text-lg font-bold tracking-wide text-ink-aqua">
+      <h1 className="m-0 px-3 font-display text-lg font-bold tracking-wide text-ink-aqua-text">
         hanamask
       </h1>
       <p className="mt-6 mb-1 px-3 font-body text-xs tracking-wide text-text-faint">
