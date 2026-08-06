@@ -10,11 +10,11 @@ import {
   launchApp,
   openTaskList,
   taskListOf,
+  reserveMcpPort,
 } from "./helpers.js";
 
-// A fixed, non-default port that also differs from the one note-flow.spec.ts uses, so the
-// two specs cannot collide even if they are ever run in parallel.
-const E2E_MCP_PORT = 39298;
+// ポートは実行時にOSから空きを取る（固定するとE2Eの同時実行で衝突する）。
+let E2E_MCP_PORT = 0;
 const TASK_TITLE = "E2Eテストタスク";
 
 const readSingleText = (content: unknown): string => {
@@ -48,7 +48,8 @@ describe("task flow (Electron app + MCP server + renderer)", () => {
   let dbFilePath: string;
   let app: ElectronApplication | undefined;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    E2E_MCP_PORT = await reserveMcpPort();
     mkdirSync(SCREENSHOT_DIR, { recursive: true });
   });
 
