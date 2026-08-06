@@ -28,9 +28,11 @@ interface AppShellProps {
   current: ShellSection;
   onSelect: (section: ShellSection) => void;
   children: ReactNode;
+  /** 右側に常設するチャット。ノートを見ながら話せる配置にするため本体と並べる。 */
+  aside?: ReactNode;
 }
 
-export const AppShell = ({ current, onSelect, children }: AppShellProps): JSX.Element => (
+export const AppShell = ({ current, onSelect, children, aside }: AppShellProps): JSX.Element => (
   // preflight を入れていないため body の既定マージンが残る。inset-0 に固定して回り込みを断つ。
   <div className="fixed inset-0 flex bg-paper font-body text-text">
     <nav
@@ -78,5 +80,6 @@ export const AppShell = ({ current, onSelect, children }: AppShellProps): JSX.El
       </ul>
     </nav>
     <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
+    {aside}
   </div>
 );

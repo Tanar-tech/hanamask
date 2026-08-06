@@ -18,6 +18,8 @@ import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
 import { listImages } from "./db/images-repo.js";
 import { createLink, deleteLink, listLinks, type LinkInput } from "./db/links-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
+import { abortChat, sendChatMessage } from "./chat/session.js";
+import type { ChatMessage } from "../shared/preload-api.js";
 import {
   clearApiKey,
   readChatSettings,
@@ -64,6 +66,9 @@ const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
 const CHAT_SETTINGS_READ_CHANNEL = "chat:read-settings";
+const CHAT_SEND_CHANNEL = "chat:send";
+const CHAT_ABORT_CHANNEL = "chat:abort";
+const CHAT_EVENT_CHANNEL = "chat:event";
 const CHAT_SETTINGS_SAVE_KEY_CHANNEL = "chat:save-api-key";
 const CHAT_SETTINGS_CLEAR_KEY_CHANNEL = "chat:clear-api-key";
 const CHAT_SETTINGS_SAVE_MODEL_CHANNEL = "chat:save-model";
@@ -332,6 +337,21 @@ ipcMain.handle(NOTES_RESTORE_CHANNEL, undeleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
 ipcMain.handle(CHAT_SETTINGS_READ_CHANNEL, () => readChatSettings());
+ipcMain.handle(
+  CHAT_SEND_CHANNEL,
+  (event: IpcMainInvokeEvent, history: ChatMessage[], userText: string) =>
+    // 経過はイベントで逐次送る。完了まで何も出ないと、動いているのか分からない。
+    sendChatMessage({
+      history,
+      userText,
+      onEvent: (chatEvent) => {
+        event.sender.send(CHAT_EVENT_CHANNEL, chatEvent);
+      },
+    }),
+);
+ipcMain.handle(CHAT_ABORT_CHANNEL, () => {
+  abortChat();
+});
 ipcMain.handle(CHAT_SETTINGS_SAVE_KEY_CHANNEL, (_event: IpcMainInvokeEvent, apiKey: string) => {
   saveApiKey(apiKey);
   return readChatSettings();

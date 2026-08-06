@@ -1,6 +1,7 @@
 import { LazyMotion } from "motion/react";
 import { useEffect, useState, type JSX } from "react";
 import { AppShell, type ShellSection } from "./components/AppShell";
+import { ChatPanel } from "./components/ChatPanel";
 import { ChatSettings } from "./components/ChatSettings";
 import { Home } from "./components/Home";
 import { KanbanView } from "./components/KanbanView";
@@ -84,6 +85,11 @@ export const App = (): JSX.Element => {
             )}
           </div>
         )}
+        <ChatPanel
+          onOpenSettings={() => {
+            selectSection("settings");
+          }}
+        />
       </AppShell>
     </LazyMotion>
   );

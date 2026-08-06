@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import type { HanamaskPreloadApi, NavigateTarget } from "../shared/preload-api.js";
+import type { ChatEvent, ChatMessage, HanamaskPreloadApi, NavigateTarget } from "../shared/preload-api.js";
 
 const NOTES_CHANGED_CHANNEL = "notes:changed";
 const NOTES_LIST_CHANNEL = "notes:list";
@@ -12,6 +12,9 @@ const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
 const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
 const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
 const CHAT_SETTINGS_READ_CHANNEL = "chat:read-settings";
+const CHAT_SEND_CHANNEL = "chat:send";
+const CHAT_ABORT_CHANNEL = "chat:abort";
+const CHAT_EVENT_CHANNEL = "chat:event";
 const CHAT_SETTINGS_SAVE_KEY_CHANNEL = "chat:save-api-key";
 const CHAT_SETTINGS_CLEAR_KEY_CHANNEL = "chat:clear-api-key";
 const CHAT_SETTINGS_SAVE_MODEL_CHANNEL = "chat:save-model";
@@ -57,6 +60,16 @@ const api: HanamaskPreloadApi = {
     ipcRenderer.invoke(NOTES_RESTORE_VERSION_CHANNEL, versionId),
   listDeletedNotes: () => ipcRenderer.invoke(NOTES_LIST_DELETED_CHANNEL),
   readChatSettings: () => ipcRenderer.invoke(CHAT_SETTINGS_READ_CHANNEL),
+  sendChatMessage: (history: ChatMessage[], userText: string) =>
+    ipcRenderer.invoke(CHAT_SEND_CHANNEL, history, userText),
+  abortChat: () => ipcRenderer.invoke(CHAT_ABORT_CHANNEL),
+  onChatEvent: (callback: (event: ChatEvent) => void) => {
+    const listener = (_event: IpcRendererEvent, chatEvent: ChatEvent): void => {
+      callback(chatEvent);
+    };
+    ipcRenderer.on(CHAT_EVENT_CHANNEL, listener);
+    return () => ipcRenderer.removeListener(CHAT_EVENT_CHANNEL, listener);
+  },
   saveChatApiKey: (apiKey: string) => ipcRenderer.invoke(CHAT_SETTINGS_SAVE_KEY_CHANNEL, apiKey),
   clearChatApiKey: () => ipcRenderer.invoke(CHAT_SETTINGS_CLEAR_KEY_CHANNEL),
   saveChatModel: (model: string) => ipcRenderer.invoke(CHAT_SETTINGS_SAVE_MODEL_CHANNEL, model),
