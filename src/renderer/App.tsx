@@ -1,6 +1,7 @@
 import { LazyMotion } from "motion/react";
 import { useEffect, useState, type JSX } from "react";
 import { AppShell, type ShellSection } from "./components/AppShell";
+import { ChatSettings } from "./components/ChatSettings";
 import { Home } from "./components/Home";
 import { KanbanView } from "./components/KanbanView";
 import { NoteDetail } from "./components/NoteDetail";
@@ -16,7 +17,7 @@ const LIST_VIEW: NavigateTarget = { kind: "list" };
 const TRASH_VIEW: NavigateTarget = { kind: "trash" };
 
 /** ゴミ箱は `NavigateTarget` 側の状態なので、レールが持つのは一覧系の3つだけ。 */
-type ListSection = "home" | "notes" | "tasks";
+type ListSection = "home" | "notes" | "tasks" | "settings";
 
 const PANE = "flex flex-col gap-6 p-6";
 
@@ -51,7 +52,9 @@ export const App = (): JSX.Element => {
   return (
     <LazyMotion features={loadMotionFeatures} strict>
       <AppShell current={view.kind === "trash" ? "trash" : section} onSelect={selectSection}>
-        {view.kind === "list" && section === "home" ? (
+        {view.kind === "list" && section === "settings" ? (
+          <ChatSettings />
+        ) : view.kind === "list" && section === "home" ? (
           <Home
             onSelectNote={openNote}
             onSelectTask={openTask}
