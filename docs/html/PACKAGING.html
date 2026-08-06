@@ -18,6 +18,17 @@
 
 <p><strong>パッケージングには Windows 側の Node.js と Visual Studio Build Tools（C++ ワークロード）が必要。WSL を使っている場合、WSL から Windows 側の <code>npm</code> を呼び出す形でビルドできる（Windows 実機に移動する必要はない）。</strong></p>
 
+<blockquote>
+<p><strong>ミラーモードを有効にしている場合の注意（2026-08-06 追記）</strong></p>
+<p><a href="WSL.html">docs/WSL.md</a> の手順で WSL のミラーモードを有効にし、かつ <code>/etc/wsl.conf</code> で <code>systemd=true</code> を使っていると、<strong>WSL から Windows 実行ファイル（<code>cmd.exe</code> / <code>npm.cmd</code> 等）を呼び出せなくなる</strong>（<code>/proc/sys/fs/binfmt_misc/WSLInterop</code> が未登録になり <code>exit 126</code>）。この状態では下記「WSL から実行する場合」の手順は動かない。</p>
+<p>対処は次のいずれか。</p>
+<ol>
+<li><code>/etc/wsl.conf</code> に <code>[interop]</code> セクション（<code>enabled=true</code> / <code>appendWindowsPath=true</code>）を明示して <code>wsl --shutdown</code> する。</li>
+<li><strong>Windows 側のターミナルから直接ビルドする</strong>（下記の手順は元々 Windows 側で実行する前提なので、コマンド自体は変わらない）。</li>
+</ol>
+<p>現在の状態は <code>cat /proc/sys/fs/binfmt_misc/WSLInterop</code> で確認できる（出力があれば呼び出せる）。</p>
+</blockquote>
+
 <p><code>better-sqlite3</code> がネイティブアドオン（<code>.node</code>）であることが制約の理由。以下は 2026-08-04 に実測した結果である。</p>
 
 <table>

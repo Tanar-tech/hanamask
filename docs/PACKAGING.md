@@ -6,6 +6,15 @@ hanamask を Windows 向けインストーラー（`.exe`）としてビルド�
 
 **パッケージングには Windows 側の Node.js と Visual Studio Build Tools（C++ ワークロード）が必要。WSL を使っている場合、WSL から Windows 側の `npm` を呼び出す形でビルドできる（Windows 実機に移動する必要はない）。**
 
+> **ミラーモードを有効にしている場合の注意（2026-08-06 追記）**
+> `docs/WSL.md` の手順で WSL のミラーモードを有効にし、かつ `/etc/wsl.conf` で `systemd=true` を使っていると、**WSL から Windows 実行ファイル（`cmd.exe` / `npm.cmd` 等）を呼び出せなくなる**（`/proc/sys/fs/binfmt_misc/WSLInterop` が未登録になり `exit 126`）。この状態では下記「WSL から実行する場合」の手順は動かない。
+>
+> 対処は次のいずれか。
+> 1. `/etc/wsl.conf` に `[interop]` セクション（`enabled=true` / `appendWindowsPath=true`）を明示して `wsl --shutdown` する。
+> 2. **Windows 側のターミナルから直接ビルドする**（下記の手順は元々 Windows 側で実行する前提なので、コマンド自体は変わらない）。
+>
+> 現在の状態は `cat /proc/sys/fs/binfmt_misc/WSLInterop` で確認できる（出力があれば呼び出せる）。
+
 `better-sqlite3` がネイティブアドオン（`.node`）であることが制約の理由。以下は 2026-08-04 に実測した結果である。
 
 | 実行環境 | 結果 |
