@@ -58,6 +58,6 @@ export const AppShell = ({ current, onSelect, children }: AppShellProps): JSX.El
         ))}
       </ul>
     </nav>
-    <main className="min-w-0 flex-1">{children}</main>
+    <main className="min-w-0 flex-1 overflow-y-auto">{children}</main>
   </div>
 );

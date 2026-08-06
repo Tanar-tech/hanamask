@@ -184,6 +184,53 @@ describe("App の左レール", () => {
     expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
   });
 
+  // Home と NoteList/TaskList は空状態の文言が同一なので、同時に描画されると E2E の
+  // getByText が多重ヒットして落ちる。排他描画がその唯一の防波堤なのでテストで固定する。
+  it("ホーム表示中はノート一覧・タスク一覧を描画しない", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "最近のノート" });
+
+    expect(screen.queryByRole("list", { name: "ノート一覧" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "タスク一覧" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "進行中" })).toBeNull();
+  });
+
+  it("「ノート」へ移動するとホームとタスク一覧を描画しない", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await clickButton("ノート");
+    await screen.findByRole("list", { name: "ノート一覧" });
+
+    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "進行中のタスク" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "タスク一覧" })).toBeNull();
+  });
+
+  it("空状態の文言はホームでも一覧でも1件しかヒットしない", async () => {
+    mockHanamask();
+    window.hanamask.listNotes = vi.fn(async () => []);
+    window.hanamask.listTasks = vi.fn(async () => []);
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "最近のノート" });
+
+    expect(screen.getAllByText("ノートはまだありません")).toHaveLength(1);
+    expect(screen.getAllByText("タスクはまだありません")).toHaveLength(1);
+
+    await clickButton("ノート");
+
+    expect(screen.getAllByText("ノートはまだありません")).toHaveLength(1);
+    expect(screen.queryByText("タスクはまだありません")).toBeNull();
+
+    await clickButton("タスク");
+
+    expect(screen.getAllByText("タスクはまだありません")).toHaveLength(1);
+    expect(screen.queryByText("ノートはまだありません")).toBeNull();
+  });
+
   it("ノート一覧から詳細を開いて戻ると、ホームではなくノート一覧に戻る", async () => {
     mockHanamask();
 
