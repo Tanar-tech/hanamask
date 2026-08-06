@@ -55,6 +55,8 @@
 <table>
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th></tr></thead>
 <tbody>
+<tr><td><a href="#t32"><strong>T32</strong></a></td><td><strong>エージェントの変更をOS通知で知らせる（優先度: 高）</strong></td><td>なし</td></tr>
+<tr><td><a href="#t33"><strong>T33</strong></a></td><td><strong>新しく現れたノート・タスクをアニメーションで示す（優先度: 高）</strong></td><td>T25 PR 1</td></tr>
 </tbody>
 </table>
 
@@ -101,6 +103,7 @@ flowchart LR
   class T12 done;
   class T22 done;
   class T31 done;
+  class T32,T33 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -551,6 +554,26 @@ flowchart LR
 <li>テスト: <strong>実際にWSL側からWindows側のMCPサーバーへ接続し、<code>create_note</code>したノートがWindowsアプリの画面に手動リロードなしで現れることを確認する。</strong>これが受け入れ条件そのもの。</li>
 <li>実測（2026-08-06）: <strong>問題を再現した。</strong>Windows側で<code>127.0.0.1:39280</code>に待ち受けるプロセスを立て、Windows自身からは到達できる一方、<strong>WSLからは到達できない</strong>ことを確認した。<strong>方式Aの前提条件は満たしている</strong>（Windows 11 build 26200、WSL 2.3.26.0、<code>.wslconfig</code>未作成＝既定のNATモード）。<strong>ただしミラーモードの有効化には<code>wsl --shutdown</code>が必要で、これはWSL上で動く開発セッション自身を終了させる。</strong>そのため開発管理者は方式Aの有効化・検証を自分だけでは完結できない。</li>
 <li>停止条件: <strong>接続方式（A〜D）の決定に管理者承認が必要。</strong>開発管理者としては<strong>方式Aを推奨</strong>——アプリの変更もネットワークへの露出も無く、認証の欠如という現在の前提を崩さずに目的を達成できるため。</li>
+</ul>
+
+<h3 id="t32">T32: エージェントの変更をOS通知で知らせる</h3>
+<ul>
+<li>ステータス: 未着手（優先度: 高。管理者提案、2026-08-06。設計5点は承認済み）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.6は「記録が自動で書き足されていく様子を眺められる」ことを狙いとしているが、<strong>画面を見ていないときは何も伝わらない</strong>。OS通知でこの穴を埋める。</li>
+<li><strong>設計上の注意（実装前に必読）</strong>: 現在の<code>emitNotesChanged()</code>は<strong>利用者自身のUI操作でも同じ経路で発火する</strong>。素朴に通知を繋ぐと自分でノートを保存するたびに通知が飛ぶ。<strong>ウィンドウが非フォーカスのときだけ通知する</strong>こと。UIで編集するにはフォーカスが要るため、非フォーカス時の変更はほぼエージェント由来と言える。</li>
+<li>管理者承認済みの仕様: (1) 作成・更新・<strong>削除も対象</strong>。(2) 短時間の連続変更は<strong>まとめて1通</strong>に集約。(3) <strong>クリックで該当ノート/タスクを開く</strong>。(4) オン/オフ設定は最初は持たない。</li>
+<li>禁止事項: フォーカスがある状態で通知を出さない。1件ずつ通知を出さない。<strong>通知本文にノート本文全体を載せない</strong>（肩越しに見られる。タイトルまでに留める）。</li>
+<li>テスト: <strong>フォーカスがある状態では出ないことを、フォーカスを外すと出ることと対にして検証する</strong>（片方だけでは「常に出ない」実装でも通る）。連続変更が1通に集約されることのテスト。</li>
+</ul>
+
+<h3 id="t33">T33: 新しく現れたノート・タスクをアニメーションで示す</h3>
+<ul>
+<li>ステータス: 未着手（優先度: 高。管理者提案、2026-08-06）</li>
+<li>目的: エージェントが書いたノート・タスクが現れるとき<strong>アニメーションで「いま増えた」ことを示す</strong>。現在はピンクの縦線と文字で伝えているが静的で見落としうる。PR 1で<code>motion</code>を導入したまま<strong>まだ一度も使っていない</strong>ので、ここが最初の使い所。</li>
+<li><strong>設計上の注意（実装前に必読）</strong>: 要求定義 §4.6は「<strong>反映粒度は画面全体の再取得</strong>」と定めており、変更のたびに一覧が丸ごと再描画される。<strong>素朴に入場アニメーションを付けると変更のたびに全項目がアニメーションする。</strong>前回の描画に無かったidだけを対象にすること。</li>
+<li>禁止事項: <code>motion.*</code>を使わない（<code>m.*</code>のみ）。動きを派手にしない——T25の絶対条件「直観的に分かりやすい」を損なう。既存テストのシナリオを変えない。<code>prefers-reduced-motion</code>を尊重する。</li>
+<li>テスト: <strong>新しく現れた項目だけがアニメーションし、既存の項目はしないことのテスト。</strong>ここを検証しないと「全部animateする実装」でも通ってしまう。</li>
+<li>停止条件: <code>m.*</code>のテストには<code>LazyMotion</code>のprovider配下が必要で、コンポーネント単体テストはprovider外で動いている（T25 PR 4でカンバンが<code>motion</code>を見送った理由の一つ）。既存テストの構造を変えないと通せない場合は管理者に確認する。</li>
 </ul>
 
 </main>
