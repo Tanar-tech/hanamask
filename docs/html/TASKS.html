@@ -56,6 +56,7 @@
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th></tr></thead>
 <tbody>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル（BYO Agent）。未着手・最大の残スコープ（管理者判断で継続見送り中）</td><td>T03, T05</td></tr>
+<tr><td><a href="#t29">T29</a></td><td>ゴミ箱に「あと N 日」を表示する（共有コントラクトの変更を伴う）</td><td>T16</td></tr>
 <tr><td><a href="#t22">T22</a></td><td>T16/T17で見送ったE2Eシナリオの追加</td><td>T16, T17</td></tr>
 <tr><td><a href="#t25"><strong>T25</strong></a></td><td><strong>デスクトップアプリのUI一新（優先度: 高）</strong></td><td>T03, T05, T06, T15</td></tr>
 </tbody>
@@ -99,7 +100,7 @@ flowchart LR
   class T00,T03,T05,T15,T04,T06,T07,T08,T09,T10,T11 done;
   class T16,T17,T18,T19,T20,T21 done;
   class T22,T23,T24,T26,T27,T28 done;
-  class T12,T25 todo;
+  class T12,T25,T29 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -486,6 +487,17 @@ flowchart LR
 <li>テスト: 既存の単体テスト・E2E 9件がすべて通ること。特に<strong>Mermaid図が描画できること</strong>と<strong>添付画像がプレビュー表示されること</strong>をE2Eで確認する（CSPで最初に壊れるのはこの2つ）。CSP違反がコンソールに出ていないことも実機で確認する。</li>
 <li>停止条件: mermaidまたはmotionが<code>style-src</code>に<code>'unsafe-inline'</code>を要求する場合、どこまで緩めてよいかは方針判断になるため管理者に確認する。</li>
 <li>実績（PR #58）: <strong>停止条件が発動し、管理者判断で<code>style-src 'self' 'unsafe-inline'</code>を許可した。</strong>実装者は厳格版で実機検証し「Mermaid図が黒い矩形に崩壊する（図ごとに内容が変わるためhash不可）」「<code>'unsafe-inline'</code>を要求するのはmermaidだけでmotionは無関係」まで切り分けてから報告している。方式は<code>onHeadersReceived</code>（metaタグは開発と本番でポリシーを切り替えられないため不採用）。<code>reviewer</code>のMajor指摘により<strong><code>img-src</code>の裸の<code>file:</code>が不要に広い</strong>ことが判明し（本番は文書自体が<code>file://</code>なので<code>'self'</code>で届く。裸の<code>file:</code>はノート本文経由で任意のローカルファイルを読ませうる）、本番から削除し開発時のみに限定した。CSPが実際に効いていることはCDPでレスポンスヘッダを直接観測して確認済み。</li>
+</ul>
+
+<h3 id="t29">T29: ゴミ箱に「あと N 日」を表示する</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>依存: 必須: T16（ゴミ箱UI）／推奨: T25 PR 5（ゴミ箱の見た目の刷新後に入れる方が手戻りが少ない）</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.7。T25のモックアップでは各行に「あと 27 日」と残り日数を出しているが現在のUIには無い。利用者にとって最も知りたいのは「いつ消えるか」であり、猶予期間を文章で説明するより数字で示す方が伝わる。T25 PR 5では<strong>共有コントラクトの変更を伴うためスコープ外</strong>とし独立タスクとして切り出した（管理者判断、2026-08-06）。</li>
+<li>変更範囲: <code>src/shared/preload-api.ts</code>（<code>listDeletedNotes</code>の戻り値に<code>deletedAt</code>を追加）, <code>src/main/db/notes-repo.ts</code>, <code>src/main/index.ts</code>, <code>src/renderer/components/TrashView.tsx</code>, および対応するテスト。</li>
+<li>禁止事項: パージの猶予期間（30日）を変更しない。T10のパージバッチに手を入れない。<code>Note</code>型そのものに<code>deletedAt</code>を足すと通常のノート一覧・詳細にも波及するため、<strong>専用型かオプショナルかを検討し既存の利用箇所を壊さないこと</strong>。要求定義に無いUI（「完全に削除」ボタン等）を足さない。</li>
+<li>テスト: <code>deleted_at</code>が戻り値に含まれることの単体テスト。残り日数の計算が境界（削除当日＝あと30日、29日経過＝あと1日、30日経過＝0日以下）で正しいことのテスト。期限が近いものが視覚的に区別されることのコンポーネントテスト。</li>
+<li>停止条件: <code>Note</code>型を変更せずに<code>deletedAt</code>を渡す方法で既存利用箇所への影響が大きいと判明した場合は方針を管理者に確認する。パージ済みノートの扱いなど要求定義に規定の無い判断が必要な場合も同様。</li>
 </ul>
 
 </main>
