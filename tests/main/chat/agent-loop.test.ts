@@ -8,10 +8,9 @@ import {
   chatToolDefinitions,
   runChatTurn,
   type ChatAssistantReply,
-  type ChatEvent,
-  type ChatMessage,
   type ChatModelClient,
 } from "../../../src/main/chat/agent-loop";
+import type { ChatEvent, ChatMessage } from "../../../src/shared/preload-api";
 
 vi.mock("electron", () => ({ app: { getPath: () => "/tmp" } }));
 

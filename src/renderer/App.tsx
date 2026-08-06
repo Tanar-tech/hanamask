@@ -52,7 +52,17 @@ export const App = (): JSX.Element => {
   // strict: アニメーションは m.* のみ許可し、初期ロードの重い motion.* を使えなくする。
   return (
     <LazyMotion features={loadMotionFeatures} strict>
-      <AppShell current={view.kind === "trash" ? "trash" : section} onSelect={selectSection}>
+      <AppShell
+        current={view.kind === "trash" ? "trash" : section}
+        onSelect={selectSection}
+        aside={
+          <ChatPanel
+            onOpenSettings={() => {
+              selectSection("settings");
+            }}
+          />
+        }
+      >
         {view.kind === "list" && section === "settings" ? (
           <ChatSettings />
         ) : view.kind === "list" && section === "home" ? (
@@ -85,11 +95,6 @@ export const App = (): JSX.Element => {
             )}
           </div>
         )}
-        <ChatPanel
-          onOpenSettings={() => {
-            selectSection("settings");
-          }}
-        />
       </AppShell>
     </LazyMotion>
   );
