@@ -1,19 +1,21 @@
 import type { JSX, ReactNode } from "react";
 
 /** 左レールの項目。`trash` だけは一覧ではなくゴミ箱画面に対応する。 */
-export type ShellSection = "home" | "notes" | "tasks" | "trash";
+export type ShellSection = "home" | "notes" | "tasks" | "trash" | "settings";
 
 interface RailItem {
   id: ShellSection;
   label: string;
 }
 
+// ワークスペースの中身と、アプリ自体の設定は別のまとまりとして見せる。
 const RAIL_ITEMS: readonly RailItem[] = [
   { id: "home", label: "ホーム" },
   { id: "notes", label: "ノート" },
   { id: "tasks", label: "タスク" },
   { id: "trash", label: "ゴミ箱" },
 ];
+const RAIL_FOOTER_ITEMS: readonly RailItem[] = [{ id: "settings", label: "設定" }];
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
 const FOCUS_RING =
@@ -43,6 +45,23 @@ export const AppShell = ({ current, onSelect, children }: AppShellProps): JSX.El
       </p>
       <ul className="m-0 flex list-none flex-col gap-1 p-0">
         {RAIL_ITEMS.map(({ id, label }) => (
+          <li key={id}>
+            <button
+              type="button"
+              aria-current={current === id ? "page" : undefined}
+              onClick={() => {
+                onSelect(id);
+              }}
+              className={`${RAIL_BUTTON} ${current === id ? RAIL_BUTTON_CURRENT : RAIL_BUTTON_IDLE}`}
+            >
+              {label}
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-6 mb-1 px-3 font-body text-xs tracking-wide text-text-faint">その他</p>
+      <ul className="m-0 flex list-none flex-col gap-1 p-0">
+        {RAIL_FOOTER_ITEMS.map(({ id, label }) => (
           <li key={id}>
             <button
               type="button"
