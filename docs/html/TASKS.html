@@ -546,6 +546,7 @@ flowchart LR
 <li>選択肢: <strong>A. WSLのミラーモード</strong>（<code>.wslconfig</code>で<code>networkingMode=mirrored</code>。アプリ無変更・露出も増えない）／<strong>B. ループバック以外へバインド</strong>（認証が無いため到達できる誰でも全操作できる）／<strong>C. ポートプロキシ</strong>（実質Bと同じ露出）／<strong>D. 認証を入れたうえでB</strong>（要求定義に無い機能追加でスコープが大きい）。</li>
 <li>禁止事項: <strong>認証を持たないまま待ち受けアドレスをループバックの外へ広げないこと。</strong>「ローカルネットワークだから安全」という前提を置かない。DBファイルをWSL側から直接読み書きする方式を採らない。利用者の<code>.wslconfig</code>等をアプリが勝手に書き換えない。</li>
 <li>テスト: <strong>実際にWSL側からWindows側のMCPサーバーへ接続し、<code>create_note</code>したノートがWindowsアプリの画面に手動リロードなしで現れることを確認する。</strong>これが受け入れ条件そのもの。</li>
+<li>実測（2026-08-06）: <strong>問題を再現した。</strong>Windows側で<code>127.0.0.1:39280</code>に待ち受けるプロセスを立て、Windows自身からは到達できる一方、<strong>WSLからは到達できない</strong>ことを確認した。<strong>方式Aの前提条件は満たしている</strong>（Windows 11 build 26200、WSL 2.3.26.0、<code>.wslconfig</code>未作成＝既定のNATモード）。<strong>ただしミラーモードの有効化には<code>wsl --shutdown</code>が必要で、これはWSL上で動く開発セッション自身を終了させる。</strong>そのため開発管理者は方式Aの有効化・検証を自分だけでは完結できない。</li>
 <li>停止条件: <strong>接続方式（A〜D）の決定に管理者承認が必要。</strong>開発管理者としては<strong>方式Aを推奨</strong>——アプリの変更もネットワークへの露出も無く、認証の欠如という現在の前提を崩さずに目的を達成できるため。</li>
 </ul>
 
