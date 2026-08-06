@@ -110,6 +110,10 @@ const mockHanamask = (notesByCall: Note[][], tasksByCall: Task[][] = [[]]) => {
     createLink: vi.fn(),
     deleteLink: vi.fn(async () => true),
     onLinksChanged: vi.fn(() => () => {}),
+    readChatSettings: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
+    saveChatApiKey: vi.fn(async () => ({ apiKeyMask: "4f2a", model: "claude-sonnet-4-5" })),
+    clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
+    saveChatModel: vi.fn(async (model: string) => ({ apiKeyMask: null, model })),
   };
   return {
     listNotes,

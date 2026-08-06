@@ -20,6 +20,17 @@ export interface DeletedNote extends Note {
 // ここを唯一の定義元にする（片方だけ変わると表示と実際の削除時期がずれる）。
 export const NOTE_RETENTION_DAYS = 30;
 
+/*
+ * AIチャットの設定。APIキーそのものはレンダラーへ渡さず、保存済みかどうかと
+ * 末尾4文字（利用者が「どのキーか」を見分けるため）だけを渡す。
+ */
+export interface ChatSettings {
+  apiKeyMask: string | null;
+  model: string;
+}
+
+export const DEFAULT_CHAT_MODEL = "claude-sonnet-4-5";
+
 export interface NoteInput {
   title: string;
   body: string;
@@ -95,6 +106,10 @@ export interface HanamaskPreloadApi {
   restoreNoteVersion(versionId: string): Promise<Note | null>;
   listDeletedNotes(): Promise<DeletedNote[]>;
   restoreNote(id: string): Promise<Note | null>;
+  readChatSettings(): Promise<ChatSettings>;
+  saveChatApiKey(apiKey: string): Promise<ChatSettings>;
+  clearChatApiKey(): Promise<ChatSettings>;
+  saveChatModel(model: string): Promise<ChatSettings>;
   listTasks(): Promise<Task[]>;
   getTask(id: string): Promise<Task | null>;
   updateTaskStatus(id: string, status: TaskStatus): Promise<void>;
