@@ -55,7 +55,7 @@
 <table>
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th></tr></thead>
 <tbody>
-<tr><td><a href="#t31"><strong>T31</strong></a></td><td><strong>WSLでの開発体験を整える（優先度: 高）</strong></td><td>T13, T12</td></tr>
+<tr><td><a href="#t31"><strong>T31</strong></a></td><td><strong>WSL上のエージェントからWindowsアプリのMCPへ接続できるようにする（優先度: 高）</strong></td><td>なし</td></tr>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル（BYO Agent）。未着手・最大の残スコープ（管理者判断で継続見送り中）</td><td>T03, T05</td></tr>
 <tr><td><a href="#t22">T22</a></td><td>T16/T17で見送ったE2Eシナリオの追加</td><td>T16, T17</td></tr>
 </tbody>
@@ -537,14 +537,16 @@ flowchart LR
 <li>実績（PR #67）: <code>reserveMcpPort()</code> を追加し各specの固定値を <code>beforeAll</code> での採番に置き換えた。<strong>対策が効いていることを修正前後の両方で実測</strong>（修正前は2プロセス同時実行で両方1件失敗、修正後は両方9件緑）。予約→解放→bindの隙間に他プロセスが同じ番号を取る可能性は原理的に残るが、確実な方式は<code>src/</code>の変更が必要（停止条件に該当）なため採らず、判断をコードコメントに残した。</li>
 </ul>
 
-<h3 id="t31">T31: WSLでの開発体験を整える</h3>
+<h3 id="t31">T31: WSL上のAIエージェントからWindowsアプリのMCPサーバーへ接続できるようにする</h3>
 <ul>
-<li>ステータス: 未着手（<strong>スコープの確認が必要</strong>）</li>
+<li>ステータス: 未着手（<strong>接続方式の決定に管理者承認が必要</strong>）</li>
 <li>優先度: <strong>高</strong>（管理者指示、2026-08-06）</li>
-<li>目的: WSLだからこそ手作業や回避策が必要な箇所が複数あり、その都度コストを払っている。(1) <strong>インストーラーのビルドが手作業</strong>——Linux側では<code>node-gyp</code>がクロスコンパイル非対応で完走せず、UNCパス上では<code>npm</code>が動かないため、ソースをWindowsネイティブパスへ手でコピーしている。(2) <strong><code>safeStorage</code>がWSLでは使えない</strong>——T12の設計で暗号化不可の環境では保存を断るため、WSL上ではAPIキーを保存できずAIチャットを動かせない。(3) <strong>E2Eのスクリーンショットで日本語が豆腐になる</strong>——Linux側に日本語フォントが無く<code>FONTCONFIG_FILE</code>の回避策が要る。</li>
-<li>禁止事項: <strong>本番で<code>safeStorage</code>を迂回する経路を作らないこと。</strong>開発時の利便のために平文保存へフォールバックすると、利用者のAPIキーが平文で置かれる事故に直結する。開発用の緩和を入れる場合は本番ビルドに絶対に混入しないことをテストで固定する（T27のCSPで同じ問題を扱った前例がある）。</li>
-<li>テスト: ビルド自動化は<strong>実際にWSLから実行して<code>.exe</code>が生成されるところまで確認する</strong>（手順を書いただけで終わらせない）。</li>
-<li>停止条件: <strong>「WSL対応」の意図するスコープを管理者に確認してから着手する。</strong>上記1〜3は観測した具体的な痛点だが、他に意図している範囲（WSLgでのGUI起動、Windows側とLinux側でのDB共有、開発環境の完全なWindows移行など）があれば先に確認する。</li>
+<li>目的: <strong>利用者はWSL上でClaude Code等のAIエージェントを動かし、Windows上でhanamaskアプリを起動している。</strong>この構成で、WSL側のエージェントがMCP経由で作ったノートをWindows側のアプリで参照できるようにする。<code>docs/REQUIREMENTS.md</code> §1の中核の前提そのものであり、<strong>現状ではこの主要な利用形態が成立しない。</strong></li>
+<li>現状（コードで確認）: MCPサーバーは<code>127.0.0.1</code>にのみバインドしている。WSL2は別のネットワーク名前空間を持つため、WSL側から見た<code>127.0.0.1</code>はWSL自身であり、Windows側のループバックには到達しない。<strong>またMCPサーバーには認証もOrigin検証も無く</strong>、接続できた相手はノート・タスクの全読み書き（削除を含む）が可能。この事実が、接続方式の選択を単なる設定変更ではなくセキュリティ判断にしている。</li>
+<li>選択肢: <strong>A. WSLのミラーモード</strong>（<code>.wslconfig</code>で<code>networkingMode=mirrored</code>。アプリ無変更・露出も増えない）／<strong>B. ループバック以外へバインド</strong>（認証が無いため到達できる誰でも全操作できる）／<strong>C. ポートプロキシ</strong>（実質Bと同じ露出）／<strong>D. 認証を入れたうえでB</strong>（要求定義に無い機能追加でスコープが大きい）。</li>
+<li>禁止事項: <strong>認証を持たないまま待ち受けアドレスをループバックの外へ広げないこと。</strong>「ローカルネットワークだから安全」という前提を置かない。DBファイルをWSL側から直接読み書きする方式を採らない。利用者の<code>.wslconfig</code>等をアプリが勝手に書き換えない。</li>
+<li>テスト: <strong>実際にWSL側からWindows側のMCPサーバーへ接続し、<code>create_note</code>したノートがWindowsアプリの画面に手動リロードなしで現れることを確認する。</strong>これが受け入れ条件そのもの。</li>
+<li>停止条件: <strong>接続方式（A〜D）の決定に管理者承認が必要。</strong>開発管理者としては<strong>方式Aを推奨</strong>——アプリの変更もネットワークへの露出も無く、認証の欠如という現在の前提を崩さずに目的を達成できるため。</li>
 </ul>
 
 </main>
