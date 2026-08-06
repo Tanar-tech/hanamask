@@ -129,5 +129,6 @@ Mermaid図は専用ツールを持たず、ノート本文へのインライン�
 - [docs/WSL.md](docs/WSL.md): WSLのAIエージェントからWindowsアプリのMCPへ接続する設定
 - [docs/GOVERNANCE.md](docs/GOVERNANCE.md): 体制・運用ルール
 - [docs/HERDR.md](docs/HERDR.md) / [docs/CODEX.md](docs/CODEX.md): 並列開発（herdr・Codex CLI）のセットアップ
+- [docs/HUNK.md](docs/HUNK.md): hunk による差分レビュー（導入・エージェント連携）
 - [docs/safety.md](docs/safety.md): 自律ループに許可する範囲
 - [CLAUDE.md](CLAUDE.md): 開発時のセッション指示

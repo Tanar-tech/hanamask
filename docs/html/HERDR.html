@@ -44,7 +44,7 @@ herdr integration install claude  # Claude Code CLIセッションを直接使�
 flowchart TD
   A["1. git worktree add<br/>タスクごとに作業ツリー作成"] --> B["2. herdr agent start<br/>-- codex (または claude)"]
   B --> C["3. ダッシュボードで状態確認<br/>(idle/working/blocked)"]
-  C --> D["4. 開発管理者が差分をレビュー"]
+  C --> D["4. 開発管理者が差分をレビュー<br/>hunk diff --watch"]
   D --> E["5. PR経由でmainへマージ<br/>git worktree remove"]
 </pre>
 <ol>
@@ -60,7 +60,11 @@ flowchart TD
 <p>Claude Code CLIセッションを使いたい場合は末尾を <code>-- claude</code> に変える。</p>
 </li>
 <li>herdrのダッシュボードで各セッションの状態を確認する。<code>working</code> 中は待ち、<code>blocked</code>（確認待ち等）や <code>idle</code>（完了）になったセッションから順に対応する。</li>
-<li>セッションが完了したら、開発管理者が差分をレビューする（<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §5）。</li>
+<li>
+<p>セッションが完了したら、開発管理者が差分をレビューする（<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §5）。差分は対象worktreeで hunk を開いて読む（<a href="HUNK.html">docs/HUNK.md</a>）。hunkはWSL側で動くため、herdrと違いWSLのシェルから起動する。</p>
+<pre><code>cd &lt;worktree-path&gt; &amp;&amp; hunk diff --watch
+</code></pre>
+</li>
 <li>
 <p>レビュー後、PR経由で <code>main</code> にマージし、worktreeを削除する。</p>
 <pre><code>git worktree remove ../work-manager-&lt;task-name&gt;

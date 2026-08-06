@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hunk による差分レビュー</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../HUNK.md">docs/HUNK.md</a></p>
+
+<h1>hunk による差分レビュー</h1>
+
+<p><a href="https://github.com/modem-dev/hunk">hunk</a> は、AIエージェントが書いた変更をレビューすることを主眼に置いたターミナル差分ビューア（MIT / Modem製）。変更ファイルのサイドバー・シンタックスハイライト付き差分に加え、<strong>差分行の真横にインラインコメントを置ける</strong>点が <code>git diff</code> の生出力との差になる。人間もエージェントも同じコメント欄を使えるため、指摘の位置がチャットのログではなく差分そのものに残る。</p>
+
+<p>本リポジトリでは、<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §5 のレビューおよび §7.1 手順4（herdrセッションの成果確認）における差分確認の主手段として採用する。</p>
+
+<p>検証済みバージョン: <strong>0.17.7</strong>（2026-08-06）。</p>
+
+<h2 id="pre">前提</h2>
+<ul>
+<li>Node.js 18以上が必要（本プロジェクトは22以上を要求するため自動的に満たす）。</li>
+<li><strong>WSL側にインストールする</strong>。hunkはgitの作業ツリーを直接読むため、リポジトリと同じ環境に置く必要がある。Windows側のPowerShellで動作する herdr（<a href="HERDR.html">docs/HERDR.md</a>）とはインストール先が異なる。</li>
+<li><strong>コメントはhunkのセッションを終了すると消える</strong>。hunkは作業中のレビュー用であり、記録を残す場所ではない。採否が確定した指摘はPRコメントか <code>structured-review</code> の出力に転記する。</li>
+<li>TUIはあくまで人間が見るもの。エージェントは <code>hunk diff</code> を直接起動せず、後述の <code>hunk session</code> コマンドでセッションを操作する。</li>
+</ul>
+
+<h2 id="install">インストール</h2>
+<pre><code>npm i -g hunkdiff   # パッケージ名は hunkdiff、コマンド名は hunk
+hunk --version
+</code></pre>
+
+<h2 id="config">設定</h2>
+<table>
+<thead>
+<tr><th>ファイル</th><th>用途</th></tr>
+</thead>
+<tbody>
+<tr><td><code>.hunk/config.toml</code></td><td>リポジトリ共通設定（コミット済み）。<code>vcs</code> / <code>mode</code> / <code>agent_notes</code> のみ置く</td></tr>
+<tr><td><code>~/.config/hunk/config.toml</code></td><td>個人設定。テーマ・行番号・折り返し等の好みはこちら</td></tr>
+</tbody>
+</table>
+
+<p>リポジトリ側で <code>agent_notes = true</code> にしてあるのは、エージェントが投下した指摘を既定で表示するため。その他の主なキーは <code>theme</code> / <code>watch</code> / <code>exclude_untracked</code> / <code>line_numbers</code> / <code>wrap_lines</code> / <code>menu_bar</code> / <code>transparent_background</code>。</p>
+
+<p>設定は worktree のルートからも読まれるため、herdrで作った各worktreeにも自動的に効く。なお値が不正な場合（<code>mode = "bogus"</code> 等）は警告なく既定値にフォールバックするため、設定が効かないときはキー名の誤記を疑う。TOMLの構文自体が壊れている場合は <code>hunk: Failed to parse toml</code> で起動に失敗するが、どのファイルが原因かは表示されない。</p>
+
+<h2 id="flow">基本ワークフロー（herdr フローの手順4）</h2>
+<pre class="mermaid">
+flowchart TD
+  A["herdrセッションが idle<br/>（実装完了）"] --> B["対象worktreeで<br/>hunk diff --watch"]
+  B --> C["差分を読む<br/>GOVERNANCE §5 の観点"]
+  C --> D["指摘を [+] から<br/>インラインコメント"]
+  D --> E{"差し戻す？"}
+  E -- はい --> F["開発要員が修正<br/>--watch が自動追従"]
+  F --> C
+  E -- いいえ --> G["確定した指摘を<br/>PRコメントに転記"]
+  G --> H["hunkセッションを閉じる<br/>（コメントは消える）"]
+</pre>
+<ol>
+<li>
+<p>herdrのセッションが <code>idle</code>（完了）になったら、対象worktreeで hunk を起動する。</p>
+<pre><code>cd &lt;worktree-path&gt;
+hunk diff --watch
+</code></pre>
+<p><code>--watch</code> は作業ツリーの変化に追従して自動リロードする。差し戻し後の修正をそのまま追える。</p>
+</li>
+<li>差分を読み、指摘は画面上の <code>[+]</code> からインラインコメントとして書く。<code>a</code> キーでエージェントのコメントの表示/非表示を切り替えられる。</li>
+<li>レビューの観点は <a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §5 に従う（差分の意図理解・過剰実装・セキュリティ・規約整合）。</li>
+<li>確定した指摘はPRコメントに転記してから、hunkのセッションを閉じる。</li>
+</ol>
+
+<h2 id="commands">コマンド</h2>
+<table>
+<thead>
+<tr><th>コマンド</th><th>内容</th></tr>
+</thead>
+<tbody>
+<tr><td><code>hunk diff</code></td><td>作業ツリーの変更をレビューする（未追跡ファイルを含む）</td></tr>
+<tr><td><code>hunk diff --watch</code></td><td>変更に追従して自動リロードする</td></tr>
+<tr><td><code>hunk diff --staged</code></td><td>ステージ済みの変更のみをレビューする</td></tr>
+<tr><td><code>hunk diff &lt;left&gt; &lt;right&gt;</code></td><td>2ファイルを直接比較する</td></tr>
+<tr><td><code>hunk show [target]</code></td><td>直近コミット（または指定ref）をレビューする</td></tr>
+<tr><td><code>hunk patch [file]</code></td><td>パッチファイルまたは標準入力をレビューする</td></tr>
+<tr><td><code>hunk skill path</code></td><td>エージェント連携用スキルのパスを表示する</td></tr>
+</tbody>
+</table>
+
+<p><code>--exclude-untracked</code> で未追跡ファイルを除外できる。</p>
+
+<h2 id="agent">エージェント連携</h2>
+<p>エージェントはローカルデーモン経由の <code>hunk session</code> サブコマンドでセッションを操作する。<strong>画面を読むのではなくCLIで制御する</strong>点に注意する。</p>
+
+<p>利用するときは、エージェントに次を指示する。</p>
+<pre><code>`hunk skill path` を実行してスキルを読み込み、それに従って操作すること。
+</code></pre>
+
+<p>スキルは hunk のインストール先に同梱されており、本リポジトリには複製しない（hunk本体の更新に自動追従させるため）。主なコマンドは以下。</p>
+<pre><code>hunk session list                                   # 稼働中のセッションを探す
+hunk session review --repo . --json                 # ファイル・hunk構造を把握する
+hunk session navigate --repo . --file src/App.tsx --new-line 372
+hunk session comment add --repo . --file README.md --new-line 103 --summary "..."
+hunk session comment list --repo . --type user      # 人間が書いた指摘を読む
+hunk session reload --repo &lt;worktree-path&gt; -- diff  # 対象worktreeの差分に差し替える
+</code></pre>
+
+<p>セッションはリポジトリのルートパスで照合される（<code>--repo</code>）。複数worktreeを同時に開いていても取り違えないため、herdrでの並列運用と併用できる。複数セッションが同一リポジトリを指す場合はセッションIDで明示する。</p>
+
+<h2 id="notes">注意事項</h2>
+<ul>
+<li>エージェントが <code>hunk session list</code> で「No active Hunk sessions」を返す場合、hunkが起動していないか、エージェントのサンドボックスがlocalhostを遮断している。前者なら人間側でhunkを開く。</li>
+<li>指摘を全hunkに機械的に付けさせない。人間が自力で気づけない箇所（意図・構造・リスク・追随作業）に絞らせる。</li>
+<li>複数の指摘をまとめて投下する場合は <code>hunk session comment apply --stdin</code> のJSONバッチを使う（1件ずつシェルを呼ぶより速く、投入前にバッチ全体が検証される）。</li>
+</ul>
+
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+  });
+</script>
+</body>
+</html>
