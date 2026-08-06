@@ -258,6 +258,8 @@ flowchart LR
 <li>禁止事項: hanamask独自のAIロジック・モデルは持たない（BYO Agent方針、<code>docs/REQUIREMENTS.md</code> §1, §9）。既存のClaude Codeセッションとの直接連携は行わない（§9で明示的にスコープ外）。使用量集計・上限設定等の課金管理機能は持たない。</li>
 <li>テスト: APIキーが平文でDB・設定ファイルに保存されないことのテスト（<code>safeStorage</code>経由の暗号化を確認）。Claude APIクライアントはモックし、実APIキー無しでテストが通ることを担保する（グローバル規約の「外部APIはモックする」に従う）。tool use経由でMCPツールが正しく呼び出されることの結合テスト。</li>
 <li>停止条件: Anthropic SDK（<code>@anthropic-ai/sdk</code>）の追加は<code>docs/GOVERNANCE.md</code> §6の依存関係追加に該当するため管理者に確認する。APIキーの<code>safeStorage</code>実装は秘密情報の取り扱いに直結するため、実装方針（保存先ファイルパス・暗号化失敗時のフォールバック挙動）を管理者にレビューしてもらってから本実装に入る。</li>
+<li>進捗（2026-08-06）: モックアップを作成し管理者へ提示済み。<strong>4本に分けて進める方針で、1本目（APIキーの<code>safeStorage</code>暗号化保存）が完了（PR #72）。</strong>2本目（Claude APIクライアントとエージェントループ）は<strong>SDK追加の承認待ち</strong>、3本目（設定画面）・4本目（チャットパネル本体）は未着手。1本目を先に切り出したのは停止条件が「<code>safeStorage</code>の実装方針をレビューしてもらってから本実装に入る」としているためで、<strong>Anthropic SDKはまだ追加していない</strong>。</li>
+<li><strong>承認待ちの判断</strong>: (1) <code>safeStorage</code>が使えない環境では平文フォールバックせず保存を断る実装にした（利用者は平文で置かれたことに気づけないため）。(2) <code>@anthropic-ai/sdk</code> の追加（§6の管理者承認事項、2本目に必要）。(3) チャットの置き場所は案A（右側に常設パネル）を推奨。(4) 会話履歴は保存しない前提。(5) 設定画面の置き場所（現在のレールに枠が無い）。</li>
 </ul>
 
 <h3 id="t13">T13: 配布パッケージング（Windowsインストーラー）</h3>
