@@ -74,6 +74,22 @@ networkingMode=mirrored</code></pre></li>
 
 <p><code>.wslconfig</code> から <code>networkingMode=mirrored</code> の行を消す（またはファイルごと削除する）。その後もう一度 <code>wsl --shutdown</code> を実行すれば既定のNATモードに戻る。</p>
 
+<h2 id="interop">既知の副作用: Windows実行ファイルの呼び出しが止まることがある</h2>
+
+<p><code>/etc/wsl.conf</code> で <code>systemd=true</code> を使っている環境で、ミラーモード適用後に<strong>WSLからWindows実行ファイル（<code>cmd.exe</code> / <code>powershell.exe</code> 等）を呼び出せなくなる</strong>ことを実測した（2026-08-06）。<code>/proc/sys/fs/binfmt_misc/WSLInterop</code> が登録されず、実行しようとすると <code>exit 126</code> になる。</p>
+
+<p>WSL自体のネットワークはミラーモードで動作しているため（<code>ip addr</code> がWindows側と同じセグメントを示す）、<strong>MCPサーバーへの到達性という本来の目的には影響しない。</strong>影響を受けるのは、WSL側からWindowsのコマンドを起動する用途（このリポジトリでは <a href="PACKAGING.html">docs/PACKAGING.md</a> のインストーラービルド手順）。</p>
+
+<ol>
+<li><p><code>/etc/wsl.conf</code> に interop を明示する。</p>
+<pre><code>[interop]
+enabled=true
+appendWindowsPath=true</code></pre></li>
+<li><p><code>wsl --shutdown</code> して再起動する。</p></li>
+</ol>
+
+<p>これで解消しない場合は、インストーラーのビルドをWindows側のターミナルから直接実行する（<code>docs/PACKAGING.md</code> の手順はWindows側で実行する前提なので、手順自体は変わらない）。</p>
+
 <h2 id="caveats">注意点</h2>
 
 <p>ミラーモードはWSLのネットワーク挙動を全体的に変える。他のプロジェクトでポート転送やコンテナのネットワークに依存している場合、挙動が変わる可能性がある。</p>
