@@ -94,13 +94,14 @@ interface CspDirectives {
 // 生成SVGに埋め込むため、これが無いと図がスタイルを失い黒い矩形になる（内容が可変なので
 // hash指定では代替できない）。スクリプト実行は 'self' のみで 'unsafe-eval' も無く、
 // どのディレクティブでも外部オリジンを許可していないため、緩和の影響は見た目に限られる。
-// img-src の file: 添付画像は userData 配下を file:// URL で読むため、'self' では届かない
-// （開発時は 'self' が dev server のオリジンになるので特に必要）。
+// img-src に裸の file: は入れない。本番は文書自体が file:// なので添付画像は 'self' で届き、
+// 許可するとノート本文に紛れた <img src="file:///..."> で任意のローカルファイルを読ませうる。
+// 開発時のみ文書オリジンが dev server になり 'self' で届かないため、そちらで足す。
 const PRODUCTION_DIRECTIVES: CspDirectives = {
   "default-src": "'none'",
   "script-src": "'self'",
   "style-src": "'self' 'unsafe-inline'",
-  "img-src": "'self' file: data:",
+  "img-src": "'self' data:",
   "font-src": "'self' data:",
   "connect-src": "'self'",
   "base-uri": "'none'",
@@ -116,6 +117,8 @@ const withDevServerSources = (devServerUrl: string): CspDirectives => {
   const socketOrigin = origin.replace(/^http/, "ws");
   return {
     ...PRODUCTION_DIRECTIVES,
+    // 開発時は文書オリジンが dev server になるため、添付画像の file:// URL が 'self' から外れる。
+    "img-src": `${PRODUCTION_DIRECTIVES["img-src"]} file:`,
     "script-src": `${PRODUCTION_DIRECTIVES["script-src"]} 'unsafe-inline' ${origin}`,
     "style-src": `${PRODUCTION_DIRECTIVES["style-src"]} ${origin}`,
     "connect-src": `${PRODUCTION_DIRECTIVES["connect-src"]} ${origin} ${socketOrigin}`,

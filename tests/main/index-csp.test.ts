@@ -90,12 +90,17 @@ describe("renderer Content-Security-Policy", () => {
     expect(directives.get("style-src")).toContain("'unsafe-inline'");
   });
 
-  it("allows attached images to load over file:// and inline data URLs", async () => {
+  it("allows attached images to load without opening the whole file system", async () => {
     const { buildContentSecurityPolicy } = await importMain();
-    const directives = parseDirectives(buildContentSecurityPolicy(undefined));
+    const production = parseDirectives(buildContentSecurityPolicy(undefined));
 
-    expect(directives.get("img-src")).toContain("file:");
-    expect(directives.get("img-src")).toContain("data:");
+    // 本番は文書自体が file:// なので添付画像は 'self' で届く。裸の file: を許すと
+    // ノート本文に紛れた <img src="file:///..."> で任意のローカルファイルを読ませうる。
+    expect(production.get("img-src")).toBe("'self' data:");
+
+    // 開発時だけは文書オリジンが dev server になり 'self' から外れるため必要。
+    const development = parseDirectives(buildContentSecurityPolicy(DEV_SERVER_URL));
+    expect(development.get("img-src")).toContain("file:");
   });
 
   it("keeps the Vite dev server relaxations out of the packaged policy", async () => {
@@ -110,6 +115,7 @@ describe("renderer Content-Security-Policy", () => {
     expect(production.get("script-src")).not.toContain("localhost");
     expect(production.get("connect-src")).not.toContain("ws:");
     expect(production.get("connect-src")).toBe("'self'");
+    expect(production.get("img-src")).not.toContain("file:");
   });
 
   it("sets the header on every response the renderer receives", async () => {
