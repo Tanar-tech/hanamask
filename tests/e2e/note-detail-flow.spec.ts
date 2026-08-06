@@ -11,11 +11,11 @@ import {
   noteListOf,
   openNoteDetail,
   openNoteList,
+  reserveMcpPort,
 } from "./helpers.js";
 
-// A fixed, non-default port that also differs from the ones note-flow.spec.ts (39299) and
-// task-flow.spec.ts (39298) use, so the specs cannot collide even if run in parallel.
-const E2E_MCP_PORT = 39297;
+// ポートは実行時にOSから空きを取る（固定するとE2Eの同時実行で衝突する）。
+let E2E_MCP_PORT = 0;
 
 // A 1x1 transparent PNG, small enough to embed and still pass the MIME/magic-byte checks.
 const ONE_PIXEL_PNG_BASE64 =
@@ -25,7 +25,8 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
   let dbFilePath: string;
   let app: ElectronApplication | undefined;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    E2E_MCP_PORT = await reserveMcpPort();
     mkdirSync(SCREENSHOT_DIR, { recursive: true });
   });
 

@@ -11,17 +11,18 @@ import {
   noteListOf,
   openNoteDetail,
   openNoteList,
+  reserveMcpPort,
 } from "./helpers.js";
 
-// A fixed, non-default port that also differs from the ones note-flow.spec.ts (39299),
-// task-flow.spec.ts (39298) and note-detail-flow.spec.ts (39297) use.
-const E2E_MCP_PORT = 39296;
+// ポートは実行時にOSから空きを取る（固定するとE2Eの同時実行で衝突する）。
+let E2E_MCP_PORT = 0;
 
 describe("note trash and realtime reflection (UI delete/restore, MCP update while open)", () => {
   let dbFilePath: string;
   let app: ElectronApplication | undefined;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    E2E_MCP_PORT = await reserveMcpPort();
     mkdirSync(SCREENSHOT_DIR, { recursive: true });
   });
 

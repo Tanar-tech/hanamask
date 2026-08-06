@@ -3,17 +3,17 @@ import { type ElectronApplication } from "playwright";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { SCREENSHOT_DIR, callMcpTool, createNoteViaMcp, launchApp } from "./helpers.js";
+import { SCREENSHOT_DIR, callMcpTool, createNoteViaMcp, launchApp, reserveMcpPort } from "./helpers.js";
 
-// A fixed, non-default port keeps this test from colliding with an MCP server
-// a developer may already have running via `npm run dev`.
-const E2E_MCP_PORT = 39299;
+// ポートは実行時にOSから空きを取る（固定するとE2Eの同時実行で衝突する）。
+let E2E_MCP_PORT = 0;
 
 describe("note flow (Electron app + MCP server + renderer)", () => {
   let dbFilePath: string;
   let app: ElectronApplication | undefined;
 
-  beforeAll(() => {
+  beforeAll(async () => {
+    E2E_MCP_PORT = await reserveMcpPort();
     mkdirSync(SCREENSHOT_DIR, { recursive: true });
   });
 

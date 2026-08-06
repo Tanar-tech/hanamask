@@ -1,4 +1,5 @@
 import { _electron as electron, type ElectronApplication, type Page } from "playwright";
+import { createServer } from "node:net";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -18,6 +19,31 @@ const buildLaunchEnv = (dbFilePath: string, mcpPort: number): Record<string, str
   env.HANAMASK_MCP_PORT = String(mcpPort);
   return env;
 };
+
+/*
+ * ポートを定数で固定すると、worktree を分けて同時にE2Eを走らせたときに衝突して
+ * 30秒タイムアウトで落ちる（落ちるspecが毎回変わるため原因の切り分けが難しい）。
+ * OSに空きポートを選ばせてから解放し、その番号をアプリに渡す。解放から
+ * アプリの bind までの隙間に他プロセスが同じ番号を取る可能性は理論上残るが、
+ * OSは直前に払い出した番号を再利用しにくいため実用上は衝突しない。
+ */
+export const reserveMcpPort = (): Promise<number> =>
+  new Promise((resolve, reject) => {
+    const probe = createServer();
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", () => {
+      const address = probe.address();
+      if (address === null || typeof address === "string") {
+        probe.close();
+        reject(new Error("could not determine a free port for the MCP server"));
+        return;
+      }
+      const { port } = address;
+      probe.close(() => {
+        resolve(port);
+      });
+    });
+  });
 
 export const launchApp = (dbFilePath: string, mcpPort: number): Promise<ElectronApplication> =>
   electron.launch({ args: ["."], env: buildLaunchEnv(dbFilePath, mcpPort) });
