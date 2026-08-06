@@ -2,9 +2,18 @@ import { useEffect, useState, type JSX } from "react";
 import type { Note } from "../../shared/preload-api";
 
 const BODY_PREVIEW_LENGTH = 120;
+const BACK_LABEL = "戻る";
+const EMPTY_MESSAGE = "該当するノートはありません";
+const LIST_LABEL = "検索結果";
 
 const toPreview = (body: string): string =>
   body.length > BODY_PREVIEW_LENGTH ? `${body.slice(0, BODY_PREVIEW_LENGTH)}…` : body;
+
+/* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
+const FOCUS_RING =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
+const BACK_BUTTON = `${FOCUS_RING} m-0 cursor-pointer appearance-none rounded-md border border-solid border-line bg-transparent px-3 py-1.5 font-body text-sm text-text-soft transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua hover:text-ink-aqua`;
+const TITLE_BUTTON = `${FOCUS_RING} m-0 cursor-pointer appearance-none border-0 bg-transparent p-0 text-left font-body text-base font-semibold text-ink-aqua underline-offset-4 hover:underline`;
 
 interface SearchResultsProps {
   query: string;
@@ -36,30 +45,51 @@ export const SearchResults = ({ query, onSelectNote, onBack }: SearchResultsProp
   }, [query]);
 
   return (
-    <section>
-      <button type="button" onClick={onBack}>
-        戻る
-      </button>
-      <h2>「{query}」の検索結果</h2>
-      {error !== null && <p role="alert">{error}</p>}
-      {error === null && notes.length === 0 && <p>該当するノートはありません</p>}
-      <ul>
-        {notes.map((note) => (
-          <li key={note.id}>
-            <h3>
-              <button
-                type="button"
-                onClick={() => {
-                  onSelectNote(note.id);
-                }}
-              >
-                {note.title}
-              </button>
-            </h3>
-            <p>{toPreview(note.body)}</p>
-          </li>
-        ))}
-      </ul>
+    <section className="flex flex-col gap-4 font-body text-text">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="m-0 font-display text-xl font-bold tracking-wide">
+          「{query}」の検索結果
+        </h2>
+        <button type="button" onClick={onBack} className={BACK_BUTTON}>
+          {BACK_LABEL}
+        </button>
+      </header>
+      {error !== null && (
+        <p
+          role="alert"
+          className="m-0 rounded-md border border-solid border-crit bg-paper-raised px-4 py-3 text-sm text-crit"
+        >
+          {error}
+        </p>
+      )}
+      {error === null && notes.length === 0 && (
+        <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center text-sm text-text-faint">
+          {EMPTY_MESSAGE}
+        </p>
+      )}
+      {notes.length > 0 && (
+        <ul aria-label={LIST_LABEL} className="m-0 flex list-none flex-col gap-3 p-0">
+          {notes.map((note) => (
+            <li
+              key={note.id}
+              className="flex flex-col gap-2 rounded-lg border border-solid border-line bg-paper-raised px-4 py-3 transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua"
+            >
+              <h3 className="m-0 font-display text-base leading-snug font-semibold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectNote(note.id);
+                  }}
+                  className={TITLE_BUTTON}
+                >
+                  {note.title}
+                </button>
+              </h3>
+              <p className="m-0 text-sm leading-relaxed text-text-soft">{toPreview(note.body)}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 };

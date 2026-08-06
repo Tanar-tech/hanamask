@@ -10,7 +10,15 @@ const EMPTY_MESSAGE = "削除済みのノートはありません";
 const RESTORE_LABEL = "復元";
 const BACK_LABEL = "戻る";
 const NOTE_MISSING_MESSAGE = "対象のノートが見つかりません";
+const LIST_LABEL = "削除済みノート";
 const BODY_PREVIEW_MAX_LENGTH = 80;
+
+/* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
+const FOCUS_RING =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
+const BUTTON_BASE = `${FOCUS_RING} m-0 cursor-pointer appearance-none rounded-md border border-solid bg-transparent px-3 py-1.5 font-body text-sm transition-colors duration-[var(--duration-fast)] ease-standard`;
+const BUTTON_QUIET = `${BUTTON_BASE} border-line text-text-soft hover:border-ink-aqua hover:text-ink-aqua`;
+const BUTTON_PRIMARY = `${BUTTON_BASE} border-ink-aqua text-ink-aqua hover:bg-ink-aqua/10 disabled:cursor-not-allowed disabled:border-line disabled:text-text-faint disabled:hover:bg-transparent`;
 
 const toBodyPreview = (body: string): string =>
   body.length <= BODY_PREVIEW_MAX_LENGTH ? body : `${body.slice(0, BODY_PREVIEW_MAX_LENGTH)}…`;
@@ -70,30 +78,53 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
   };
 
   return (
-    <section>
-      <h2>{HEADING}</h2>
-      <button type="button" onClick={onBack}>
-        {BACK_LABEL}
-      </button>
-      {error !== null && <p role="alert">{error}</p>}
-      {notes.length === 0 && <p>{EMPTY_MESSAGE}</p>}
-      <ul>
-        {notes.map((note) => (
-          <li key={note.id}>
-            <span>{note.title}</span>
-            <p>{toBodyPreview(note.body)}</p>
-            <button
-              type="button"
-              disabled={restoring}
-              onClick={() => {
-                void restore(note.id);
-              }}
+    <section className="flex flex-col gap-4 font-body text-text">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="m-0 font-display text-xl font-bold tracking-wide">{HEADING}</h2>
+        <button type="button" onClick={onBack} className={BUTTON_QUIET}>
+          {BACK_LABEL}
+        </button>
+      </header>
+      {error !== null && (
+        <p
+          role="alert"
+          className="m-0 rounded-md border border-solid border-crit bg-paper-raised px-4 py-3 text-sm text-crit"
+        >
+          {error}
+        </p>
+      )}
+      {notes.length === 0 && (
+        <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center text-sm text-text-faint">
+          {EMPTY_MESSAGE}
+        </p>
+      )}
+      {notes.length > 0 && (
+        <ul aria-label={LIST_LABEL} className="m-0 flex list-none flex-col gap-3 p-0">
+          {notes.map((note) => (
+            <li
+              key={note.id}
+              className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-solid border-line bg-paper-raised px-4 py-3"
             >
-              {RESTORE_LABEL}
-            </button>
-          </li>
-        ))}
-      </ul>
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="font-display text-base font-semibold">{note.title}</span>
+                <p className="m-0 text-sm leading-relaxed text-text-soft">
+                  {toBodyPreview(note.body)}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={restoring}
+                onClick={() => {
+                  void restore(note.id);
+                }}
+                className={BUTTON_PRIMARY}
+              >
+                {RESTORE_LABEL}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 };
