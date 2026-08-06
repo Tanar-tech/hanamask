@@ -7,6 +7,22 @@ import type { Image, Note, Task } from "../../src/shared/preload-api";
 const MINUTE_MS = 60_000;
 const now = Date.now();
 const isoAgo = (minutes: number): string => new Date(now - minutes * MINUTE_MS).toISOString();
+const isoMsAgo = (ms: number): string => new Date(Date.now() - ms).toISOString();
+
+const AGENT_MARK = "たった今 · エージェントが更新";
+// 実装のしきい値（Home.tsx の AGENT_UPDATE_WINDOW_MS）と対になる値
+const AGENT_UPDATE_WINDOW_MS = 120_000;
+// 実装のタイマー間隔（Home.tsx の AGENT_UPDATE_TICK_MS）と対になる値
+const AGENT_UPDATE_TICK_MS = AGENT_UPDATE_WINDOW_MS / 8;
+
+// テスト環境自身も setInterval を使うため、Homeが張ったものだけを間隔で見分ける
+const tickTimerCallIndexOf = (spy: { mock: { calls: unknown[][] } }): number =>
+  spy.mock.calls.findIndex((call) => call[1] === AGENT_UPDATE_TICK_MS);
+
+// 並び替えを検証するため、入力を意図的に更新日時の順から崩す
+const SCRAMBLE_ORDER = [3, 7, 0, 5, 1, 6, 2, 4];
+const scrambled = (notes: Note[]): Note[] =>
+  SCRAMBLE_ORDER.map((index) => notes[index]).filter((note): note is Note => note !== undefined);
 
 const stubImage: Image = {
   id: "image-1",
@@ -130,11 +146,12 @@ const titlesIn = (name: string): string[] =>
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("Home", () => {
   it("最近のノートを新しい順に最大6件表示する", async () => {
-    mockHanamask([makeNotes(8)]);
+    mockHanamask([scrambled(makeNotes(8))]);
 
     renderHome();
 
@@ -295,11 +312,72 @@ describe("Home", () => {
 
     renderHome();
 
-    const marks = await screen.findAllByText("たった今 · エージェントが更新");
+    const marks = await screen.findAllByText(AGENT_MARK);
     expect(marks).toHaveLength(1);
     const markedItem = marks[0]?.closest("li");
     expect(markedItem).not.toBeNull();
     expect(within(markedItem as HTMLElement).getByText("いま書き換えられたノート")).toBeTruthy();
+  });
+
+  it("しきい値の直前に更新されたノートにはエージェント更新の表示を出す", async () => {
+    mockHanamask([
+      [
+        makeNote({
+          id: "note-1",
+          title: "境界の内側",
+          updatedAt: isoMsAgo(AGENT_UPDATE_WINDOW_MS - 1_000),
+        }),
+      ],
+    ]);
+
+    renderHome();
+
+    expect(await screen.findByText("境界の内側")).toBeTruthy();
+    expect(screen.getByText(AGENT_MARK)).toBeTruthy();
+  });
+
+  it("しきい値を超えて更新されたノートにはエージェント更新の表示を出さない", async () => {
+    mockHanamask([
+      [
+        makeNote({
+          id: "note-1",
+          title: "境界の外側",
+          updatedAt: isoMsAgo(AGENT_UPDATE_WINDOW_MS + 1_000),
+        }),
+      ],
+    ]);
+
+    renderHome();
+
+    expect(await screen.findByText("境界の外側")).toBeTruthy();
+    expect(screen.queryByText(AGENT_MARK)).toBeNull();
+  });
+
+  it("表示したまま時間が経つとエージェント更新の表示が消える", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockHanamask([
+      [makeNote({ id: "note-1", title: "いま書き換えられたノート", updatedAt: isoMsAgo(0) })],
+    ]);
+
+    renderHome();
+    expect(await screen.findByText(AGENT_MARK)).toBeTruthy();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AGENT_UPDATE_WINDOW_MS * 2);
+    });
+
+    expect(screen.queryByText(AGENT_MARK)).toBeNull();
+    expect(screen.getByText("いま書き換えられたノート")).toBeTruthy();
+  });
+
+  it("更新直後のノートが無いときはタイマーを動かさない", async () => {
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+    mockHanamask([[makeNote({ id: "note-1", title: "前から在るノート", updatedAt: isoAgo(30) })]]);
+
+    renderHome();
+    expect(await screen.findByText("前から在るノート")).toBeTruthy();
+
+    expect(tickTimerCallIndexOf(setIntervalSpy)).toBe(-1);
   });
 
   it("ノートもタスクも無いとき空状態を表示する", async () => {
@@ -327,6 +405,24 @@ describe("Home", () => {
     renderHome();
 
     expect(await screen.findByText(/タスクの読み込みに失敗しました/)).toBeTruthy();
+  });
+
+  it("更新直後のノートを表示したままアンマウントするとタイマーを解除する", async () => {
+    const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
+    const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
+    mockHanamask([
+      [makeNote({ id: "note-1", title: "いま書き換えられたノート", updatedAt: isoMsAgo(0) })],
+    ]);
+
+    const { unmount } = renderHome();
+    expect(await screen.findByText(AGENT_MARK)).toBeTruthy();
+    const tickCallIndex = tickTimerCallIndexOf(setIntervalSpy);
+    expect(tickCallIndex).toBeGreaterThanOrEqual(0);
+    const timerId: unknown = setIntervalSpy.mock.results[tickCallIndex]?.value;
+
+    unmount();
+
+    expect(clearIntervalSpy).toHaveBeenCalledWith(timerId);
   });
 
   it("アンマウント時に購読を解除する", async () => {
