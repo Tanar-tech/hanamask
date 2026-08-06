@@ -1,0 +1,9 @@
+# hunk のリポジトリ共通設定（docs/HUNK.md 参照）
+# テーマ等の個人の好みは ~/.config/hunk/config.toml 側に置く。
+
+vcs = "git"
+mode = "auto"
+
+# エージェントが投下したインラインコメントを既定で表示する。
+# これを false にすると、レビュー中に指摘が見えず気づけない。
+agent_notes = true

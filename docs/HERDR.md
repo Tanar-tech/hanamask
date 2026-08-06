@@ -54,7 +54,12 @@ herdr integration install claude  # Claude Code CLIセッションを直接使�
    Claude Code CLIセッションを使いたい場合は末尾を `-- claude` に変える。
 
 3. herdrのダッシュボードで各セッションの状態を確認する。`working` 中は待ち、`blocked`（確認待ち等）や `idle`（完了）になったセッションから順に対応する。
-4. セッションが完了したら、開発管理者が差分をレビューする（[docs/GOVERNANCE.md](GOVERNANCE.md) §5）。
+4. セッションが完了したら、開発管理者が差分をレビューする（[docs/GOVERNANCE.md](GOVERNANCE.md) §5）。差分は対象worktreeで hunk を開いて読む（[docs/HUNK.md](HUNK.md)）。hunkはWSL側で動くため、herdrと違いWSLのシェルから起動する。
+
+   ```bash
+   cd <worktree-path> && hunk diff --watch
+   ```
+
 5. レビュー後、PR経由で `main` にマージし、worktreeを削除する。
 
    ```powershell
