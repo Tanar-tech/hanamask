@@ -153,3 +153,4 @@ tests/e2e/.artifacts/
 .claude/scheduled_tasks.lock
 # Claude Code の個人用設定（端末固有の許可ルール等）
 .claude/settings.local.json
+.preload-build/
