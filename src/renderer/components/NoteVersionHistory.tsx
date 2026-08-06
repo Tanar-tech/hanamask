@@ -14,6 +14,13 @@ const RESTORE_CONFIRM_MESSAGE = "このバージョンの内容でノートを�
 const VERSION_MISSING_MESSAGE = "対象のバージョンが見つかりません";
 const BODY_PREVIEW_MAX_LENGTH = 80;
 
+/* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
+const FOCUS_RING =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
+const ALERT =
+  "m-0 rounded-md border border-crit bg-paper-raised px-4 py-3 font-body text-sm text-crit";
+const RESTORE_BUTTON = `${FOCUS_RING} m-0 cursor-pointer appearance-none rounded-md border border-ink-aqua bg-transparent px-3 py-1.5 font-body text-sm text-ink-aqua transition-colors duration-[var(--duration-fast)] ease-standard hover:bg-ink-aqua/10 disabled:cursor-not-allowed disabled:opacity-50`;
+
 const toBodyPreview = (body: string): string =>
   body.length <= BODY_PREVIEW_MAX_LENGTH ? body : `${body.slice(0, BODY_PREVIEW_MAX_LENGTH)}…`;
 
@@ -88,28 +95,46 @@ export const NoteVersionHistory = ({
   };
 
   return (
-    <section>
-      <h3>{HEADING}</h3>
-      {error !== null && <p role="alert">{error}</p>}
-      {versions.length === 0 && <p>{EMPTY_MESSAGE}</p>}
-      <ul>
-        {versions.map((version) => (
-          <li key={version.id}>
-            <span>{version.title}</span>
-            <time dateTime={version.createdAt}>{version.createdAt}</time>
-            <span>{toBodyPreview(version.body)}</span>
-            <button
-              type="button"
-              disabled={restoring}
-              onClick={() => {
-                void restore(version.id);
-              }}
+    <section className="flex flex-col gap-3">
+      <h3 className="m-0 font-display text-sm tracking-wide text-text-faint">{HEADING}</h3>
+      {error !== null && (
+        <p role="alert" className={ALERT}>
+          {error}
+        </p>
+      )}
+      {versions.length === 0 && (
+        <p className="m-0 rounded-md border border-dashed border-line px-4 py-6 text-center font-body text-sm text-text-faint">
+          {EMPTY_MESSAGE}
+        </p>
+      )}
+      {versions.length > 0 && (
+        <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          {versions.map((version) => (
+            <li
+              key={version.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-line bg-paper-raised px-4 py-3"
             >
-              {RESTORE_LABEL}
-            </button>
-          </li>
-        ))}
-      </ul>
+              <span className="font-body text-sm font-semibold text-text">{version.title}</span>
+              <time dateTime={version.createdAt} className="font-mono text-xs text-text-faint">
+                {version.createdAt}
+              </time>
+              <span className="w-full font-body text-sm break-words text-text-soft">
+                {toBodyPreview(version.body)}
+              </span>
+              <button
+                type="button"
+                className={RESTORE_BUTTON}
+                disabled={restoring}
+                onClick={() => {
+                  void restore(version.id);
+                }}
+              >
+                {RESTORE_LABEL}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 };

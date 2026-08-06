@@ -260,6 +260,17 @@ describe("NoteDetail", () => {
     expect(listImages).toHaveBeenCalledWith("note-1");
   });
 
+  it("画像の添付操作には文字のラベルが見えている", async () => {
+    mockHanamask(async () => makeNote());
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    // アイコンや既定のファイル選択ボタンだけでは何を選ぶ入力なのか伝わらない。
+    expect(screen.getByText("画像を添付").tagName).toBe("LABEL");
+    expect(screen.getByLabelText("画像を添付").getAttribute("type")).toBe("file");
+  });
+
   it("画像が無いときはプレビューを表示しない", async () => {
     mockHanamask(async () => makeNote());
 
