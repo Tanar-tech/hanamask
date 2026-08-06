@@ -56,7 +56,6 @@
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th></tr></thead>
 <tbody>
 <tr><td><a href="#t31"><strong>T31</strong></a></td><td><strong>WSL上のエージェントからWindowsアプリのMCPへ接続できるようにする（優先度: 高）</strong></td><td>なし</td></tr>
-<tr><td><a href="#t22">T22</a></td><td>T16/T17で見送ったE2Eシナリオの追加</td><td>T16, T17</td></tr>
 </tbody>
 </table>
 
@@ -101,7 +100,8 @@ flowchart LR
   class T25 done;
   class T29,T30 done;
   class T12 done;
-  class T22,T31 todo;
+  class T22 done;
+  class T31 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -377,7 +377,8 @@ flowchart LR
 
 <h3 id="t22">T22: T16/T17で見送ったE2Eシナリオの追加</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #40）</li>
+<li>実績: 停止条件には該当せず（既存ハーネスに<code>callMcpTool</code>があり新しい仕組みは不要だった）。<code>tests/e2e/note-trash-and-realtime.spec.ts</code>に3シナリオを追加。<code>src/</code>は無変更で、3シナリオそれぞれを一時的に壊してFAILすることを確認済み。<strong>なおこのタスクは実装完了後もステータスが「未着手」のまま残っており、2026-08-06の棚卸しで開発管理者が「未着手のタスクが残っている」と誤って報告した。</strong>実装の有無を確認せずステータス欄だけを見て判断したことが原因。</li>
 <li>依存: 必須: T02（E2Eハーネス）, T16（ゴミ箱UI）, T17（詳細画面のリアルタイム反映）／推奨: なし</li>
 <li>目的: T16・T17はいずれもタスク定義の「テスト」欄でE2Eシナリオの追加を求めていたが、実装時に変更範囲の宣言外だったため見送った（コンポーネントテストのみで、MCP→IPC→UIの結線は未検証）。<code>docs/REQUIREMENTS.md</code> §4.6のリアルタイム反映はこのアプリの中核メカニズムであり、結線が壊れても単体テストでは検出できないため、実機E2Eで固定する。</li>
 <li>変更範囲: <code>tests/e2e/</code>（既存の<code>note-detail-flow.spec.ts</code>への追記、または新規specファイル）のみ。アプリ本体（<code>src/</code>）には手を入れない。</li>
