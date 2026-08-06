@@ -55,7 +55,6 @@
 <table>
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th></tr></thead>
 <tbody>
-<tr><td><a href="#t31"><strong>T31</strong></a></td><td><strong>WSL上のエージェントからWindowsアプリのMCPへ接続できるようにする（優先度: 高）</strong></td><td>なし</td></tr>
 </tbody>
 </table>
 
@@ -101,7 +100,7 @@ flowchart LR
   class T29,T30 done;
   class T12 done;
   class T22 done;
-  class T31 todo;
+  class T31 done;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -542,7 +541,8 @@ flowchart LR
 
 <h3 id="t31">T31: WSL上のAIエージェントからWindowsアプリのMCPサーバーへ接続できるようにする</h3>
 <ul>
-<li>ステータス: 未着手（<strong>接続方式の決定に管理者承認が必要</strong>）</li>
+<li>ステータス: 完了（方式A＝WSLのミラーモード。2026-08-06に実機で検証済み）</li>
+<li>実績: 管理者承認により<strong>方式A（WSLのミラーモード）</strong>を採用。<code>.wslconfig</code>に<code>networkingMode=mirrored</code>を書き、管理者が<code>wsl --shutdown</code>を実行した。手順は<a href="WSL.html">docs/WSL.md</a>に記録。<strong>アプリ・MCPサーバーのコードは1行も変更していない</strong>（待ち受けは<code>127.0.0.1</code>のままでネットワークへの露出は増えていない）。検証: 適用前はWSLから到達できないことを再現し、適用後は<strong><code>create_note</code>がWSLから成功</strong>、<code>search_notes</code>でも取得でき、21件のツールすべてがWSL側から見えることを確認した。副作用として<code>systemd=true</code>の環境では<code>WSLInterop</code>が止まりWindows実行ファイルを呼べなくなる（MCPへの到達性には影響しない）。</li>
 <li>優先度: <strong>高</strong>（管理者指示、2026-08-06）</li>
 <li>目的: <strong>利用者はWSL上でClaude Code等のAIエージェントを動かし、Windows上でhanamaskアプリを起動している。</strong>この構成で、WSL側のエージェントがMCP経由で作ったノートをWindows側のアプリで参照できるようにする。<code>docs/REQUIREMENTS.md</code> §1の中核の前提そのものであり、<strong>現状ではこの主要な利用形態が成立しない。</strong></li>
 <li>現状（コードで確認）: MCPサーバーは<code>127.0.0.1</code>にのみバインドしている。WSL2は別のネットワーク名前空間を持つため、WSL側から見た<code>127.0.0.1</code>はWSL自身であり、Windows側のループバックには到達しない。<strong>またMCPサーバーには認証もOrigin検証も無く</strong>、接続できた相手はノート・タスクの全読み書き（削除を含む）が可能。この事実が、接続方式の選択を単なる設定変更ではなくセキュリティ判断にしている。</li>
