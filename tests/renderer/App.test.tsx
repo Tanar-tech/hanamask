@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { App } from "../../src/renderer/App";
-import type { Image, NavigateTarget, Note, NoteVersion, Task } from "../../src/shared/preload-api";
+import type { DeletedNote, Image, NavigateTarget, Note, NoteVersion, Task } from "../../src/shared/preload-api";
 
 const stubImage: Image = {
   id: "image-1",
@@ -21,13 +21,14 @@ const note: Note = {
   updatedAt: "2026-08-03T00:00:00.000Z",
 };
 
-const deletedNote: Note = {
+const deletedNote: DeletedNote = {
   id: "note-2",
   title: "消したメモ",
   body: "削除済みノートの本文",
   tags: [],
   createdAt: "2026-08-03T00:00:00.000Z",
   updatedAt: "2026-08-03T00:00:00.000Z",
+  deletedAt: "2026-08-03T12:00:00.000Z",
 };
 
 const task: Task = {

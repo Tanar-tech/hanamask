@@ -2,7 +2,11 @@
   "extends": "./tsconfig.main.json",
   "compilerOptions": {
     "module": "commonjs",
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    // 出力先をmainと分ける。同じdistへ吐くと、preload(CommonJS)のコンパイル結果が
+    // 共有ファイル(src/shared)をmain(ESM)の出力に上書きし、mainの起動が壊れる。
+    // 共有ファイルが型だけの間は空ファイルで済んでいたため露見しなかった。
+    "outDir": "dist/preload-build"
   },
   "include": ["src/preload/**/*.ts"]
 }

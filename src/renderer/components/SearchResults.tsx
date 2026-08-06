@@ -12,7 +12,7 @@ const toPreview = (body: string): string =>
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
-const BACK_BUTTON = `${FOCUS_RING} m-0 cursor-pointer appearance-none rounded-md border border-solid border-line bg-transparent px-3 py-1.5 font-body text-sm text-text-soft transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua hover:text-ink-aqua-text-text`;
+const BACK_BUTTON = `${FOCUS_RING} m-0 cursor-pointer appearance-none rounded-md border border-solid border-line bg-transparent px-3 py-1.5 font-body text-sm text-text-soft transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua hover:text-ink-aqua-text`;
 const TITLE_BUTTON = `${FOCUS_RING} m-0 cursor-pointer appearance-none border-0 bg-transparent p-0 text-left font-body text-base font-semibold text-ink-aqua-text underline-offset-4 hover:underline`;
 
 interface SearchResultsProps {

@@ -170,6 +170,16 @@ describe("notes-repo", () => {
     expect(deletedNotes.some((note) => note.id === kept.id)).toBe(false);
   });
 
+  it("削除済みノートには削除時刻を添えて返す", () => {
+    const note = createNote({ title: "消す", body: "本文", tags: [] });
+    softDeleteNote(note.id);
+
+    const [deleted] = listDeletedNotes();
+
+    expect(deleted?.deletedAt).toBeTypeOf("string");
+    expect(Number.isNaN(Date.parse(deleted?.deletedAt ?? ""))).toBe(false);
+  });
+
   it("returns an empty array from listDeletedNotes when nothing is deleted", () => {
     createNote({ title: "残す", body: "本文", tags: [] });
 

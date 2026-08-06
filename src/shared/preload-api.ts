@@ -8,6 +8,18 @@ export interface Note {
   updatedAt: string;
 }
 
+/*
+ * ソフトデリート済みノート。Note に deletedAt を足すと通常の一覧・詳細まで
+ * 影響するため、ゴミ箱でだけ使う派生型として分けている。
+ */
+export interface DeletedNote extends Note {
+  deletedAt: string;
+}
+
+// パージの猶予期間。mainのパージバッチとゴミ箱の残り日数表示が同じ値を見るよう
+// ここを唯一の定義元にする（片方だけ変わると表示と実際の削除時期がずれる）。
+export const NOTE_RETENTION_DAYS = 30;
+
 export interface NoteInput {
   title: string;
   body: string;
@@ -81,7 +93,7 @@ export interface HanamaskPreloadApi {
   onNotesChanged(callback: () => void): () => void;
   listNoteVersions(noteId: string): Promise<NoteVersion[]>;
   restoreNoteVersion(versionId: string): Promise<Note | null>;
-  listDeletedNotes(): Promise<Note[]>;
+  listDeletedNotes(): Promise<DeletedNote[]>;
   restoreNote(id: string): Promise<Note | null>;
   listTasks(): Promise<Task[]>;
   getTask(id: string): Promise<Task | null>;

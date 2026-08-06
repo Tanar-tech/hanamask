@@ -1,6 +1,7 @@
 import { getDb } from "./db.js";
+import { NOTE_RETENTION_DAYS } from "../../shared/preload-api.js";
 
-const RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const RETENTION_MS = NOTE_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
 export interface PurgeResult {
   notesPurged: number;
