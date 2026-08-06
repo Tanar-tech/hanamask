@@ -16,8 +16,23 @@ const STATUS_OPTIONS: ReadonlyArray<{ status: TaskStatus; label: string }> = [
 const NOT_FOUND_MESSAGE = "タスクが見つかりません";
 const STATUS_SELECT_ID = "task-detail-status";
 
+const STATUS_TONE: Record<TaskStatus, string> = {
+  todo: "border-line text-text-soft",
+  in_progress: "border-warn text-warn",
+  done: "border-ok text-ok",
+};
+
+// preflight を入れていないため、ブラウザ既定のマージンとボタン外観は各所で打ち消している。
+const RESET_TEXT = "m-0";
+const FOCUS_RING =
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
+const ALERT = `${RESET_TEXT} rounded-md border border-crit bg-paper-raised px-4 py-3 font-body text-sm text-crit`;
+
 const toTaskStatus = (value: string): TaskStatus | null =>
   STATUS_OPTIONS.find((option) => option.status === value)?.status ?? null;
+
+const labelOf = (status: TaskStatus): string =>
+  STATUS_OPTIONS.find((option) => option.status === status)?.label ?? status;
 
 export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => {
   const [task, setTask] = useState<Task | null>(null);
@@ -94,24 +109,65 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
   };
 
   return (
-    <article>
-      <button type="button" onClick={onBack}>
-        戻る
-      </button>
-      {error !== null && <p role="alert">{error}</p>}
-      {reloadError !== null && <p role="alert">{reloadError}</p>}
+    <article className="flex flex-col gap-5 font-body text-text">
+      <div>
+        <button
+          type="button"
+          onClick={onBack}
+          className={`cursor-pointer rounded-md border border-line bg-paper-raised px-3 py-2 font-body text-sm text-text-soft transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua hover:text-ink-aqua ${FOCUS_RING}`}
+        >
+          戻る
+        </button>
+      </div>
+      {error !== null && (
+        <p role="alert" className={ALERT}>
+          {error}
+        </p>
+      )}
+      {reloadError !== null && (
+        <p role="alert" className={ALERT}>
+          {reloadError}
+        </p>
+      )}
       {task !== null && (
         <>
-          <h2>{task.title}</h2>
-          <label htmlFor={STATUS_SELECT_ID}>ステータス</label>
-          <select id={STATUS_SELECT_ID} value={task.status} onChange={handleStatusChange}>
-            {STATUS_OPTIONS.map(({ status, label }) => (
-              <option key={status} value={status}>
-                {label}
-              </option>
-            ))}
-          </select>
-          <p>{task.dueDate ?? "期限なし"}</p>
+          <header className="flex flex-wrap items-center gap-3">
+            <h2 className={`${RESET_TEXT} font-display text-xl leading-snug font-bold`}>
+              {task.title}
+            </h2>
+            <span
+              className={`rounded-full border px-2 py-0.5 font-body text-xs font-semibold ${STATUS_TONE[task.status]}`}
+            >
+              {labelOf(task.status)}
+            </span>
+          </header>
+
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-paper-raised px-4 py-3">
+            <label htmlFor={STATUS_SELECT_ID} className="font-body text-sm text-text-soft">
+              ステータス
+            </label>
+            <select
+              id={STATUS_SELECT_ID}
+              value={task.status}
+              onChange={handleStatusChange}
+              className={`cursor-pointer rounded-md border border-ink-aqua bg-paper px-3 py-2 font-body text-sm text-text ${FOCUS_RING}`}
+            >
+              {STATUS_OPTIONS.map(({ status, label }) => (
+                <option key={status} value={status}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            {task.dueDate === null ? (
+              <p className={`${RESET_TEXT} font-body text-sm text-text-faint`}>期限なし</p>
+            ) : (
+              <p className={`${RESET_TEXT} font-body text-sm text-text-faint`}>
+                <span className="mr-1">期限</span>
+                <span>{task.dueDate}</span>
+              </p>
+            )}
+          </div>
+
           <EntityLinks entityType="task" entityId={taskId} />
         </>
       )}
