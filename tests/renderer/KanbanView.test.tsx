@@ -112,6 +112,37 @@ describe("KanbanView", () => {
     expect(setData).toHaveBeenCalledWith("text/plain", "task-1");
   });
 
+  it("ドラッグ中は移動先の列にドロップ先が文字で示される", async () => {
+    mockHanamask([[makeTask()]]);
+
+    render(<KanbanView />);
+    const card = await screen.findByText("MCPサーバーを実装する");
+
+    await act(async () => {
+      fireEvent.dragStart(card, { dataTransfer: { setData: vi.fn() } });
+    });
+
+    expect(within(column("進行中")).getByText("ここにドロップして「進行中」にする")).toBeTruthy();
+    expect(within(column("完了")).getByText("ここにドロップして「完了」にする")).toBeTruthy();
+    expect(within(column("未着手")).queryByText("ここにドロップして「未着手」にする")).toBeNull();
+  });
+
+  it("ドラッグを終えるとドロップ先の案内は消える", async () => {
+    mockHanamask([[makeTask()]]);
+
+    render(<KanbanView />);
+    const card = await screen.findByText("MCPサーバーを実装する");
+
+    await act(async () => {
+      fireEvent.dragStart(card, { dataTransfer: { setData: vi.fn() } });
+    });
+    await act(async () => {
+      fireEvent.dragEnd(card);
+    });
+
+    expect(screen.queryByText("ここにドロップして「完了」にする")).toBeNull();
+  });
+
   it("別の列にドロップするとそのステータスへ更新する", async () => {
     const { updateTaskStatus } = mockHanamask([[makeTask()]]);
 
