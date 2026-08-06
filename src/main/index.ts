@@ -18,6 +18,13 @@ import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
 import { listImages } from "./db/images-repo.js";
 import { createLink, deleteLink, listLinks, type LinkInput } from "./db/links-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
+import {
+  clearApiKey,
+  readChatSettings,
+  saveApiKey,
+  saveChatModel,
+  setChatSettingsPath,
+} from "./settings/chat-settings.js";
 import type {
   EntityType,
   Image,
@@ -56,12 +63,17 @@ const NOTES_RESTORE_CHANNEL = "notes:restore";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
+const CHAT_SETTINGS_READ_CHANNEL = "chat:read-settings";
+const CHAT_SETTINGS_SAVE_KEY_CHANNEL = "chat:save-api-key";
+const CHAT_SETTINGS_CLEAR_KEY_CHANNEL = "chat:clear-api-key";
+const CHAT_SETTINGS_SAVE_MODEL_CHANNEL = "chat:save-model";
 const IMAGES_LIST_CHANNEL = "images:list";
 const LINKS_LIST_CHANNEL = "links:list";
 const LINKS_CREATE_CHANNEL = "links:create";
 const LINKS_DELETE_CHANNEL = "links:delete";
 const LINKS_CHANGED_CHANNEL = "links:changed";
 const IMAGES_DIR_NAME = "images";
+const CHAT_SETTINGS_FILE_NAME = "chat-settings.json";
 const UI_NAVIGATE_CHANNEL = "ui:navigate";
 const RENDERER_READY_EVENT = "did-finish-load";
 
@@ -289,6 +301,7 @@ const resolveDbFilePath = (): string => {
 const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
   setImagesDirPath(join(app.getPath("userData"), IMAGES_DIR_NAME));
+  setChatSettingsPath(join(app.getPath("userData"), CHAT_SETTINGS_FILE_NAME));
   purgeSoftDeletedRecords(new Date());
   applyContentSecurityPolicy();
   createMainWindow();
@@ -318,6 +331,19 @@ ipcMain.handle(NOTES_LIST_DELETED_CHANNEL, () => listDeletedNotes());
 ipcMain.handle(NOTES_RESTORE_CHANNEL, undeleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
+ipcMain.handle(CHAT_SETTINGS_READ_CHANNEL, () => readChatSettings());
+ipcMain.handle(CHAT_SETTINGS_SAVE_KEY_CHANNEL, (_event: IpcMainInvokeEvent, apiKey: string) => {
+  saveApiKey(apiKey);
+  return readChatSettings();
+});
+ipcMain.handle(CHAT_SETTINGS_CLEAR_KEY_CHANNEL, () => {
+  clearApiKey();
+  return readChatSettings();
+});
+ipcMain.handle(CHAT_SETTINGS_SAVE_MODEL_CHANNEL, (_event: IpcMainInvokeEvent, model: string) => {
+  saveChatModel(model);
+  return readChatSettings();
+});
 ipcMain.handle(IMAGES_LIST_CHANNEL, findImages);
 ipcMain.handle(LINKS_LIST_CHANNEL, findLinks);
 ipcMain.handle(LINKS_CREATE_CHANNEL, addLink);
