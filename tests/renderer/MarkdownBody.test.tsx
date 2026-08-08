@@ -133,6 +133,19 @@ describe("MarkdownBody（実際に描画した結果）", () => {
     expect(container.querySelectorAll("td")).toHaveLength(2);
   });
 
+  // position:fixed の子孫は contain:paint を持つ要素に閉じ込められる（その要素が包含ブロックに
+  // なり、かつスタッキングコンテキストを作るのでz-indexも外へ抜けない）。本文はAIエージェントが
+  // 書くため、これが無いと画面全面に偽のUIを重ねられる。
+  it("本文コンテナは position:fixed の子孫を閉じ込める", async () => {
+    const container = await renderBody(
+      '<div style="position:fixed;inset:0;z-index:99999">偽のダイアログ</div>',
+    );
+
+    const body = container.firstElementChild;
+    expect(body?.className.split(" ")).toContain("[contain:paint]");
+    expect(body?.querySelector("div[style]")?.textContent).toBe("偽のダイアログ");
+  });
+
   it("タスクリストと取り消し線を描画する", async () => {
     const container = await renderBody("- [x] 済んだこと\n- [ ] これから\n\n~~取り消し~~");
 
