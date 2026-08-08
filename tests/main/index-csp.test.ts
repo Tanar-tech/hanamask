@@ -15,6 +15,7 @@ vi.mock("electron", () => ({
     getPath: vi.fn(() => "/tmp/hanamask-userdata"),
   },
   session: { defaultSession: { webRequest: { onHeadersReceived } } },
+  dialog: { showSaveDialog: vi.fn(), showOpenDialog: vi.fn() },
   // Declared as a function expression because the module under test calls it with `new`.
   BrowserWindow: Object.assign(
     vi.fn(function createFakeWindow() {

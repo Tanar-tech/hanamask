@@ -46,6 +46,8 @@ const mockHanamask = (searchNotes: () => Promise<Note[]>) => {
     createLink: vi.fn(),
     deleteLink: vi.fn(async () => true),
     onLinksChanged: vi.fn(() => () => {}),
+    exportBackup: vi.fn(),
+    importBackup: vi.fn(),
     sendChatMessage: vi.fn(async () => []),
     abortChat: vi.fn(async () => {}),
     onChatEvent: vi.fn(() => () => {}),

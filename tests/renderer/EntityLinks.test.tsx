@@ -70,6 +70,8 @@ const mockHanamask = (overrides: LinkApiOverrides = {}) => {
     saveChatApiKey: vi.fn(async () => ({ apiKeyMask: "4f2a", model: "claude-sonnet-4-5" })),
     clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatModel: vi.fn(async (model: string) => ({ apiKeyMask: null, model })),
+    exportBackup: vi.fn(),
+    importBackup: vi.fn(),
   };
   return {
     listLinks,

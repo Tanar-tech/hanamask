@@ -1,11 +1,13 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Notification,
   session,
   type IpcMainInvokeEvent,
 } from "electron";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
@@ -35,6 +37,8 @@ import {
   setChatSettingsPath,
 } from "./settings/chat-settings.js";
 import type {
+  BackupExportResult,
+  BackupImportResult,
   EntityType,
   Image,
   Link,
@@ -45,6 +49,8 @@ import type {
   TaskStatus,
 } from "../shared/preload-api.js";
 import { setUiNavigator } from "./ui/navigate.js";
+import { createBackupArchive } from "./backup/export-backup.js";
+import { applyBackupArchive, type ImportPaths } from "./backup/import-backup.js";
 import {
   emitNotesChanged,
   emitTasksChanged,
@@ -87,6 +93,13 @@ const LINKS_CREATE_CHANNEL = "links:create";
 const LINKS_DELETE_CHANNEL = "links:delete";
 const LINKS_CHANGED_CHANNEL = "links:changed";
 const IMAGES_DIR_NAME = "images";
+const BACKUPS_DIR_NAME = "backups";
+const BACKUP_EXPORT_CHANNEL = "backup:export";
+const BACKUP_IMPORT_CHANNEL = "backup:import";
+const BACKUP_FILE_EXTENSION = "zip";
+const BACKUP_FILE_FILTER = { name: "hanamask バックアップ", extensions: [BACKUP_FILE_EXTENSION] };
+const BACKUP_EXPORT_DIALOG_TITLE = "ノートを書き出す";
+const BACKUP_IMPORT_DIALOG_TITLE = "ノートを取り込む";
 const CHAT_SETTINGS_FILE_NAME = "chat-settings.json";
 const UI_NAVIGATE_CHANNEL = "ui:navigate";
 const RENDERER_READY_EVENT = "did-finish-load";
@@ -342,6 +355,47 @@ const resolveDbFilePath = (): string => {
   return join(app.getPath("userData"), DB_FILE_NAME);
 };
 
+const resolveBackupPaths = (): ImportPaths => ({
+  dbFilePath: resolveDbFilePath(),
+  imagesDirPath: join(app.getPath("userData"), IMAGES_DIR_NAME),
+  backupsDirPath: join(app.getPath("userData"), BACKUPS_DIR_NAME),
+});
+
+const defaultBackupFileName = (): string =>
+  `hanamask-${new Date().toISOString().slice(0, 10)}.${BACKUP_FILE_EXTENSION}`;
+
+const exportBackupToFile = async (): Promise<BackupExportResult> => {
+  const { canceled, filePath } = await dialog.showSaveDialog({
+    title: BACKUP_EXPORT_DIALOG_TITLE,
+    defaultPath: defaultBackupFileName(),
+    filters: [BACKUP_FILE_FILTER],
+  });
+  if (canceled || filePath === undefined || filePath === "") return { status: "cancelled" };
+  const { archive, counts } = createBackupArchive(resolveBackupPaths());
+  writeFileSync(filePath, archive);
+  return { status: "saved", filePath, counts };
+};
+
+// 取り込みはDBを丸ごと置き換えるため、開いている画面が古いデータを指したままにならないよう
+// MCPツール経由の変更と同じ通知経路で全画面に取り直させる。
+const importBackupFromFile = async (): Promise<BackupImportResult> => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({
+    title: BACKUP_IMPORT_DIALOG_TITLE,
+    properties: ["openFile"],
+    filters: [BACKUP_FILE_FILTER],
+  });
+  const [pickedPath] = filePaths;
+  if (canceled || pickedPath === undefined) return { status: "cancelled" };
+  const { counts, safetyCopyPath } = applyBackupArchive(
+    readFileSync(pickedPath),
+    resolveBackupPaths(),
+  );
+  emitNotesChanged();
+  emitTasksChanged();
+  broadcastLinksChanged();
+  return { status: "imported", counts, safetyCopyPath };
+};
+
 const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
   setImagesDirPath(join(app.getPath("userData"), IMAGES_DIR_NAME));
@@ -407,6 +461,8 @@ ipcMain.handle(IMAGES_LIST_CHANNEL, findImages);
 ipcMain.handle(LINKS_LIST_CHANNEL, findLinks);
 ipcMain.handle(LINKS_CREATE_CHANNEL, addLink);
 ipcMain.handle(LINKS_DELETE_CHANNEL, removeLink);
+ipcMain.handle(BACKUP_EXPORT_CHANNEL, exportBackupToFile);
+ipcMain.handle(BACKUP_IMPORT_CHANNEL, importBackupFromFile);
 
 app.on("window-all-closed", () => {
   app.quit();

@@ -29,6 +29,8 @@ const LINKS_LIST_CHANNEL = "links:list";
 const LINKS_CREATE_CHANNEL = "links:create";
 const LINKS_DELETE_CHANNEL = "links:delete";
 const LINKS_CHANGED_CHANNEL = "links:changed";
+const BACKUP_EXPORT_CHANNEL = "backup:export";
+const BACKUP_IMPORT_CHANNEL = "backup:import";
 
 const subscribe = (channel: string, callback: () => void): (() => void) => {
   const listener = (): void => callback();
@@ -87,6 +89,8 @@ const api: HanamaskPreloadApi = {
   createLink: (input) => ipcRenderer.invoke(LINKS_CREATE_CHANNEL, input),
   deleteLink: (id) => ipcRenderer.invoke(LINKS_DELETE_CHANNEL, id),
   onLinksChanged: (callback) => subscribe(LINKS_CHANGED_CHANNEL, callback),
+  exportBackup: () => ipcRenderer.invoke(BACKUP_EXPORT_CHANNEL),
+  importBackup: () => ipcRenderer.invoke(BACKUP_IMPORT_CHANNEL),
 };
 
 contextBridge.exposeInMainWorld("hanamask", api);
