@@ -12,81 +12,158 @@
 
 <h1>インストーラーの署名</h1>
 
-<p>hanamask の Windows インストーラー（<code>.exe</code>）にコード署名を施すために必要なものと、実施手順の調査結果。対象読者は管理者。</p>
+<p>hanamask の Windows インストーラー（<code>.exe</code>）にコード署名を施すために必要なものと、選択肢ごとのタスク・効果・費用の調査結果。対象読者は管理者。</p>
 
-<h2 id="why">なぜ必要か</h2>
+<p><strong>現在のインストーラーは未署名である</strong>（2026-08-08、PEヘッダの証明書テーブルが空であることを確認）。</p>
 
-<p><strong>現在のインストーラーは未署名である</strong>（2026-08-08、PEヘッダの証明書テーブルが空であることを確認）。未署名の実行ファイルを配布すると、利用者の環境で次が起きる。</p>
+<h2 id="effects">1. 署名して何が変わるか（効果）</h2>
 
-<ul>
-<li><strong>SmartScreen の警告</strong>: 「WindowsによってPCが保護されました」という青い画面が出る。「詳細情報」を押さないと実行できず、<strong>初めて触る人はここで止まる</strong></li>
-<li>ブラウザでのダウンロード時に警告が出ることがある</li>
-<li>一部のウイルス対策ソフトが未署名バイナリを疑わしいものとして扱う</li>
-</ul>
+<p>「SmartScreenの警告が消える」だけではない。署名の有無で変わるものを分けて把握しておく。</p>
 
-<h2 id="requirements">必要なもの</h2>
-
-<h3>1. コード署名証明書</h3>
-
-<p><strong>2023年6月以降、Windows向けのコード署名証明書は秘密鍵をハードウェアに保管することが必須</strong>になった（CA/Browser Forum の要件変更）。以前のようにPFXファイルを買って終わり、という形は取れない。</p>
-
-<div class="tablewrap"><table>
-<thead><tr><th>種別</th><th>保管方法</th><th>SmartScreenへの効き方</th><th>費用の目安（年）</th></tr></thead>
+<table>
+<thead><tr><th>変わること</th><th>未署名の今</th><th>署名後</th><th>備考</th></tr></thead>
 <tbody>
-<tr><td><strong>OV（組織認証）</strong></td><td>USBトークン送付 or クラウドHSM</td><td><strong>すぐには消えない。</strong>評価が貯まるまで警告が出続ける</td><td>3〜7万円</td></tr>
-<tr><td><strong>EV（拡張認証）</strong></td><td>USBトークン or クラウドHSM</td><td><strong>即座に消える</strong></td><td>6〜12万円</td></tr>
-</tbody></table></div>
+<tr><td><strong>SmartScreenの青い警告</strong></td><td>出る。「詳細情報」を押さないと実行できない</td><td><strong>EVは即座に消える。OVは評価が貯まるまで出続ける</strong></td><td>最も大きい効果。初見の利用者はここで止まる</td></tr>
+<tr><td><strong>UACダイアログの発行元表示</strong></td><td>「<strong>不明な発行元</strong>」</td><td>証明書の名義（組織名・個人名）</td><td>署名すればOV/EVを問わず即座に変わる</td></tr>
+<tr><td><strong>ウイルス対策ソフトの誤検知</strong></td><td>未署名バイナリを疑わしいものとして扱う製品がある</td><td>減る（無くなるわけではない）</td><td>効果は製品によって差がある</td></tr>
+<tr><td><strong>winget での配布</strong></td><td>登録審査を通らない可能性が高い</td><td>応募できる</td><td>winget経由のインストールはSmartScreenの経路を通らない</td></tr>
+<tr><td><strong>ブラウザのダウンロード警告</strong></td><td>出ることがある</td><td>減る</td><td>SmartScreenの評価と連動する</td></tr>
+</tbody>
+</table>
 
-<p><strong>個人開発者の場合</strong>、OVでも取得できる事業者はあるが、法人より審査が長引きやすい（登記簿・電話確認などの代わりに、本人確認書類や第三者による事業実在性の確認が要る）。</p>
+<p><strong>OVとEVの差は「警告が消えるまでの時間」に集約される。</strong>OVでも署名自体は有効で、発行元表示・誤検知・winget への効果は同じ。OVは配布本数が増えるにつれて Microsoft 側の評価が貯まり、いずれ警告が消える（貯まるまでの本数・期間は公表されていない）。<strong>EVはこの待ちを買うもの。</strong></p>
 
-<h3>2. 署名の実行環境</h3>
-
-<p>証明書の保管方法によって手順が変わる。</p>
+<h2 id="rules">2. 前提となる業界ルール</h2>
 
 <ul>
-<li><strong>USBトークン</strong>: 物理的に挿した端末でしか署名できない。CIでの自動署名は困難</li>
-<li><strong>クラウドHSM</strong>（Azure Trusted Signing、DigiCert KeyLocker、SSL.com eSigner 等）: APIキーで署名でき、CIからも実行できる</li>
+<li><strong>2023年6月以降、秘密鍵のハードウェア保管が必須</strong>（CA/Browser Forum）。PFXファイルを買って終わり、という形はもう取れない。USBトークンかクラウドHSMのいずれかになる</li>
+<li><strong>2026年3月1日以降、公的に信頼されるコード署名証明書の最大有効期間は458日</strong>に制限されると報告されている（<a href="https://www.ssl.com/ja/%E3%82%AC%E3%82%A4%E3%83%89/%E3%82%B3%E3%83%BC%E3%83%89%E7%BD%B2%E5%90%8D%E3%81%AE%E7%BD%B2%E5%90%8D%E8%80%85%E3%81%AE%E4%BE%A1%E6%A0%BC/">SSL.com</a>）。「3年分をまとめて買う」形の商品でも、実際の証明書は短期で再発行される運用になる</li>
+<li><strong>タイムスタンプの付与は必須。</strong> 付けないと、証明書の有効期限が切れた瞬間に既に配布済みのバイナリまで「無効な署名」として扱われる。有効期間が458日に短縮されるため、この重要度は上がっている</li>
 </ul>
 
-<p><strong>Azure Trusted Signing</strong> は月額制（個人開発者向けの安価な区分がある）で、証明書の購入と管理を Microsoft 側に寄せられる。ただし利用資格の審査があり、<strong>組織の実在確認が要る</strong>。</p>
+<h2 id="options">3. 選択肢</h2>
 
-<h2 id="config">設定方法</h2>
+<pre class="mermaid">
+flowchart TD
+  Q1{"誰に配るか"}
+  Q1 -- "限られた相手" --> A["選択肢A: 署名しない<br/>0円"]
+  Q1 -- "不特定多数" --> Q2{"初見の警告を<br/>今すぐ消したいか"}
+  Q2 -- "はい" --> D["選択肢D: 商用EV<br/>年6〜12万円"]
+  Q2 -- "待てる" --> Q3{"名義"}
+  Q3 -- "法人" --> B["選択肢B: Azure<br/>月 $9.99"]
+  Q3 -- "個人 かつ<br/>リポジトリ公開可" --> C["選択肢C: Certum<br/>年 $50〜70"]
+  Q3 -- "個人 かつ<br/>公開不可" --> D
+</pre>
 
-<p><code>electron-builder.yml</code> に署名設定を追加する。現在は署名関連の記述が一切ない。</p>
+<h3 id="option-a">選択肢A: 署名しない（現状維持）</h3>
+
+<table>
+<tbody>
+<tr><td><strong>費用</strong></td><td>0円</td></tr>
+<tr><td><strong>タスク</strong></td><td>配布ページに警告の回避手順（「詳細情報」→「実行」）を書く。1時間程度</td></tr>
+<tr><td><strong>効果</strong></td><td>SmartScreenの警告は残る。発行元は「不明な発行元」のまま</td></tr>
+<tr><td><strong>向くケース</strong></td><td><strong>管理者本人と、事情を説明できる限られた相手だけに配る場合。</strong>実害は「毎回警告を押しのける手間」に留まる</td></tr>
+</tbody>
+</table>
+
+<h3 id="option-b">選択肢B: Azure Artifact Signing（旧 Trusted Signing）</h3>
+
+<p>Microsoftのマネージド署名サービス。証明書の購入・保管をMicrosoft側に寄せられる。</p>
+
+<table>
+<tbody>
+<tr><td><strong>費用</strong></td><td><strong>月額 $9.99</strong>（Basic、月5,000署名まで）。Premiumは $99.99</td></tr>
+<tr><td><strong>名義</strong></td><td><strong>組織のみ。日本は組織なら対象。個人開発者は米国・カナダ在住者に限られ、日本の個人は対象外</strong>（<a href="https://learn.microsoft.com/en-us/azure/artifact-signing/quickstart">Microsoft Learn</a>）</td></tr>
+<tr><td><strong>証明書の格</strong></td><td>OV相当（SmartScreenの警告は評価が貯まるまで残る）</td></tr>
+<tr><td><strong>CI自動署名</strong></td><td>できる（クラウド署名。Japan Eastリージョンあり）</td></tr>
+<tr><td><strong>審査期間</strong></td><td>本人確認に <strong>1〜20営業日</strong>（追加書類を求められるとさらに延びる）</td></tr>
+</tbody>
+</table>
+
+<p><strong>この選択肢を採れるかどうかは、hanamask を法人名義で出すか個人名義で出すかで決まる。</strong>個人名義なら日本からは選べない。</p>
+
+<h4>採用する場合のタスク</h4>
+
+<ol>
+<li>Azureサブスクリプションを用意する（請求先アカウントの種別が Individual だと個人検証しか通らないため、組織として登録する）</li>
+<li><code>Microsoft.CodeSigning</code> リソースプロバイダを登録する</li>
+<li>Artifact Signing アカウントを作成する（Japan East）</li>
+<li><strong>Identity validation（組織）を申請する</strong> — 法人名・登記情報・Webサイト・2種類のメールアドレスが要る。ここが1〜20営業日</li>
+<li>証明書プロファイル（Public Trust）を作成する</li>
+<li><code>electron-builder.yml</code> に署名設定を追加し、ローカルで署名済み <code>.exe</code> を1本作って <code>Get-AuthenticodeSignature</code> で検証する</li>
+<li><a href="PACKAGING.html">docs/PACKAGING.md</a> に署名手順を追記する</li>
+</ol>
+
+<h3 id="option-c">選択肢C: Certum Open Source Code Signing</h3>
+
+<p>オープンソース開発者向けの安価なOV証明書。個人名義で取得できる。</p>
+
+<table>
+<tbody>
+<tr><td><strong>費用</strong></td><td><strong>年 $50〜70程度</strong>（<a href="https://certum.store/open-source-code-signing-code.html">Certum Store</a>）</td></tr>
+<tr><td><strong>名義</strong></td><td>個人可</td></tr>
+<tr><td><strong>証明書の格</strong></td><td>OV相当</td></tr>
+<tr><td><strong>前提</strong></td><td><strong>対象プロジェクトがオープンソースであること。hanamask のリポジトリは現在 private のため、このままでは条件を満たさない</strong></td></tr>
+<tr><td><strong>CI自動署名</strong></td><td>クラウド署名オプションを選べば可能。USBトークンを選ぶと不可</td></tr>
+</tbody>
+</table>
+
+<p><strong>採用するにはリポジトリの公開が必要で、これはアーキテクチャではなく事業判断。</strong><a href="GOVERNANCE.html#6">docs/GOVERNANCE.md §6</a> の管理者承認事項にあたる。</p>
+
+<h3 id="option-d">選択肢D: 商用のOV/EV証明書（GlobalSign・SSL.com・DigiCert等）</h3>
+
+<table>
+<tbody>
+<tr><td><strong>費用</strong></td><td>OV 年3〜7万円 / <strong>EV 年6〜12万円</strong></td></tr>
+<tr><td><strong>名義</strong></td><td>個人事業主でも屋号で取得できる事業者がある（<a href="https://www.cocoa.ne.jp/archives/14699">実例</a>）</td></tr>
+<tr><td><strong>証明書の格</strong></td><td><strong>EVを選べばSmartScreenの警告が即座に消える。これは他の選択肢では買えない</strong></td></tr>
+<tr><td><strong>CI自動署名</strong></td><td>クラウドHSM（SSL.com eSigner、DigiCert KeyLocker）を選べば可能</td></tr>
+</tbody>
+</table>
+
+<h2 id="decide">4. どう選ぶか</h2>
+
+<p><strong>判断の分岐は「誰に配るか」の一点。</strong></p>
+
+<ul>
+<li><strong>限られた相手に配る</strong> → <strong>選択肢A</strong>。年数万円と審査の手間に見合う効果が無い</li>
+<li><strong>不特定多数に配り、初見の利用者に警告を見せたくない</strong> → <strong>選択肢D（EV）</strong>。警告が即座に消えるのはEVだけ</li>
+<li><strong>不特定多数に配るが、警告が消えるまで待てる</strong> → 法人名義なら<strong>選択肢B</strong>（月$9.99が最安）、個人名義でリポジトリを公開できるなら<strong>選択肢C</strong></li>
+</ul>
+
+<h2 id="config">5. 共通の設定作業</h2>
+
+<p>どの選択肢でも <code>electron-builder.yml</code> への追記が要る（現在は署名関連の記述が一切ない）。</p>
 
 <pre><code>win:
-  # 証明書の指定方法は保管形態による
-  certificateSubjectName: "組織名"        # 証明書ストア（トークン）から探す場合
-  # または
   signtoolOptions:
     signingHashAlgorithms: ["sha256"]
     rfc3161TimeStampServer: "http://timestamp.digicert.com"</code></pre>
 
-<p><strong>タイムスタンプの指定は必須。</strong>付けないと、証明書の有効期限が切れた瞬間に既存の配布物まで「無効な署名」として扱われる。</p>
+<p>証明書の指定方法は保管形態によって変わる（証明書ストア経由なら <code>certificateSubjectName</code>、クラウド署名なら各サービスのdlkit/署名プラグイン）。</p>
 
-<h2 id="alternatives">費用をかけない選択肢</h2>
+<h2 id="verify">6. 現状の確認方法</h2>
 
-<p>証明書を取得しない場合でも、利用者の負担を減らす手はある。</p>
+<pre><code># PEヘッダの証明書テーブルを直接見る（外部ツール不要）
+python3 -c "
+import struct
+d = open('release/hanamask Setup 0.1.0.exe','rb').read(4096)
+pe = struct.unpack_from('&lt;I', d, 0x3C)[0]
+magic = struct.unpack_from('&lt;H', d, pe+24)[0]
+base = pe + 24 + (112 if magic == 0x20B else 96)
+rva, size = struct.unpack_from('&lt;II', d, base + 32)
+print('署名:', 'あり' if size &gt; 0 else 'なし')
+"</code></pre>
 
-<ol>
-<li><strong>配布ページで警告の回避手順を案内する</strong>（「詳細情報」→「実行」）。根本解決ではないが、初見の利用者が止まるのを防げる</li>
-<li><strong>winget での配布</strong>: winget 経由のインストールは SmartScreen の経路を通らない。ただし公開リポジトリへの登録審査があり、未署名では通らない可能性が高い</li>
-<li><strong>署名せず配布し続ける</strong>: 個人利用・限定配布であれば実害は「毎回警告を押しのける手間」に留まる</li>
-</ol>
-
-<h2 id="decisions">判断が必要な点</h2>
-
-<ol>
-<li><strong>配布の範囲</strong>。管理者本人と限られた相手だけなら、未署名のままでも実害は小さい。不特定多数へ配るなら署名は事実上必須</li>
-<li><strong>費用の許容度</strong>。年数万円の継続費用が発生する</li>
-<li><strong>法人か個人か</strong>。OV/EV とも組織の実在確認が前提で、個人名義では取得できない事業者もある</li>
-<li><strong>CIでの自動署名が要るか</strong>。要るならクラウドHSM一択で、USBトークンは選べない</li>
-</ol>
-
-<h2 id="verify">現状の確認方法</h2>
-
-<p>PEヘッダの証明書テーブルを直接見れば、外部ツール無しで判定できる。Windows 側からは <code>Get-AuthenticodeSignature &lt;path&gt;</code> でも確認できる。</p>
+<p>Windows 側からは <code>Get-AuthenticodeSignature &lt;path&gt;</code> でも確認できる（WSLからは <code>powershell.exe -NoProfile -Command "Get-AuthenticodeSignature '&lt;Windowsパス&gt;'"</code>）。</p>
 
 </main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+  });
+</script>
 </body>
 </html>
