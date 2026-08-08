@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>インストーラーの署名</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../SIGNING.md">docs/SIGNING.md</a></p>
+
+<h1>インストーラーの署名</h1>
+
+<p>hanamask の Windows インストーラー（<code>.exe</code>）にコード署名を施すために必要なものと、実施手順の調査結果。対象読者は管理者。</p>
+
+<h2 id="why">なぜ必要か</h2>
+
+<p><strong>現在のインストーラーは未署名である</strong>（2026-08-08、PEヘッダの証明書テーブルが空であることを確認）。未署名の実行ファイルを配布すると、利用者の環境で次が起きる。</p>
+
+<ul>
+<li><strong>SmartScreen の警告</strong>: 「WindowsによってPCが保護されました」という青い画面が出る。「詳細情報」を押さないと実行できず、<strong>初めて触る人はここで止まる</strong></li>
+<li>ブラウザでのダウンロード時に警告が出ることがある</li>
+<li>一部のウイルス対策ソフトが未署名バイナリを疑わしいものとして扱う</li>
+</ul>
+
+<h2 id="requirements">必要なもの</h2>
+
+<h3>1. コード署名証明書</h3>
+
+<p><strong>2023年6月以降、Windows向けのコード署名証明書は秘密鍵をハードウェアに保管することが必須</strong>になった（CA/Browser Forum の要件変更）。以前のようにPFXファイルを買って終わり、という形は取れない。</p>
+
+<div class="tablewrap"><table>
+<thead><tr><th>種別</th><th>保管方法</th><th>SmartScreenへの効き方</th><th>費用の目安（年）</th></tr></thead>
+<tbody>
+<tr><td><strong>OV（組織認証）</strong></td><td>USBトークン送付 or クラウドHSM</td><td><strong>すぐには消えない。</strong>評価が貯まるまで警告が出続ける</td><td>3〜7万円</td></tr>
+<tr><td><strong>EV（拡張認証）</strong></td><td>USBトークン or クラウドHSM</td><td><strong>即座に消える</strong></td><td>6〜12万円</td></tr>
+</tbody></table></div>
+
+<p><strong>個人開発者の場合</strong>、OVでも取得できる事業者はあるが、法人より審査が長引きやすい（登記簿・電話確認などの代わりに、本人確認書類や第三者による事業実在性の確認が要る）。</p>
+
+<h3>2. 署名の実行環境</h3>
+
+<p>証明書の保管方法によって手順が変わる。</p>
+
+<ul>
+<li><strong>USBトークン</strong>: 物理的に挿した端末でしか署名できない。CIでの自動署名は困難</li>
+<li><strong>クラウドHSM</strong>（Azure Trusted Signing、DigiCert KeyLocker、SSL.com eSigner 等）: APIキーで署名でき、CIからも実行できる</li>
+</ul>
+
+<p><strong>Azure Trusted Signing</strong> は月額制（個人開発者向けの安価な区分がある）で、証明書の購入と管理を Microsoft 側に寄せられる。ただし利用資格の審査があり、<strong>組織の実在確認が要る</strong>。</p>
+
+<h2 id="config">設定方法</h2>
+
+<p><code>electron-builder.yml</code> に署名設定を追加する。現在は署名関連の記述が一切ない。</p>
+
+<pre><code>win:
+  # 証明書の指定方法は保管形態による
+  certificateSubjectName: "組織名"        # 証明書ストア（トークン）から探す場合
+  # または
+  signtoolOptions:
+    signingHashAlgorithms: ["sha256"]
+    rfc3161TimeStampServer: "http://timestamp.digicert.com"</code></pre>
+
+<p><strong>タイムスタンプの指定は必須。</strong>付けないと、証明書の有効期限が切れた瞬間に既存の配布物まで「無効な署名」として扱われる。</p>
+
+<h2 id="alternatives">費用をかけない選択肢</h2>
+
+<p>証明書を取得しない場合でも、利用者の負担を減らす手はある。</p>
+
+<ol>
+<li><strong>配布ページで警告の回避手順を案内する</strong>（「詳細情報」→「実行」）。根本解決ではないが、初見の利用者が止まるのを防げる</li>
+<li><strong>winget での配布</strong>: winget 経由のインストールは SmartScreen の経路を通らない。ただし公開リポジトリへの登録審査があり、未署名では通らない可能性が高い</li>
+<li><strong>署名せず配布し続ける</strong>: 個人利用・限定配布であれば実害は「毎回警告を押しのける手間」に留まる</li>
+</ol>
+
+<h2 id="decisions">判断が必要な点</h2>
+
+<ol>
+<li><strong>配布の範囲</strong>。管理者本人と限られた相手だけなら、未署名のままでも実害は小さい。不特定多数へ配るなら署名は事実上必須</li>
+<li><strong>費用の許容度</strong>。年数万円の継続費用が発生する</li>
+<li><strong>法人か個人か</strong>。OV/EV とも組織の実在確認が前提で、個人名義では取得できない事業者もある</li>
+<li><strong>CIでの自動署名が要るか</strong>。要るならクラウドHSM一択で、USBトークンは選べない</li>
+</ol>
+
+<h2 id="verify">現状の確認方法</h2>
+
+<p>PEヘッダの証明書テーブルを直接見れば、外部ツール無しで判定できる。Windows 側からは <code>Get-AuthenticodeSignature &lt;path&gt;</code> でも確認できる。</p>
+
+</main>
+</body>
+</html>

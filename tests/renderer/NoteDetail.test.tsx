@@ -980,3 +980,86 @@ describe("NoteDetail のリンク", () => {
     expect(screen.queryByRole("button", { name: "リンクする" })).toBeNull();
   });
 });
+
+describe("NoteDetail の本文Markdown描画", () => {
+  const renderBody = async (body: string): Promise<void> => {
+    // タグ一覧も ul なので、本文の箇条書きだけを数えられるようタグは空にしておく。
+    mockHanamask(async () => makeNote({ body, tags: [] }));
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    await screen.findByText("設計メモ");
+  };
+
+  const bodyRoot = (): HTMLElement => screen.getByRole("article");
+
+  it("見出し・箇条書き・強調・リンク・コードブロックを要素として描画する", async () => {
+    await renderBody(
+      [
+        "## 進捗",
+        "",
+        "- 実装した",
+        "- **重要**な残件",
+        "",
+        "[仕様](https://example.com/spec)",
+        "",
+        "```ts",
+        "const a = 1;",
+        "```",
+      ].join("\n"),
+    );
+
+    expect(screen.getByRole("heading", { level: 2, name: "進捗" })).toBeTruthy();
+    expect(bodyRoot().querySelectorAll("ul > li")).toHaveLength(2);
+    expect(bodyRoot().querySelector("strong")?.textContent).toBe("重要");
+    expect(screen.getByRole("link", { name: "仕様" }).getAttribute("href")).toBe(
+      "https://example.com/spec",
+    );
+    expect(bodyRoot().querySelector("pre > code")?.textContent).toContain("const a = 1;");
+    expect(screen.queryByText("## 進捗")).toBeNull();
+  });
+
+  it("本文に埋め込んだHTMLと表とstyle属性を描画する", async () => {
+    await renderBody(
+      [
+        "<div>",
+        '  <table><tbody><tr><td style="color: red">セル</td></tr></tbody></table>',
+        "</div>",
+      ].join("\n"),
+    );
+
+    expect(bodyRoot().querySelector("div > table")).not.toBeNull();
+    const cell = bodyRoot().querySelector("td");
+    expect(cell?.textContent).toBe("セル");
+    expect(cell?.style.color).toBe("red");
+  });
+
+  it("scriptタグは要素としてもテキストとしても通さない", async () => {
+    await renderBody('本文\n\n<script>window.__pwned = true;</script>\n');
+
+    expect(bodyRoot().querySelector("script")).toBeNull();
+    expect(screen.queryByText(/__pwned/)).toBeNull();
+    expect(screen.getByText("本文")).toBeTruthy();
+  });
+
+  it("iframeは通さない", async () => {
+    await renderBody('<iframe src="https://example.com"></iframe>');
+
+    expect(bodyRoot().querySelector("iframe")).toBeNull();
+  });
+
+  it("javascript:スキームのリンクはhrefを落とす", async () => {
+    await renderBody("[危険](javascript:alert(1))");
+
+    const link = bodyRoot().querySelector("a");
+    expect(link?.textContent).toBe("危険");
+    expect(link?.getAttribute("href")).toBeNull();
+  });
+
+  it("イベントハンドラ属性は落とす", async () => {
+    await renderBody('<img src="https://example.com/a.png" alt="図" onerror="alert(1)">');
+
+    const image = bodyRoot().querySelector("img[alt='図']");
+    expect(image).not.toBeNull();
+    expect(image?.getAttribute("onerror")).toBeNull();
+    expect(image?.outerHTML).not.toContain("alert");
+  });
+});

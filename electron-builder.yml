@@ -22,6 +22,10 @@ asarUnpack:
 win:
   target:
     - nsis
+  # 既定のElectronアイコンだとタスクバーで他のElectronアプリと見分けが付かない。
+  # 意匠は承認済みのデザイントークンに合わせ、アクア（利用者）とピンク（エージェント）が
+  # 重なる形にしている。build/generate-icon.py で再生成できる。
+  icon: build/icon.ico
 
 nsis:
   oneClick: false
