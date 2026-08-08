@@ -11,6 +11,7 @@ import {
 } from "../db/notes-repo.js";
 import {
   createTask,
+  getTask,
   listTasks,
   restoreTask,
   softDeleteTask,
@@ -115,7 +116,7 @@ const createNoteTool: NoteTool = {
       body: readString(args, "body"),
       tags: readTags(args),
     });
-    emitNotesChanged();
+    emitNotesChanged({ entity: "note", action: "created", id: note.id, title: note.title });
     return jsonResult({ note });
   }),
 };
@@ -175,7 +176,7 @@ const updateNoteTool: NoteTool = {
     if (note === null) {
       return errorResult(`Note not found: ${id}`);
     }
-    emitNotesChanged();
+    emitNotesChanged({ entity: "note", action: "updated", id, title: note.title });
     return jsonResult({ note });
   }),
 };
@@ -199,11 +200,13 @@ const deleteNoteTool: NoteTool = {
     if (args.confirm !== true) {
       throw new Error('delete_note requires "confirm: true"');
     }
+    // 削除するとタイトルを引けなくなるため、通知に載せる分を先に読んでおく。
+    const title = getNote(id)?.title ?? "";
     const deleted = softDeleteNote(id);
     if (!deleted) {
       return errorResult(`Note not found or already deleted: ${id}`);
     }
-    emitNotesChanged();
+    emitNotesChanged({ entity: "note", action: "deleted", id, title });
     return jsonResult({ deleted: true });
   }),
 };
@@ -226,7 +229,7 @@ const restoreNoteTool: NoteTool = {
     if (note === null) {
       return errorResult(`Note not found or not deleted: ${id}`);
     }
-    emitNotesChanged();
+    emitNotesChanged({ entity: "note", action: "updated", id, title: note.title });
     return jsonResult({ note });
   }),
 };
@@ -268,7 +271,7 @@ const restoreNoteVersionTool: NoteTool = {
     if (note === null) {
       return errorResult(`Note version not found: ${versionId}`);
     }
-    emitNotesChanged();
+    emitNotesChanged({ entity: "note", action: "updated", id: note.id, title: note.title });
     return jsonResult({ note });
   }),
 };
@@ -290,13 +293,19 @@ const attachImageTool: NoteTool = {
     },
   },
   handler: toToolHandler((args) => {
+    const noteId = readString(args, "note_id");
     const image = attachImage({
-      noteId: readString(args, "note_id"),
+      noteId,
       fileName: readString(args, "file_name"),
       dataBase64: readString(args, "data_base64"),
       mimeType: readString(args, "mime_type"),
     });
-    emitNotesChanged();
+    emitNotesChanged({
+      entity: "note",
+      action: "updated",
+      id: noteId,
+      title: getNote(noteId)?.title ?? "",
+    });
     return jsonResult({ image });
   }),
 };
@@ -360,7 +369,7 @@ const createTaskTool: McpTool = {
       status: readOptionalStatus(args) ?? DEFAULT_TASK_STATUS,
       dueDate: readOptionalDueDate(args) ?? null,
     });
-    emitTasksChanged();
+    emitTasksChanged({ entity: "task", action: "created", id: task.id, title: task.title });
     return jsonResult({ task });
   }),
 };
@@ -390,7 +399,7 @@ const updateTaskTool: McpTool = {
     if (task === null) {
       return errorResult(`Task not found: ${id}`);
     }
-    emitTasksChanged();
+    emitTasksChanged({ entity: "task", action: "updated", id, title: task.title });
     return jsonResult({ task });
   }),
 };
@@ -426,11 +435,13 @@ const deleteTaskTool: McpTool = {
     if (args.confirm !== true) {
       throw new Error('delete_task requires "confirm: true"');
     }
+    // 削除するとタイトルを引けなくなるため、通知に載せる分を先に読んでおく。
+    const title = getTask(id)?.title ?? "";
     const deleted = softDeleteTask(id);
     if (!deleted) {
       return errorResult(`Task not found or already deleted: ${id}`);
     }
-    emitTasksChanged();
+    emitTasksChanged({ entity: "task", action: "deleted", id, title });
     return jsonResult({ deleted: true });
   }),
 };
@@ -453,7 +464,7 @@ const restoreTaskTool: McpTool = {
     if (task === null) {
       return errorResult(`Task not found or not deleted: ${id}`);
     }
-    emitTasksChanged();
+    emitTasksChanged({ entity: "task", action: "updated", id, title: task.title });
     return jsonResult({ task });
   }),
 };
