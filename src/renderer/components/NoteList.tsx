@@ -2,12 +2,8 @@ import { li as MotionLi } from "motion/react-m";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { useNewlyArrived } from "../hooks/useNewlyArrived";
 import { ENTRY_MOTION } from "../styles/motion";
+import { toBodyPreview } from "../text/bodyPreview";
 import type { Note } from "../../shared/preload-api";
-
-const BODY_PREVIEW_LENGTH = 120;
-
-const toPreview = (body: string): string =>
-  body.length > BODY_PREVIEW_LENGTH ? `${body.slice(0, BODY_PREVIEW_LENGTH)}…` : body;
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
 const FOCUS_RING =
@@ -70,37 +66,40 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
 
   return (
     <ul aria-label="ノート一覧" className="m-0 flex list-none flex-col gap-3 p-0">
-      {notes.map((note) => (
-        <MotionLi
-          {...(newlyArrived.has(note.id) ? ENTRY_MOTION : {})}
-          key={note.id}
-          className="flex flex-col gap-2 rounded-lg border border-line bg-paper-raised px-4 py-3 transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua"
-        >
-          <h2 className="m-0 font-display text-base leading-snug font-semibold">
+      {notes.map((note) => {
+        const preview = toBodyPreview(note.body);
+        return (
+          <MotionLi
+            {...(newlyArrived.has(note.id) ? ENTRY_MOTION : {})}
+            key={note.id}
+            className="flex flex-col gap-2 rounded-lg border border-line bg-paper-raised px-4 py-3 transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua"
+          >
+            <h2 className="m-0 font-display text-base leading-snug font-semibold">
+              <button
+                type="button"
+                className={`${BARE_BUTTON} text-left text-base font-semibold text-ink-aqua-text underline-offset-4 hover:underline`}
+                onClick={() => {
+                  onSelectNote(note.id);
+                }}
+              >
+                {note.title}
+              </button>
+            </h2>
+            {preview !== "" && (
+              <p className="m-0 font-body text-sm leading-relaxed text-text-soft">{preview}</p>
+            )}
             <button
               type="button"
-              className={`${BARE_BUTTON} text-left text-base font-semibold text-ink-aqua-text underline-offset-4 hover:underline`}
+              className={`${FOCUS_RING} cursor-pointer self-start rounded-md border border-line bg-transparent px-3 py-1 font-body text-xs text-text-faint transition-colors duration-[var(--duration-fast)] ease-standard hover:border-crit hover:text-crit`}
               onClick={() => {
-                onSelectNote(note.id);
+                void deleteNote(note);
               }}
             >
-              {note.title}
+              削除
             </button>
-          </h2>
-          <p className="m-0 font-body text-sm leading-relaxed text-text-soft">
-            {toPreview(note.body)}
-          </p>
-          <button
-            type="button"
-            className={`${FOCUS_RING} cursor-pointer self-start rounded-md border border-line bg-transparent px-3 py-1 font-body text-xs text-text-faint transition-colors duration-[var(--duration-fast)] ease-standard hover:border-crit hover:text-crit`}
-            onClick={() => {
-              void deleteNote(note);
-            }}
-          >
-            削除
-          </button>
-        </MotionLi>
-      ))}
+          </MotionLi>
+        );
+      })}
     </ul>
   );
 };

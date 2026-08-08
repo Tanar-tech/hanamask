@@ -137,13 +137,33 @@ describe("TaskList", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
   });
 
-  it("本文があるタスクは抜粋を素のテキストとして表示する", async () => {
+  it("本文があるタスクはMarkdownの記号を落とした抜粋を表示する", async () => {
     mockHanamask([[makeTask({ body: "# 見出し\n- 箇条書き" })]]);
 
     const { container } = render(<TaskList onSelectTask={vi.fn()} />);
 
-    expect(await screen.findByText(/# 見出し/)).toBeTruthy();
+    expect(await screen.findByText("見出し 箇条書き")).toBeTruthy();
     expect(container.querySelector("h1")).toBeNull();
+  });
+
+  it("Mermaidのコードフェンスは抜粋に出さない", async () => {
+    const body = ["前書き", "```mermaid", "flowchart TD", "  A --> B", "```"].join("\n");
+    mockHanamask([[makeTask({ body })]]);
+
+    render(<TaskList onSelectTask={vi.fn()} />);
+
+    expect(await screen.findByText("前書き")).toBeTruthy();
+    expect(screen.queryByText(/```/)).toBeNull();
+    expect(screen.queryByText(/flowchart/)).toBeNull();
+  });
+
+  it("Mermaidだけの本文では抜粋を描画しない", async () => {
+    mockHanamask([[makeTask({ body: "```mermaid\nflowchart TD\n```" })]]);
+
+    const { container } = render(<TaskList onSelectTask={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+
+    expect(container.querySelectorAll("li p")).toHaveLength(2);
   });
 
   it("本文が空のタスクでは抜粋を描画しない", async () => {

@@ -212,6 +212,64 @@ describe("TaskDetail", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
   });
 
+  it("ステータス更新の失敗はステータス欄の中に表示する", async () => {
+    const { updateTaskStatus } = mockHanamask(async () => makeTask());
+    updateTaskStatus.mockRejectedValueOnce(new Error("boom"));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    const select = await screen.findByRole("combobox", { name: "ステータス" });
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "done" } });
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(select.closest("div")?.contains(alert)).toBe(true);
+  });
+
+  it("ステータス更新に成功するとステータス欄のエラーが消える", async () => {
+    const { updateTaskStatus } = mockHanamask(async () => makeTask());
+    updateTaskStatus.mockRejectedValueOnce(new Error("boom"));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    const select = await screen.findByRole("combobox", { name: "ステータス" });
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "done" } });
+    });
+    expect(await screen.findByRole("alert")).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "in_progress" } });
+    });
+
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("本文が空のタスクでは本文が無いことを文字で示す", async () => {
+    mockHanamask(async () => makeTask({ body: "   " }));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByText("本文はまだありません")).toBeTruthy();
+  });
+
+  it("本文があるタスクでは本文が無いという表示を出さない", async () => {
+    mockHanamask(async () => makeTask({ body: "本文があります" }));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByText("本文があります")).toBeTruthy();
+    expect(screen.queryByText("本文はまだありません")).toBeNull();
+  });
+
+  it("戻るボタンに一覧画面と違う面色を付けない", async () => {
+    mockHanamask(async () => makeTask());
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+
+    const back = await screen.findByRole("button", { name: "戻る" });
+    expect(back.className).not.toContain("bg-paper-raised");
+  });
+
   it("MCP経由の変更通知を受けるとタスクを再取得して表示を更新する", async () => {
     let stored = makeTask();
     const { getTask, onTasksChanged } = mockHanamask(async () => stored);
