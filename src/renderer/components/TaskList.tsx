@@ -1,4 +1,7 @@
+import { li as MotionLi } from "motion/react-m";
 import { useCallback, useEffect, useState, type JSX } from "react";
+import { useNewlyArrived } from "../hooks/useNewlyArrived";
+import { ENTRY_MOTION } from "../styles/motion";
 import type { Task, TaskStatus } from "../../shared/preload-api";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -42,6 +45,8 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
     });
   }, [reload]);
 
+  const newlyArrived = useNewlyArrived(tasks.map((task) => task.id));
+
   if (error !== null) {
     return (
       <p
@@ -64,7 +69,8 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
   return (
     <ul aria-label="タスク一覧" className="m-0 flex list-none flex-col gap-3 p-0">
       {tasks.map((task) => (
-        <li
+        <MotionLi
+          {...(newlyArrived.has(task.id) ? ENTRY_MOTION : {})}
           key={task.id}
           className="flex flex-col gap-2 rounded-lg border border-line bg-paper-raised px-4 py-3 transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua"
         >
@@ -89,7 +95,7 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
               <p className="m-0 font-body text-xs text-text-faint">{task.dueDate}</p>
             )}
           </div>
-        </li>
+        </MotionLi>
       ))}
     </ul>
   );

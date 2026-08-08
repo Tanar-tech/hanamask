@@ -1,4 +1,4 @@
-import { LazyMotion } from "motion/react";
+import { LazyMotion, MotionConfig } from "motion/react";
 import { useEffect, useState, type JSX } from "react";
 import { AppShell, type ShellSection } from "./components/AppShell";
 import { ChatPanel } from "./components/ChatPanel";
@@ -11,7 +11,7 @@ import { SearchResults } from "./components/SearchResults";
 import { TaskDetail } from "./components/TaskDetail";
 import { TaskList } from "./components/TaskList";
 import { TrashView } from "./components/TrashView";
-import { loadMotionFeatures } from "./styles/motion";
+import { REDUCED_MOTION_POLICY, loadMotionFeatures } from "./styles/motion";
 import type { NavigateTarget } from "../shared/preload-api";
 
 const LIST_VIEW: NavigateTarget = { kind: "list" };
@@ -50,52 +50,55 @@ export const App = (): JSX.Element => {
   };
 
   // strict: アニメーションは m.* のみ許可し、初期ロードの重い motion.* を使えなくする。
+  // reducedMotion: motion の既定は "never" で、渡さないとOSで動きを切っていても項目が動く。
   return (
     <LazyMotion features={loadMotionFeatures} strict>
-      <AppShell
-        current={view.kind === "trash" ? "trash" : section}
-        onSelect={selectSection}
-        aside={
-          <ChatPanel
-            onOpenSettings={() => {
-              selectSection("settings");
-            }}
-          />
-        }
-      >
-        {view.kind === "list" && section === "settings" ? (
-          <ChatSettings />
-        ) : view.kind === "list" && section === "home" ? (
-          <Home
-            onSelectNote={openNote}
-            onSelectTask={openTask}
-            onSearch={(query) => {
-              setView({ kind: "search", query });
-            }}
-          />
-        ) : (
-          <div className={PANE}>
-            {/* keyで再マウントさせないと、応答待ちの非同期処理が切替後のノートを上書きしうる。 */}
-            {view.kind === "note" && (
-              <NoteDetail key={view.id} noteId={view.id} onBack={backToList} />
-            )}
-            {view.kind === "task" && (
-              <TaskDetail key={view.id} taskId={view.id} onBack={backToList} />
-            )}
-            {view.kind === "trash" && <TrashView onBack={backToList} />}
-            {view.kind === "search" && (
-              <SearchResults query={view.query} onSelectNote={openNote} onBack={backToList} />
-            )}
-            {view.kind === "list" && section === "notes" && <NoteList onSelectNote={openNote} />}
-            {view.kind === "list" && section === "tasks" && (
-              <>
-                <TaskList onSelectTask={openTask} />
-                <KanbanView />
-              </>
-            )}
-          </div>
-        )}
-      </AppShell>
+      <MotionConfig reducedMotion={REDUCED_MOTION_POLICY}>
+        <AppShell
+          current={view.kind === "trash" ? "trash" : section}
+          onSelect={selectSection}
+          aside={
+            <ChatPanel
+              onOpenSettings={() => {
+                selectSection("settings");
+              }}
+            />
+          }
+        >
+          {view.kind === "list" && section === "settings" ? (
+            <ChatSettings />
+          ) : view.kind === "list" && section === "home" ? (
+            <Home
+              onSelectNote={openNote}
+              onSelectTask={openTask}
+              onSearch={(query) => {
+                setView({ kind: "search", query });
+              }}
+            />
+          ) : (
+            <div className={PANE}>
+              {/* keyで再マウントさせないと、応答待ちの非同期処理が切替後のノートを上書きしうる。 */}
+              {view.kind === "note" && (
+                <NoteDetail key={view.id} noteId={view.id} onBack={backToList} />
+              )}
+              {view.kind === "task" && (
+                <TaskDetail key={view.id} taskId={view.id} onBack={backToList} />
+              )}
+              {view.kind === "trash" && <TrashView onBack={backToList} />}
+              {view.kind === "search" && (
+                <SearchResults query={view.query} onSelectNote={openNote} onBack={backToList} />
+              )}
+              {view.kind === "list" && section === "notes" && <NoteList onSelectNote={openNote} />}
+              {view.kind === "list" && section === "tasks" && (
+                <>
+                  <TaskList onSelectTask={openTask} />
+                  <KanbanView />
+                </>
+              )}
+            </div>
+          )}
+        </AppShell>
+      </MotionConfig>
     </LazyMotion>
   );
 };
