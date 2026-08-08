@@ -2,9 +2,14 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
 import type { Task, TaskInput, TaskStatus } from "../../shared/preload-api.js";
 
+// 共有の Task / TaskInput に body が入るまでの、DB層側の暫定拡張。
+export type TaskWithBody = Task & { body: string };
+type TaskCreateInput = TaskInput & { body?: string };
+
 interface TaskRow {
   id: string;
   title: string;
+  body: string;
   status: string;
   due_date: string | null;
   deleted_at: string | null;
@@ -30,6 +35,7 @@ const isTaskRow = (value: unknown): value is TaskRow => {
   return (
     typeof row.id === "string" &&
     typeof row.title === "string" &&
+    typeof row.body === "string" &&
     typeof row.status === "string" &&
     (row.due_date === null || typeof row.due_date === "string") &&
     (row.deleted_at === null || typeof row.deleted_at === "string") &&
@@ -38,20 +44,22 @@ const isTaskRow = (value: unknown): value is TaskRow => {
   );
 };
 
-const toTask = (row: TaskRow): Task => ({
+const toTask = (row: TaskRow): TaskWithBody => ({
   id: row.id,
   title: row.title,
+  body: row.body,
   status: toTaskStatus(row.status),
   dueDate: row.due_date,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
 
-export const createTask = (input: TaskInput): Task => {
+export const createTask = (input: TaskCreateInput): TaskWithBody => {
   const timestamp = new Date().toISOString();
-  const task: Task = {
+  const task: TaskWithBody = {
     id: randomUUID(),
     title: input.title,
+    body: input.body ?? "",
     status: toTaskStatus(input.status),
     dueDate: input.dueDate,
     createdAt: timestamp,
@@ -59,13 +67,21 @@ export const createTask = (input: TaskInput): Task => {
   };
   getDb()
     .prepare(
-      "INSERT INTO tasks (id, title, status, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO tasks (id, title, body, status, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
-    .run(task.id, task.title, task.status, task.dueDate, task.createdAt, task.updatedAt);
+    .run(
+      task.id,
+      task.title,
+      task.body,
+      task.status,
+      task.dueDate,
+      task.createdAt,
+      task.updatedAt,
+    );
   return task;
 };
 
-export const getTask = (id: string): Task | null => {
+export const getTask = (id: string): TaskWithBody | null => {
   const row: unknown = getDb().prepare("SELECT * FROM tasks WHERE id = ?").get(id);
   if (row === undefined) return null;
   if (!isTaskRow(row)) {
@@ -74,7 +90,7 @@ export const getTask = (id: string): Task | null => {
   return toTask(row);
 };
 
-export const listTasks = (includeDeleted = false): Task[] => {
+export const listTasks = (includeDeleted = false): TaskWithBody[] => {
   const where = includeDeleted ? "" : "WHERE deleted_at IS NULL";
   const rows: unknown[] = getDb()
     .prepare(`SELECT * FROM tasks ${where} ORDER BY created_at DESC`)
@@ -89,24 +105,28 @@ export const listTasks = (includeDeleted = false): Task[] => {
 
 export interface TaskUpdateInput {
   title?: string;
+  body?: string;
   status?: TaskStatus;
   dueDate?: string | null;
 }
 
-export const updateTask = (id: string, input: TaskUpdateInput): Task | null => {
+export const updateTask = (id: string, input: TaskUpdateInput): TaskWithBody | null => {
   const existing = getTask(id);
   if (existing === null) return null;
 
   const updatedAt = new Date().toISOString();
   const title = input.title ?? existing.title;
+  const body = input.body ?? existing.body;
   const status = input.status === undefined ? existing.status : toTaskStatus(input.status);
   const dueDate = input.dueDate === undefined ? existing.dueDate : input.dueDate;
 
   getDb()
-    .prepare("UPDATE tasks SET title = ?, status = ?, due_date = ?, updated_at = ? WHERE id = ?")
-    .run(title, status, dueDate, updatedAt, id);
+    .prepare(
+      "UPDATE tasks SET title = ?, body = ?, status = ?, due_date = ?, updated_at = ? WHERE id = ?",
+    )
+    .run(title, body, status, dueDate, updatedAt, id);
 
-  return { ...existing, title, status, dueDate, updatedAt };
+  return { ...existing, title, body, status, dueDate, updatedAt };
 };
 
 export const softDeleteTask = (id: string): boolean => {
@@ -117,7 +137,7 @@ export const softDeleteTask = (id: string): boolean => {
   return result.changes > 0;
 };
 
-export const restoreTask = (id: string): Task | null => {
+export const restoreTask = (id: string): TaskWithBody | null => {
   const result = getDb()
     .prepare("UPDATE tasks SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL")
     .run(id);

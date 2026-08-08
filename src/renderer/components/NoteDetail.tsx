@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type JSX } from "react";
 import type { Image, Note } from "../../shared/preload-api";
 import { EntityLinks } from "./EntityLinks";
-import { MarkdownBody } from "./MarkdownBody";
-import { MermaidDiagram } from "./MermaidDiagram";
+import { MarkdownDocument } from "./MarkdownDocument";
 import { NoteVersionHistory } from "./NoteVersionHistory";
 
 interface NoteDetailProps {
   noteId: string;
   onBack: () => void;
-}
-
-interface BodySegment {
-  kind: "text" | "mermaid";
-  content: string;
 }
 
 interface NoteDraft {
@@ -73,29 +67,6 @@ const findImageFile = (clipboardData: DataTransfer | null): File | null => {
   const imageItem = Array.from(clipboardData.items).find((item) => item.type.startsWith("image/"));
   return imageItem?.getAsFile() ?? null;
 };
-
-const MERMAID_FENCE = /^```mermaid[ \t]*\r?\n([\s\S]*?)\r?\n?^```[ \t]*$/gm;
-
-const splitByMermaidFence = (body: string): BodySegment[] => {
-  const segments: BodySegment[] = [];
-  let lastIndex = 0;
-  for (const match of body.matchAll(MERMAID_FENCE)) {
-    const text = body.slice(lastIndex, match.index);
-    if (text.trim() !== "") segments.push({ kind: "text", content: text });
-    segments.push({ kind: "mermaid", content: match[1] ?? "" });
-    lastIndex = match.index + match[0].length;
-  }
-  const rest = body.slice(lastIndex);
-  if (rest.trim() !== "") segments.push({ kind: "text", content: rest });
-  return segments;
-};
-
-const renderSegment = (segment: BodySegment, index: number): JSX.Element =>
-  segment.kind === "mermaid" ? (
-    <MermaidDiagram key={`${segment.kind}-${index}`} code={segment.content} />
-  ) : (
-    <MarkdownBody key={`${segment.kind}-${index}`} content={segment.content} />
-  );
 
 const toDraft = (note: Note): NoteDraft => ({
   title: note.title,
@@ -430,9 +401,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
               ))}
             </ul>
           )}
-          <div className="flex flex-col gap-4">
-            {splitByMermaidFence(note.body).map(renderSegment)}
-          </div>
+          <MarkdownDocument content={note.body} />
           <section className="flex flex-col gap-2">
             <label htmlFor={IMAGE_FIELD_ID} className={SECTION_LABEL}>
               {ATTACH_LABEL}

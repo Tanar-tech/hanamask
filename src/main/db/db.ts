@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { applyMigrations } from "./migrations.js";
 
 type DatabaseHandle = Database.Database;
 
@@ -28,6 +29,9 @@ export const openDb = (dbFilePath: string): DatabaseHandle => {
   connection = db;
   try {
     applySchema(db);
+    // Every path that reaches a database file goes through openDb, including the reopen after a
+    // backup import, so older files get their missing columns here regardless of where they came from.
+    applyMigrations(db);
   } catch (error) {
     // Leaving a half-initialized handle in place would let later getDb() calls hit a broken schema.
     closeDb();
