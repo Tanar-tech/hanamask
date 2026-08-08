@@ -57,6 +57,11 @@ const BODY = [
 // 本文中のリンクは外部サイトを指す。同じウィンドウで開くとアプリ自体が置き換わるため、
 // 新しいウィンドウに逃がす（外部ブラウザで開く挙動はmainプロセス側の未決事項）。
 const COMPONENTS: Components = {
+  // styleタグの中のCSSはドキュメント全体に効くため、本文コンテナの外（body::before など）に
+  // 全面オーバーレイを作れてしまい、本文に掛けた閉じ込めを迂回できる。装飾はインラインの
+  // style属性で足りるので、styleタグは中身ごと捨てる。サニタイズのtagNamesには残したまま
+  // にしてある（未許可要素にすると中のCSSが本文のテキストとして持ち上げられるため）。
+  style: () => null,
   a: ({ href, title, children }) => (
     <a href={href} title={title} target="_blank" rel="noreferrer noopener">
       {children}
