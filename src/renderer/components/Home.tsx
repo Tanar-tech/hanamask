@@ -1,4 +1,7 @@
+import { li as MotionLi } from "motion/react-m";
 import { useCallback, useEffect, useState, type FormEvent, type JSX } from "react";
+import { useNewlyArrived } from "../hooks/useNewlyArrived";
+import { ENTRY_MOTION } from "../styles/motion";
 import type { Note, Task, TaskStatus } from "../../shared/preload-api";
 
 const RECENT_NOTE_LIMIT = 6;
@@ -96,13 +99,18 @@ const SearchBar = ({ onSearch }: { onSearch: (query: string) => void }): JSX.Ele
 const NoteCard = ({
   note,
   justUpdated,
+  justArrived,
   onSelect,
 }: {
   note: Note;
   justUpdated: boolean;
+  justArrived: boolean;
   onSelect: () => void;
 }): JSX.Element => (
-  <li className={`${CARD} border-l-4 ${justUpdated ? "border-l-ink-pink" : "border-l-line"}`}>
+  <MotionLi
+    {...(justArrived ? ENTRY_MOTION : {})}
+    className={`${CARD} border-l-4 ${justUpdated ? "border-l-ink-pink" : "border-l-line"}`}
+  >
     <button type="button" onClick={onSelect} className={TITLE_BUTTON}>
       {note.title}
     </button>
@@ -110,11 +118,22 @@ const NoteCard = ({
       <p className={`${RESET_TEXT} mt-1 font-body text-xs text-ink-pink`}>{AGENT_UPDATE_MARK}</p>
     )}
     <p className={`${RESET_TEXT} mt-1 font-body text-sm text-text-soft`}>{toPreview(note.body)}</p>
-  </li>
+  </MotionLi>
 );
 
-const TaskRow = ({ task, onSelect }: { task: Task; onSelect: () => void }): JSX.Element => (
-  <li className={`${CARD} flex flex-wrap items-center gap-3`}>
+const TaskRow = ({
+  task,
+  justArrived,
+  onSelect,
+}: {
+  task: Task;
+  justArrived: boolean;
+  onSelect: () => void;
+}): JSX.Element => (
+  <MotionLi
+    {...(justArrived ? ENTRY_MOTION : {})}
+    className={`${CARD} flex flex-wrap items-center gap-3`}
+  >
     <span
       className={`rounded-full border px-2 py-0.5 font-body text-xs ${statusToneOf(task.status)}`}
     >
@@ -126,7 +145,7 @@ const TaskRow = ({ task, onSelect }: { task: Task; onSelect: () => void }): JSX.
     <span className={`${RESET_TEXT} font-body text-xs text-text-faint`}>
       {task.dueDate === null ? "期限なし" : `期限 ${task.dueDate}`}
     </span>
-  </li>
+  </MotionLi>
 );
 
 export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.Element => {
@@ -175,6 +194,9 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
   const visibleNotes = recentNotesOf(notes);
   const visibleTasks = activeTasksOf(tasks);
   const hasJustUpdatedNote = visibleNotes.some((note) => isJustUpdated(note, nowMs));
+  // 判定は表示している範囲で行う。押し出されて戻ってきた項目も「現れた」として扱う。
+  const arrivedNotes = useNewlyArrived(visibleNotes.map((note) => note.id));
+  const arrivedTasks = useNewlyArrived(visibleTasks.map((task) => task.id));
 
   useEffect(() => {
     if (!hasJustUpdatedNote) return;
@@ -209,6 +231,7 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
                 key={note.id}
                 note={note}
                 justUpdated={isJustUpdated(note, nowMs)}
+                justArrived={arrivedNotes.has(note.id)}
                 onSelect={() => {
                   onSelectNote(note.id);
                 }}
@@ -236,6 +259,7 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
               <TaskRow
                 key={task.id}
                 task={task}
+                justArrived={arrivedTasks.has(task.id)}
                 onSelect={() => {
                   onSelectTask(task.id);
                 }}

@@ -47,6 +47,12 @@ describe("モーションの共通定数", () => {
     expect(appSource).toContain("features={loadMotionFeatures}");
   });
 
+  /* motion の既定は "never" で、渡し忘れるとOSで動きを切っていても項目が動く。 */
+  it("App が reduced motion の方針を MotionConfig に渡す", () => {
+    expect(appSource).toContain("<MotionConfig");
+    expect(appSource).toContain("reducedMotion={REDUCED_MOTION_POLICY}");
+  });
+
   it("prefers-reduced-motion の判定をOSの設定から読む", () => {
     const matches = (query: string): boolean =>
       query.includes("prefers-reduced-motion");

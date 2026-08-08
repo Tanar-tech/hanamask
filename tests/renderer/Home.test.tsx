@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
+import { renderWithMotion as render } from "./motion-render";
 import { Home } from "../../src/renderer/components/Home";
 import type { Image, Note, Task } from "../../src/shared/preload-api";
 
