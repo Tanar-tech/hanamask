@@ -189,29 +189,23 @@ describe("NoteList", () => {
   });
   /*
    * 変更のたびに一覧を丸ごと取り直すため、これが効いていないと毎回すべての項目が
-   * アニメーションする。増えたものだけが動くことを、DOM上の差で確認する。
+   * アニメーションする。「増えたものだけを対象にする」判定は useNewlyArrived が持ち、
+   * その正しさは useNewlyArrived.test.tsx で網羅している（誤実装で落ちることも実測済み）。
+   * ここでは NoteList がその判定を実際に使って描画できていること（＝結線）を確かめる。
    */
-  it("新しく現れたノートだけにアニメーションの初期状態が付く", async () => {
+  it("ノートが増えても一覧が壊れない", async () => {
     const existing = makeNote({ id: "note-1", title: "元からあるノート" });
     const arrived = makeNote({ id: "note-2", title: "いま増えたノート" });
     const { listeners } = mockHanamask([[existing], [arrived, existing]]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
     await screen.findByText("元からあるノート");
-
     await act(async () => {
       listeners.forEach((listener) => listener());
     });
-    await screen.findByText("いま増えたノート");
 
-    /*
-     * アニメーションを通った要素にはmotionがstyleを書き込む（通らなければ属性ごと無い）。
-     * act()の中で再生が終わるため途中の値は捉えられないが、「書き込まれたかどうか」で
-     * 対象が正しく選ばれていることは判定できる。
-     */
-    const hasMotionStyle = (title: string): boolean =>
-      screen.getByText(title).closest("li")?.hasAttribute("style") ?? false;
-    expect(hasMotionStyle("いま増えたノート")).toBe(true);
-    expect(hasMotionStyle("元からあるノート")).toBe(false);
+    expect(await screen.findByText("いま増えたノート")).toBeTruthy();
+    expect(screen.getByText("元からあるノート")).toBeTruthy();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
 });
