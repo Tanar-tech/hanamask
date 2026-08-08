@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type JSX } from "react";
 import type { Image, Note } from "../../shared/preload-api";
 import { EntityLinks } from "./EntityLinks";
+import { MarkdownBody } from "./MarkdownBody";
 import { MermaidDiagram } from "./MermaidDiagram";
 import { NoteVersionHistory } from "./NoteVersionHistory";
 
@@ -93,12 +94,7 @@ const renderSegment = (segment: BodySegment, index: number): JSX.Element =>
   segment.kind === "mermaid" ? (
     <MermaidDiagram key={`${segment.kind}-${index}`} code={segment.content} />
   ) : (
-    <p
-      key={`${segment.kind}-${index}`}
-      className="m-0 font-body text-base leading-relaxed break-words whitespace-pre-wrap text-text"
-    >
-      {segment.content}
-    </p>
+    <MarkdownBody key={`${segment.kind}-${index}`} content={segment.content} />
   );
 
 const toDraft = (note: Note): NoteDraft => ({
