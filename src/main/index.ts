@@ -23,7 +23,7 @@ import {
   updateNote,
   type NoteUpdateInput,
 } from "./db/notes-repo.js";
-import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
+import { getTask, listTasks, updateTask, type TaskUpdateInput } from "./db/tasks-repo.js";
 import { listImages } from "./db/images-repo.js";
 import { createLink, deleteLink, listLinks, type LinkInput } from "./db/links-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
@@ -50,7 +50,11 @@ import type {
 } from "../shared/preload-api.js";
 import { setUiNavigator } from "./ui/navigate.js";
 import { createBackupArchive } from "./backup/export-backup.js";
-import { applyBackupArchive, type ImportPaths } from "./backup/import-backup.js";
+import {
+  applyBackupArchive,
+  removeImportLeftovers,
+  type ImportPaths,
+} from "./backup/import-backup.js";
 import {
   emitNotesChanged,
   emitTasksChanged,
@@ -79,6 +83,7 @@ const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
 const NOTES_RESTORE_CHANNEL = "notes:restore";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
+const TASKS_UPDATE_CHANNEL = "tasks:update";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
 const CHAT_SETTINGS_READ_CHANNEL = "chat:read-settings";
 const CHAT_SEND_CHANNEL = "chat:send";
@@ -247,6 +252,17 @@ const updateTaskStatus = (_event: IpcMainInvokeEvent, id: string, status: TaskSt
   if (updateTask(id, { status }) !== null) emitTasksChanged();
 };
 
+// MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
+const editTask = (
+  _event: IpcMainInvokeEvent,
+  id: string,
+  input: TaskUpdateInput,
+): Task | null => {
+  const updated = updateTask(id, input);
+  if (updated !== null) emitTasksChanged();
+  return updated;
+};
+
 const attachImageToNote = (
   _event: IpcMainInvokeEvent,
   noteId: string,
@@ -349,15 +365,19 @@ const handleTasksChanged = (change?: EntityChange): void => {
 let stopMcpServer: (() => Promise<void>) | undefined;
 
 // E2E tests point this at a temp file to avoid touching the developer's real note database.
-const resolveDbFilePath = (): string => {
+const dbPathOverride = (): string | undefined => {
   const override = process.env.HANAMASK_DB_PATH;
-  if (override !== undefined && override !== "") return override;
-  return join(app.getPath("userData"), DB_FILE_NAME);
+  return override === undefined || override === "" ? undefined : override;
 };
+
+const resolveDbFilePath = (): string =>
+  dbPathOverride() ?? join(app.getPath("userData"), DB_FILE_NAME);
+
+const resolveImagesDirPath = (): string => join(app.getPath("userData"), IMAGES_DIR_NAME);
 
 const resolveBackupPaths = (): ImportPaths => ({
   dbFilePath: resolveDbFilePath(),
-  imagesDirPath: join(app.getPath("userData"), IMAGES_DIR_NAME),
+  imagesDirPath: resolveImagesDirPath(),
   backupsDirPath: join(app.getPath("userData"), BACKUPS_DIR_NAME),
 });
 
@@ -398,7 +418,8 @@ const importBackupFromFile = async (): Promise<BackupImportResult> => {
 
 const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
-  setImagesDirPath(join(app.getPath("userData"), IMAGES_DIR_NAME));
+  removeImportLeftovers(resolveImagesDirPath());
+  setImagesDirPath(resolveImagesDirPath());
   setChatSettingsPath(join(app.getPath("userData"), CHAT_SETTINGS_FILE_NAME));
   purgeSoftDeletedRecords(new Date());
   applyContentSecurityPolicy();
@@ -428,6 +449,7 @@ ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(NOTES_LIST_DELETED_CHANNEL, () => listDeletedNotes());
 ipcMain.handle(NOTES_RESTORE_CHANNEL, undeleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
+ipcMain.handle(TASKS_UPDATE_CHANNEL, editTask);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
 ipcMain.handle(CHAT_SETTINGS_READ_CHANNEL, () => readChatSettings());
 ipcMain.handle(
@@ -474,9 +496,28 @@ app.on("before-quit", () => {
   });
 });
 
-app
-  .whenReady()
-  .then(start)
-  .catch((error: unknown) => {
-    throw new Error(`Failed to start hanamask: ${String(error)}`);
+const launch = (): void => {
+  app.on("second-instance", () => {
+    showMainWindow();
   });
+  app
+    .whenReady()
+    .then(start)
+    .catch((error: unknown) => {
+      throw new Error(`Failed to start hanamask: ${String(error)}`);
+    });
+};
+
+/*
+ * 同じDBを2プロセスが開くと、起動時のマイグレーションが互いの適用と競合し、後発の起動が
+ * 失敗する。ロックを取れなかった側は起動せず、先に動いているウィンドウを前に出すだけにする。
+ * HANAMASK_DB_PATH 指定時（E2E）は各起動が自分のDBを見ており、worktreeごとに同時起動する
+ * ため対象外にする。
+ */
+const usesSharedUserData = dbPathOverride() === undefined;
+
+if (usesSharedUserData && !app.requestSingleInstanceLock()) {
+  app.quit();
+} else {
+  launch();
+}

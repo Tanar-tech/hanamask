@@ -60,8 +60,61 @@ describe("mcp task tools", () => {
     ]);
     expect(findTaskTool("create_task")?.definition.inputSchema.type).toBe("object");
     expect(Object.keys(findTaskTool("create_task")?.definition.inputSchema.properties ?? {}).sort()).toEqual(
-      ["due_date", "status", "title"],
+      ["body", "due_date", "status", "title"],
     );
+    expect(
+      Object.keys(findTaskTool("update_task")?.definition.inputSchema.properties ?? {}).sort(),
+    ).toEqual(["body", "due_date", "id", "status", "title"]);
+  });
+
+  // 本文なしのタスク作成は今後も許すため、bodyはrequiredに入れない。
+  it("create_taskのbodyは任意である", () => {
+    expect(findTaskTool("create_task")?.definition.inputSchema.required).toEqual(["title"]);
+  });
+
+  it("create_taskに渡した本文が保存され、list_tasksで読み出せる", () => {
+    const id = createTaskThroughTool({ title: "本文つき", body: "# 見出し\n\n- 箇条書き" });
+
+    expect(getTask(id)?.body).toBe("# 見出し\n\n- 箇条書き");
+    expect(readJsonPayload(callTool("list_tasks", {}))).toEqual({
+      tasks: [expect.objectContaining({ id, body: "# 見出し\n\n- 箇条書き" })],
+    });
+  });
+
+  it("bodyを省略したcreate_taskでは本文が空文字になる", () => {
+    const id = createTaskThroughTool({ title: "本文なし" });
+
+    expect(getTask(id)?.body).toBe("");
+  });
+
+  it("bodyが文字列でないcreate_taskはエラーを返す", () => {
+    expect(callTool("create_task", { title: "不正な本文", body: 42 }).isError).toBe(true);
+  });
+
+  it("update_taskで本文だけを更新でき、他のフィールドは巻き添えにならない", () => {
+    const id = createTaskThroughTool({
+      title: "旧題",
+      body: "旧本文",
+      status: "in_progress",
+      due_date: "2026-08-10",
+    });
+
+    const result = callTool("update_task", { id, body: "新本文" });
+
+    expect(result.isError).toBeFalsy();
+    const stored = getTask(id);
+    expect(stored?.body).toBe("新本文");
+    expect(stored?.title).toBe("旧題");
+    expect(stored?.status).toBe("in_progress");
+    expect(stored?.dueDate).toBe("2026-08-10");
+  });
+
+  it("update_taskでbodyを省略しても既存の本文が消えない", () => {
+    const id = createTaskThroughTool({ title: "維持", body: "消えない本文" });
+
+    callTool("update_task", { id, title: "改題" });
+
+    expect(getTask(id)?.body).toBe("消えない本文");
   });
 
   it("create_taskで作成したタスクが永続化される", () => {

@@ -26,6 +26,11 @@ export const SANITIZE_SCHEMA: typeof defaultSchema = {
 // ここで打ち消す。
 const BODY = [
   "flex flex-col gap-3 font-body text-base leading-relaxed break-words text-text",
+  // 本文の style は管理者が許可した装飾用だが、position:fixed のオーバーレイでアプリ全面を
+  // 覆う（クリックジャッキング）のは許さない。paint containment はこの要素を fixed 子孫の
+  // 包含ブロックにし、スタッキングコンテキストも作るので、z-index ごと本文の中に収まる。
+  // 閉じ込めは同時にはみ出しを切り落とすため、幅の広い表などは横スクロールで読ませる。
+  "[contain:paint] overflow-x-auto",
   "[&_:is(h1,h2,h3,h4,h5,h6)]:m-0 [&_:is(h1,h2,h3,h4,h5,h6)]:font-display",
   "[&_:is(h1,h2,h3,h4,h5,h6)]:font-bold [&_:is(h1,h2,h3,h4,h5,h6)]:break-words",
   "[&_h1]:text-2xl [&_h2]:text-xl [&_h3]:text-lg [&_:is(h4,h5,h6)]:text-base",
@@ -52,6 +57,11 @@ const BODY = [
 // 本文中のリンクは外部サイトを指す。同じウィンドウで開くとアプリ自体が置き換わるため、
 // 新しいウィンドウに逃がす（外部ブラウザで開く挙動はmainプロセス側の未決事項）。
 const COMPONENTS: Components = {
+  // styleタグの中のCSSはドキュメント全体に効くため、本文コンテナの外（body::before など）に
+  // 全面オーバーレイを作れてしまい、本文に掛けた閉じ込めを迂回できる。装飾はインラインの
+  // style属性で足りるので、styleタグは中身ごと捨てる。サニタイズのtagNamesには残したまま
+  // にしてある（未許可要素にすると中のCSSが本文のテキストとして持ち上げられるため）。
+  style: () => null,
   a: ({ href, title, children }) => (
     <a href={href} title={title} target="_blank" rel="noreferrer noopener">
       {children}

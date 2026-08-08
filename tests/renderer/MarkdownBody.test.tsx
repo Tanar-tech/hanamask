@@ -59,10 +59,11 @@ describe("MarkdownBody のサニタイズ設定", () => {
     expect(props.style).toEqual({ width: "10px" });
   });
 
-  it("styleタグは要素として描画し、CSSを本文のテキストとして出さない", () => {
+  it("styleタグは描画せず、CSSを本文のテキストとしても出さない", () => {
     render(<MarkdownBody content={"<style>p { color: red }</style>\n\n本文"} />);
 
-    expect(document.querySelector("style")?.textContent).toBe("p { color: red }");
+    expect(document.querySelector("style")).toBeNull();
+    expect(document.body.textContent).not.toContain("color: red");
     expect(document.querySelector("p")?.textContent).toBe("本文");
   });
 
@@ -131,6 +132,39 @@ describe("MarkdownBody（実際に描画した結果）", () => {
 
     expect(container.querySelector("table")).not.toBeNull();
     expect(container.querySelectorAll("td")).toHaveLength(2);
+  });
+
+  // position:fixed の子孫は contain:paint を持つ要素に閉じ込められる（その要素が包含ブロックに
+  // なり、かつスタッキングコンテキストを作るのでz-indexも外へ抜けない）。本文はAIエージェントが
+  // 書くため、これが無いと画面全面に偽のUIを重ねられる。
+  it("本文コンテナは position:fixed の子孫を閉じ込める", async () => {
+    const container = await renderBody(
+      '<div style="position:fixed;inset:0;z-index:99999">偽のダイアログ</div>',
+    );
+
+    const body = container.firstElementChild;
+    expect(body?.className.split(" ")).toContain("[contain:paint]");
+    expect(body?.querySelector("div[style]")?.textContent).toBe("偽のダイアログ");
+  });
+
+  // styleタグの中のCSSはドキュメント全体に効くため、本文コンテナの外（body::before など）に
+  // 全面オーバーレイを作れてしまい、上のpaint containmentを迂回できる。だからstyleタグは捨てる。
+  it("styleタグでコンテナ外に全面オーバーレイを作らせない", async () => {
+    const container = await renderBody(
+      "<style>body::before{content:'';position:fixed;inset:0;z-index:99999;background:red}</style>\n\n本文",
+    );
+
+    expect(document.querySelector("style")).toBeNull();
+    expect(container.textContent).not.toContain("position:fixed");
+    expect(container.textContent).toContain("本文");
+  });
+
+  it("インラインのstyle属性による装飾は残す", async () => {
+    const container = await renderBody('<span style="color: red; font-weight: bold">装飾</span>');
+
+    const span = container.querySelector("span[style]");
+    expect(span?.textContent).toBe("装飾");
+    expect(span?.getAttribute("style")).toContain("color");
   });
 
   it("タスクリストと取り消し線を描画する", async () => {

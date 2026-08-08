@@ -5,6 +5,7 @@ import type { Task, TaskInput, TaskStatus } from "../../shared/preload-api.js";
 interface TaskRow {
   id: string;
   title: string;
+  body: string;
   status: string;
   due_date: string | null;
   deleted_at: string | null;
@@ -30,6 +31,7 @@ const isTaskRow = (value: unknown): value is TaskRow => {
   return (
     typeof row.id === "string" &&
     typeof row.title === "string" &&
+    typeof row.body === "string" &&
     typeof row.status === "string" &&
     (row.due_date === null || typeof row.due_date === "string") &&
     (row.deleted_at === null || typeof row.deleted_at === "string") &&
@@ -41,6 +43,7 @@ const isTaskRow = (value: unknown): value is TaskRow => {
 const toTask = (row: TaskRow): Task => ({
   id: row.id,
   title: row.title,
+  body: row.body,
   status: toTaskStatus(row.status),
   dueDate: row.due_date,
   createdAt: row.created_at,
@@ -52,6 +55,7 @@ export const createTask = (input: TaskInput): Task => {
   const task: Task = {
     id: randomUUID(),
     title: input.title,
+    body: input.body ?? "",
     status: toTaskStatus(input.status),
     dueDate: input.dueDate,
     createdAt: timestamp,
@@ -59,9 +63,17 @@ export const createTask = (input: TaskInput): Task => {
   };
   getDb()
     .prepare(
-      "INSERT INTO tasks (id, title, status, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO tasks (id, title, body, status, due_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
-    .run(task.id, task.title, task.status, task.dueDate, task.createdAt, task.updatedAt);
+    .run(
+      task.id,
+      task.title,
+      task.body,
+      task.status,
+      task.dueDate,
+      task.createdAt,
+      task.updatedAt,
+    );
   return task;
 };
 
@@ -89,6 +101,7 @@ export const listTasks = (includeDeleted = false): Task[] => {
 
 export interface TaskUpdateInput {
   title?: string;
+  body?: string;
   status?: TaskStatus;
   dueDate?: string | null;
 }
@@ -99,14 +112,17 @@ export const updateTask = (id: string, input: TaskUpdateInput): Task | null => {
 
   const updatedAt = new Date().toISOString();
   const title = input.title ?? existing.title;
+  const body = input.body ?? existing.body;
   const status = input.status === undefined ? existing.status : toTaskStatus(input.status);
   const dueDate = input.dueDate === undefined ? existing.dueDate : input.dueDate;
 
   getDb()
-    .prepare("UPDATE tasks SET title = ?, status = ?, due_date = ?, updated_at = ? WHERE id = ?")
-    .run(title, status, dueDate, updatedAt, id);
+    .prepare(
+      "UPDATE tasks SET title = ?, body = ?, status = ?, due_date = ?, updated_at = ? WHERE id = ?",
+    )
+    .run(title, body, status, dueDate, updatedAt, id);
 
-  return { ...existing, title, status, dueDate, updatedAt };
+  return { ...existing, title, body, status, dueDate, updatedAt };
 };
 
 export const softDeleteTask = (id: string): boolean => {

@@ -71,6 +71,7 @@ vi.mock("electron", () => ({
     whenReady: () => Promise.resolve(),
     on: vi.fn(),
     quit: vi.fn(),
+    requestSingleInstanceLock: () => true,
     getPath: vi.fn(() => "/tmp/hanamask-userdata"),
   },
   BrowserWindow: Object.assign(BrowserWindowMock, {
@@ -226,6 +227,7 @@ const emitLinksChangedFromMcp = (): void => {
 const sampleTask: Task = {
   id: "task-1",
   title: "タスク",
+  body: "",
   status: "todo",
   dueDate: null,
   createdAt: "2026-08-03T00:00:00.000Z",

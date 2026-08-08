@@ -16,6 +16,7 @@ const stubImage: Image = {
 const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: "task-1",
   title: "MCPサーバーを実装する",
+  body: "",
   status: "todo",
   dueDate: "2026-08-10",
   createdAt: "2026-08-03T00:00:00.000Z",
@@ -47,6 +48,7 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     listTasks,
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
+    updateTask: vi.fn(async () => null),
     onTasksChanged,
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),
@@ -133,6 +135,57 @@ describe("TaskList", () => {
     render(<TaskList onSelectTask={vi.fn()} />);
 
     expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
+  it("本文があるタスクはMarkdownの記号を落とした抜粋を表示する", async () => {
+    mockHanamask([[makeTask({ body: "# 見出し\n- 箇条書き" })]]);
+
+    const { container } = render(<TaskList onSelectTask={vi.fn()} />);
+
+    expect(await screen.findByText("見出し 箇条書き")).toBeTruthy();
+    expect(container.querySelector("h1")).toBeNull();
+  });
+
+  it("Mermaidのコードフェンスは抜粋に出さない", async () => {
+    const body = ["前書き", "```mermaid", "flowchart TD", "  A --> B", "```"].join("\n");
+    mockHanamask([[makeTask({ body })]]);
+
+    render(<TaskList onSelectTask={vi.fn()} />);
+
+    expect(await screen.findByText("前書き")).toBeTruthy();
+    expect(screen.queryByText(/```/)).toBeNull();
+    expect(screen.queryByText(/flowchart/)).toBeNull();
+  });
+
+  it("Mermaidだけの本文では抜粋を描画しない", async () => {
+    mockHanamask([[makeTask({ body: "```mermaid\nflowchart TD\n```" })]]);
+
+    const { container } = render(<TaskList onSelectTask={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+
+    expect(container.querySelectorAll("li p")).toHaveLength(2);
+  });
+
+  it("本文が空のタスクでは抜粋を描画しない", async () => {
+    mockHanamask([[makeTask({ body: "" }), makeTask({ id: "task-2", body: "抜粋される本文" })]]);
+
+    const { container } = render(<TaskList onSelectTask={vi.fn()} />);
+    await screen.findByText("抜粋される本文");
+
+    const cards = container.querySelectorAll("li");
+    expect(cards).toHaveLength(2);
+    // 抜粋を出すカードだけが段落を1つ多く持つ。
+    expect(cards[0]?.querySelectorAll("p")).toHaveLength(2);
+    expect(cards[1]?.querySelectorAll("p")).toHaveLength(3);
+  });
+
+  it("空白だけの本文では抜粋を描画しない", async () => {
+    mockHanamask([[makeTask({ body: "   \n  " })]]);
+
+    const { container } = render(<TaskList onSelectTask={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+
+    expect(container.querySelectorAll("li p")).toHaveLength(2);
   });
 
   it("アンマウント時に購読を解除する", async () => {

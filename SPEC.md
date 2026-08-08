@@ -1,123 +1,122 @@
-# SPEC — T25 PR 3〜5: 各画面のUI刷新
+# SPEC: タスクに本文を持たせる（T36）
 
-作成日: 2026-08-06
-対象タスク: `docs/TASKS.md` T25（デスクトップアプリのUI一新）の **PR 3・PR 4・PR 5**
-前提: PR 1（Tailwind・トークン・motionの土台、PR #52）と PR 2（骨格とホーム画面、PR #57）はマージ済み。モックアップ・配色トークンは管理者承認済み。
+## Part 1: 利用者向け
 
-> 過去のSPEC（基盤(1) ノート機能の垂直スライス＝PR #5、T25 PR 2＝PR #56）は各コミットに残っている。このファイルは常に「いま実装中の機能」の正とする。
+### 何を・なぜ
 
----
+**今のタスクはタイトルしか持てない。**「T36: タスクに本文を持たせる」のように、伝えたいことを全部タイトルに詰め込むしかなく、経緯・受け入れ条件・参考リンクを書く場所がない。
 
-## Part 1: 利用者向け（このSPECのレビュー対象）
+タスクにも**ノートと同じ本文**を持たせる。書き方もノートと揃える。
 
-### 何を作るか
+- **Markdown**（見出し・箇条書き・表・コードブロック・引用、GFMの表/タスクリスト/取り消し線）
+- **HTMLの直接埋め込み**（`<div style="...">` 等。`<script>` / `<iframe>` / `onerror` 等は描画時に除去される）
+- **Mermaid図**（```` ```mermaid ```` のコードフェンス）
 
-PR 2 で骨格（左レール＋ホーム）ができたので、残りの画面の中身を新しいデザインに置き換える。**機能は1つも変えない。見た目と操作のわかりやすさだけを変える。**
+エージェントがMCP経由でタスクを作るときに本文を書け、利用者はデスクトップUIで読んで編集できる。
 
-3つのまとまりに分け、並行して進める。
+### 操作フロー
 
-| PR | 対象画面 |
+| 場面 | 変わること |
 |---|---|
-| PR 3 | ノート詳細（本文・編集・Mermaid図・画像・編集履歴） |
-| PR 4 | タスク（カンバン・タスク詳細） |
-| PR 5 | ゴミ箱・検索結果・リンク |
+| **タスク詳細を開く** | ステータス・期限・リンクの下に**本文**が表示される。ノート詳細と同じ見た目で描画される 📸 |
+| **本文を書き換える** | 「編集」ボタン →本文を書き換え→「保存」。**現在タスクはステータスしか変更できないが、本文とタイトルも編集できるようになる** 📸 |
+| **編集中に外から更新が来た** | 編集内容は消えない。「別の場所で更新されました」と出て、破棄して読み込み直すかを選べる（ノートと同じ挙動） |
+| **タスク一覧** | カードのステータス行の下に**本文の抜粋が1〜2行**出る 📸 |
+| **エージェントがタスクを作る/更新する** | `create_task` / `update_task` に本文を渡せるようになる |
 
-### なぜ作るか
-
-現在これらの画面は、ブラウザ既定のスタイルのまま（見出しは青、ボタンは灰色の角丸、余白なし）で、ホームだけが新デザインという不揃いな状態になっている。利用者から見ると「作りかけのアプリ」に見える。
+**カンバンのカードには抜粋を出さない。**幅が狭くドラッグ対象でもあるため、情報を増やすと扱いづらくなる。
 
 ### 受け入れ条件
 
-**全PR共通**
-
-- [ ] 既存の機能が1つも減っていない（下記の一覧で確認する）
-- [ ] 押せるものが押せる見た目になっている。アイコンだけのボタンが無く、必ず文字のラベルがある
-- [ ] 破壊的な操作（削除・解除）が、他のボタンと見分けられる
-- [ ] Tabキーで操作でき、今どこにフォーカスがあるか分かる
-- [ ] ライト／ダークどちらのテーマでも文字が読める
-- [ ] エージェントが変えた箇所はピンク、利用者が操作するものはアクア、という色の意味づけが守られている
-
-**PR 3: ノート詳細**
-
-- [ ] タイトル・本文・タグが読みやすく表示される
-- [ ] 編集ボタンで編集モードに入り、保存・キャンセルができる
-- [ ] 編集中に外から更新が来たとき、通知が出て編集内容が消えない
-- [ ] Mermaid図が表示され、構文エラー時はエラーが分かる
-- [ ] 画像を添付でき、プレビューが出る
-- [ ] 編集履歴が並び、選んだ版に戻せる
-
-**PR 4: タスク**
-
-- [ ] カンバンが3列（未着手・進行中・完了）で表示される
-- [ ] ドラッグ&ドロップで列を移動でき、**どこに置けるかが分かる**
-- [ ] タスク詳細でステータスを変更できる
-
-**PR 5: ゴミ箱・検索結果・リンク**
-
-- [ ] ゴミ箱に削除済みノートが並び、元に戻せる
-- [ ] 検索結果が読みやすく並び、選ぶとノート詳細が開く
-- [ ] リンクの一覧・作成・解除ができる
-
-### やらないこと
-
-- 新機能の追加（要求定義に無いものは作らない）
-- ロジックの変更（取得・保存・購読・エラー処理は現状のまま）
-- Tailwind の preflight 導入（PR 6で行う。途中で入れると未置換の画面が崩れる）
-- 既存テストのシナリオ変更（ロケータの更新は可、検証内容の変更は不可）
-
-### 未確定・確認したいこと
-
-1. **ゴミ箱の「あと N 日」表示**。モックアップには入れたが、現在のUIには無い。`deleted_at` から計算できるが、**表示するには`listDeletedNotes`の戻り値に`deletedAt`が必要**で、共有コントラクト（`src/shared/preload-api.ts`）の変更を伴う。PR 5の範囲外とし、**このSPECでは実装しない**。必要なら別タスクにする。
-2. **カンバンのドラッグ体験に`motion`を使うか**。PR 1で`motion`を入れたが、まだ実際には使っていない。ドラッグ中の手応えは体感差が出やすいので、PR 4で初めて使う候補。ただし過剰な動きは「直観的に分かりやすい」という絶対条件を損なうため、**使うなら控えめに**、使わずCSSトランジションで足りるならそれでよい、という判断を実装者に委ねる。
+- [ ] `create_task` で本文つきのタスクを作ると、タスク詳細にその本文が描画される
+- [ ] 本文のMarkdownが描画される（見出し・箇条書き・表・コードブロック）
+- [ ] 本文に書いたHTMLが描画され、`style` 属性が効く
+- [ ] 本文に `<script>` や `onerror` を書いても**実行されず、除去される**
+- [ ] 本文の ```` ```mermaid ```` フェンスが図として描画される
+- [ ] タスク詳細の「編集」から本文とタイトルを書き換えて保存でき、再度開いても保持されている
+- [ ] 編集中に外からそのタスクが更新されても、**入力中の内容が消えない**
+- [ ] タスク一覧のカードに本文の抜粋が出る。本文が空のタスクでは何も出ない
+- [ ] **既にhanamaskを使っている状態でアプリを更新しても、既存のタスクが消えず開ける**（本文は空として扱われる）
+- [ ] **本文を持たない古いバックアップzipを取り込んでも、アプリが壊れない**
+- [ ] **管理者のWindows環境の実インストールを更新し、更新前から存在するノート15件・タスク7件・リンク2件が変わらず開けること**（2026-08-08時点の実データ。退避先はローカルの作業用ディレクトリdocs/GOVERNANCE.md` §6 のアーキテクチャ判断に該当）
+2. `docs/REQUIREMENTS.md` §4.3（タスク管理）には本文の記載が無い。**要求定義に「タスクの本文」を追記する**形で進めてよいか
 
 ---
 
 ## Part 2: AI用（実装セット定義）
 
-### 前提となる既存実装（読み取りのみ、編集しない）
+### 前提となる調査結果
 
-- `src/renderer/components/AppShell.tsx` / `App.tsx` / `Home.tsx` / `NoteList.tsx` / `TaskList.tsx` — PR 2で完成済み。**呼び出し側であり、変更しない。**
-- `src/renderer/styles/theme.css` — 配色トークン。`docs/TASKS.md` T25の表が正。
-- `src/renderer/styles/motion.ts` — `TRANSITION`プリセットと`loadMotionFeatures`。アニメーションは`motion/react-m`の`m.*`のみ（`motion.*`はESLintと`strict`で禁止済み）。
-- `src/shared/preload-api.ts` — **変更しない。**
+- `tasks` テーブルは `id/title/status/due_date/deleted_at/created_at/updated_at`。**`body` 列は無い**（`src/main/db/schema.sql:22-30`）
+- **マイグレーション機構は存在しない。**`openDb` が毎回 `schema.sql` を `db.exec` するだけで、全テーブルが `CREATE TABLE IF NOT EXISTS`（`src/main/db/db.ts:12-18`）。既存DBには新列が入らない
+- import は**DBファイルごと差し替える**（`src/main/backup/import-backup.ts`）。検証はテーブル名の存在のみで列は見ない。**旧バージョンのzipを取り込むと `body` 無しのDBになるため、取り込み後の再オープン経路にもマイグレーションが乗る必要がある**
+- export はDBファイルをバイト列ごとzipに入れるだけなので、列追加で壊れない（`src/main/backup/export-backup.ts:69`）
+- MCPツールは手書きJSON Schema（`src/main/mcp/tools.ts`）。`create_task` 352-375 / `update_task` 377-405
+- タスクの更新IPCは `tasks:update-status` のみで、**汎用の更新IPCが無い**（`src/main/index.ts:81`, `src/preload/index.ts:22-25`）
+- `MarkdownBody`（`src/renderer/components/MarkdownBody.tsx`）は props が `{ content: string }` のみで再利用可能。ただし**Mermaidフェンス分割は `NoteDetail.tsx:77-98` のローカル関数**（`splitByMermaidFence` / `renderSegment`）で未エクスポート
+- 「編集中に外部更新が来ても失わない」仕組みは `NoteDetail.tsx` にベタ書き（`liveStateRef` 216-220 / `reloadNote` 235-246 / `ExternalUpdateNotice` 113-123）
 
-### 実装セット（＝そのままPRの単位）
+### 実装セット
 
-#### PR 3: ノート詳細
+#### セットA: DB層（本文列とマイグレーション）
 
-- 触ってよいファイル: `src/renderer/components/NoteDetail.tsx`, `NoteVersionHistory.tsx`, `MermaidDiagram.tsx`, および対応する`tests/renderer/*.test.tsx`
-- **`NoteDetail.tsx`は395行あり、T17・T18・T21・T26・T28のガード（`liveStateRef`・`mutationCount`・`imageMutationCount`・`restoring`）が入っている。これらのロジックには絶対に触らないこと。**見た目（JSX の`className`と構造）だけを変える。
-- `EntityLinks`は**PR 5の所有**。呼び出し位置の調整のみ可で、中身は変えない。
+- **目的**: 受け入れ条件の「既存タスクが消えない」「古いバックアップで壊れない」
+- **触ってよいファイル**:
+  - `src/main/db/schema.sql`（`tasks` に `body TEXT NOT NULL DEFAULT ''`）
+  - `src/main/db/migrations.ts`（**新規**。`PRAGMA table_info(tasks)` で列の有無を判定し、無ければ `ALTER TABLE tasks ADD COLUMN body TEXT NOT NULL DEFAULT ''`）
+  - `src/main/db/db.ts`（`schema.sql` 適用の直後にマイグレーションを呼ぶ。**取り込み後の再オープンでも必ず通る位置に置くこと**）
+  - `src/main/db/tasks-repo.ts`（`TaskRow` / `isTaskRow` / `toTask` / `createTask` のINSERT / `TaskUpdateInput` / `updateTask` のUPDATE の6か所）
+- **読み取りのみ**: `src/main/db/notes-repo.ts`（bodyの扱い方の参考）、`src/main/backup/import-backup.ts`
+- **テスト**: `tests/main/db/migrations.test.ts`（新規）, `tests/main/db/tasks-repo.test.ts`
+  - **列が無い状態のDBを実際に作ってから** `openDb` し、列が追加され既存行が保持されることを検証する（マイグレーションを外すと落ちるテストであること）
+  - 冪等性: 2回開いても失敗しない
 
-#### PR 4: タスク
+#### セットB: 共有型・MCP・IPC
 
-- 触ってよいファイル: `src/renderer/components/KanbanView.tsx`, `TaskDetail.tsx`, および対応するテスト
-- `KanbanView`はHTML5ネイティブD&Dで実装済み。**ドロップ先を文字で明示すること**（「ここにドロップして完了にする」等）。枠線の色が変わるだけでは初めて触る人に伝わらない。
-- `TaskDetail`にはT23・T26のガード（`liveStateRef`・`mutationCount`）が入っている。**ロジックに触らないこと。**
-- `EntityLinks`は**PR 5の所有**。呼び出し位置の調整のみ可。
+- **目的**: `create_task`/`update_task` での本文の受け渡し、UIからの本文保存経路
+- **触ってよいファイル**:
+  - `src/shared/preload-api.ts`（`Task` に `body`、`updateTask` の公開API型を追加）
+  - `src/main/mcp/tools.ts`（`create_task`/`update_task` の inputSchema に任意の `body`）
+  - `src/main/index.ts`（`tasks:update` チャネル定数とハンドラ）
+  - `src/preload/index.ts`（同チャネルの公開）
+- **読み取りのみ**: `src/main/db/tasks-repo.ts`（セットAの成果に依存）
+- **テスト**: `tests/main/mcp/tools.test.ts`, `tests/main/ipc/`（既存の配置に合わせる）
+- **依存**: セットAの完了後に着手する
 
-#### PR 5: ゴミ箱・検索結果・リンク
+#### セットC: 描画の共通化
 
-- 触ってよいファイル: `src/renderer/components/TrashView.tsx`, `SearchResults.tsx`, `EntityLinks.tsx`, および対応するテスト
-- `TrashView`にはT16の多重クリック防止（`disabled={restoring}`）が入っている。**外さないこと。**
-- `EntityLinks`は**PR 3・PR 4の両画面から使われる共有コンポーネント**。見た目を変えてよいのはこのPRだけ。
+- **目的**: タスクとノートで同じ描画を使う（重複実装を作らない）
+- **触ってよいファイル**:
+  - `src/renderer/components/MarkdownDocument.tsx`（**新規**。`NoteDetail.tsx` の `splitByMermaidFence` / `renderSegment` をここへ移し、`{ content: string }` を受けてMermaidとMarkdownを描き分ける）
+  - `src/renderer/components/NoteDetail.tsx`（ローカル関数を削除し `MarkdownDocument` を使う。**挙動は変えない**）
+- **読み取りのみ**: `src/renderer/components/MarkdownBody.tsx`
+- **テスト**: `tests/renderer/MarkdownDocument.test.tsx`（新規）。既存の `tests/renderer/NoteDetail.test.tsx` が**変更なしで緑のままであること**が移設成功の判定
+- **セットA・Bと並列実行可**（ファイルが重ならない）
+
+#### セットD: タスクUI
+
+- **目的**: 本文の表示・編集・抜粋
+- **触ってよいファイル**:
+  - `src/renderer/components/TaskDetail.tsx`（本文表示、編集モード、外部更新ガード。`NoteDetail.tsx` の構成に倣う）
+  - `src/renderer/components/TaskList.tsx`（抜粋1〜2行）
+- **読み取りのみ**: `src/renderer/components/NoteDetail.tsx`, `MarkdownDocument.tsx`, `src/renderer/components/KanbanView.tsx`（**編集しない**＝抜粋を出さない）
+- **テスト**: `tests/renderer/TaskDetail.test.tsx`, `tests/renderer/TaskList.test.tsx`
+  - 本文の描画、**サニタイズが効くこと（`<script>` が実行されないこと）**、編集して保存、編集中の外部更新で入力が消えないこと、本文が空なら抜粋を出さないこと
+- **依存**: セットB・Cの完了後に着手する
 
 ### 並列グループ宣言
 
-- **PR 3 / PR 4 / PR 5 は完全に並列実行可能**（触るファイルが重複しない）。
-- **Phase 4 統合ゲートでのみ編集**: なし（共有ファイルの編集は発生しない）。`EntityLinks`だけが複数画面から使われるが、所有はPR 5に一本化してある。
+| グループ | セット | 備考 |
+|---|---|---|
+| **1** | **A** / **C** | 同時実行可。ファイル重複なし |
+| **2** | **B** | Aの後 |
+| **3** | **D** | B・Cの後 |
 
-### 全PR共通の制約
+**Phase 4（統合ゲート）でのみ触るファイル**: `README.md`, `docs/REQUIREMENTS.md`（§4.3にタスク本文を追記）, `docs/TASKS.md`（T36を追加）, `docs/html/` 配下（skill「docs-html-sync」で同期）。
 
-- **Tailwindユーティリティのみ。**`<style>`ブロック・CSSファイル・インラインstyleは書かない。
-- **色はトークン名で指定し、生のhex値をコンポーネントに書かない。**
-- **preflightはまだ入っていない。**ブラウザ既定のマージン・`<ul>`のドット等が残る前提で、必要なら`m-0`/`list-none`等で明示的に打ち消す。
-- **文言を変えない**（既存テスト・E2Eが依存）。特に「削除」「復元」「戻る」「編集」「保存」「キャンセル」「このバージョンに戻す」「リンクする」「ノートはまだありません」等。
-- アニメーションは`m.*`のみ、控えめに。
+### 完了条件
 
-### 完了条件（機械判定）
-
-- `npm test` / `npm run typecheck` / `npm run lint` / `npm run build` がすべて緑。
-- `xvfb-run -a npm run test:e2e` の9件がすべて緑（**シナリオ・アサーションを変えずに**）。
-- 実機スクリーンショットを撮り、**ライト／ダーク両方**で文字が読めることを確認する（日本語表示は `.claude/skills/e2e-runner/SKILL.md` の`FONTCONFIG_FILE`手順）。
-- `docs/TASKS.md` T25の禁止事項に列挙された既存機能に、すべて到達できる。
+- `npm test` が全て緑
+- `npm run lint` が通る
+- 上記の受け入れ条件を検証するテストが存在し、**該当実装を壊すと落ちる**ことを確認済み
+- `tests/renderer/NoteDetail.test.tsx` が無修正で緑（セットCの移設が挙動を変えていない証拠）

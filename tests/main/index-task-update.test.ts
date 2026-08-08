@@ -12,7 +12,6 @@ const openDb = vi.fn();
 const startMcpServer = vi.fn(async () => ({ port: 39217, close: vi.fn(async () => {}) }));
 const listTasks = vi.fn();
 const updateTask = vi.fn();
-const tasksChangedListeners: Array<() => void> = [];
 const openWindows: FakeWindow[] = [];
 
 // Declared as a function expression because the module under test calls it with `new`.
@@ -50,38 +49,37 @@ vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
   emitNotesChanged: vi.fn(),
   onNotesChanged: () => () => {},
-  emitTasksChanged: () => {
-    tasksChangedListeners.forEach((listener) => {
-      listener();
-    });
-  },
-  onTasksChanged: (listener: () => void) => {
-    tasksChangedListeners.push(listener);
-    return () => {};
-  },
+  emitTasksChanged: vi.fn(),
+  onTasksChanged: () => () => {},
   emitLinksChanged: vi.fn(),
   onLinksChanged: vi.fn(() => () => {}),
 }));
 
-const findUpdateTaskStatusHandler = (): ((event: unknown, id: string, status: string) => void) => {
-  const registration = ipcHandle.mock.calls.find((call) => call[0] === "tasks:update-status");
+type TaskUpdatePayload = { title?: string; body?: string };
+
+const findUpdateTaskHandler = (): ((
+  event: unknown,
+  id: string,
+  input: TaskUpdatePayload,
+) => Task | null) => {
+  const registration = ipcHandle.mock.calls.find((call) => call[0] === "tasks:update");
   if (registration === undefined) {
-    throw new Error("tasks:update-status handler was not registered");
+    throw new Error("tasks:update handler was not registered");
   }
   return registration[1];
 };
 
 const sampleTask: Task = {
   id: "task-1",
-  title: "タスク",
-  body: "",
-  status: "in_progress",
+  title: "新しいタイトル",
+  body: "新しい本文",
+  status: "todo",
   dueDate: null,
-  createdAt: "2026-08-03T00:00:00.000Z",
-  updatedAt: "2026-08-03T00:00:00.000Z",
+  createdAt: "2026-08-08T00:00:00.000Z",
+  updatedAt: "2026-08-08T00:00:00.000Z",
 };
 
-describe("main process tasks:update-status handler", () => {
+describe("main process tasks:update handler", () => {
   beforeAll(async () => {
     // The module starts the app as an import side effect.
     await import("../../src/main/index");
@@ -92,33 +90,34 @@ describe("main process tasks:update-status handler", () => {
 
   beforeEach(() => {
     updateTask.mockReset();
-    openWindows.forEach((window) => {
-      window.webContents.send.mockClear();
-    });
   });
 
-  it("tasks:update-status IPCハンドラを登録する", () => {
-    expect(ipcHandle).toHaveBeenCalledWith("tasks:update-status", expect.any(Function));
+  it("tasks:update IPCハンドラを登録する", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("tasks:update", expect.any(Function));
   });
 
-  it("ステータスを更新して全ウィンドウにtasks:changedを通知する", () => {
+  it("タイトルと本文を更新して結果を返す", () => {
     updateTask.mockReturnValue(sampleTask);
 
-    findUpdateTaskStatusHandler()(undefined, "task-1", "in_progress");
-
-    expect(updateTask).toHaveBeenCalledWith("task-1", { status: "in_progress" });
-    openWindows.forEach((window) => {
-      expect(window.webContents.send).toHaveBeenCalledWith("tasks:changed");
+    const updated = findUpdateTaskHandler()(undefined, "task-1", {
+      title: "新しいタイトル",
+      body: "新しい本文",
     });
+
+    expect(updateTask).toHaveBeenCalledWith("task-1", {
+      title: "新しいタイトル",
+      body: "新しい本文",
+    });
+    expect(updated).toEqual(sampleTask);
   });
 
-  it("存在しないタスクの更新では通知しない", () => {
+  it("存在しないタスクの更新ではnullを返す", () => {
     updateTask.mockReturnValue(null);
 
-    findUpdateTaskStatusHandler()(undefined, "missing-task", "done");
+    expect(findUpdateTaskHandler()(undefined, "missing-task", { title: "x" })).toBeNull();
+  });
 
-    openWindows.forEach((window) => {
-      expect(window.webContents.send).not.toHaveBeenCalled();
-    });
+  it("既存のtasks:update-statusハンドラも残っている", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("tasks:update-status", expect.any(Function));
   });
 });

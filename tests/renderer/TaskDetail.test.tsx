@@ -1,8 +1,20 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import mermaid from "mermaid";
 import { TaskDetail } from "../../src/renderer/components/TaskDetail";
 import type { Image, Task } from "../../src/shared/preload-api";
+
+vi.mock("mermaid", () => ({
+  default: { initialize: vi.fn(), render: vi.fn() },
+}));
+
+const mockMermaidRender = (): void => {
+  vi.mocked(mermaid.render).mockResolvedValue({
+    svg: '<svg data-name="rendered"></svg>',
+    diagramType: "flowchart",
+  });
+};
 
 const stubImage: Image = {
   id: "image-1",
@@ -15,6 +27,7 @@ const stubImage: Image = {
 const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: "task-1",
   title: "MCPサーバーを実装する",
+  body: "",
   status: "todo",
   dueDate: "2026-08-10",
   createdAt: "2026-08-03T00:00:00.000Z",
@@ -22,12 +35,19 @@ const makeTask = (overrides: Partial<Task> = {}): Task => ({
   ...overrides,
 });
 
+type UpdateTaskImpl = (
+  id: string,
+  input: Partial<Pick<Task, "title" | "body" | "status" | "dueDate">>,
+) => Promise<Task | null>;
+
 const mockHanamask = (
   getTask: (id: string) => Promise<Task | null>,
   updateTaskStatusImpl: () => Promise<void> = async () => {},
+  updateTaskImpl: UpdateTaskImpl = async (_id, input) => makeTask(input),
 ) => {
   const getTaskMock = vi.fn(getTask);
   const updateTaskStatus = vi.fn(updateTaskStatusImpl);
+  const updateTaskMock = vi.fn(updateTaskImpl);
   const onTasksChangedMock = vi.fn<(callback: () => void) => () => void>(() => () => {});
   window.hanamask = {
     listDeletedNotes: vi.fn(async () => []),
@@ -42,6 +62,7 @@ const mockHanamask = (
     listTasks: vi.fn(async () => []),
     getTask: getTaskMock,
     updateTaskStatus,
+    updateTask: updateTaskMock,
     onTasksChanged: onTasksChangedMock,
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),
@@ -61,8 +82,32 @@ const mockHanamask = (
     clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatModel: vi.fn(async (model: string) => ({ apiKeyMask: null, model })),
   };
-  return { getTask: getTaskMock, updateTaskStatus, onTasksChanged: onTasksChangedMock };
+  return {
+    getTask: getTaskMock,
+    updateTaskStatus,
+    updateTask: updateTaskMock,
+    onTasksChanged: onTasksChangedMock,
+  };
 };
+
+const startEditing = async (): Promise<void> => {
+  await act(async () => {
+    screen.getByRole("button", { name: "編集" }).click();
+  });
+};
+
+const clickButton = async (name: string): Promise<void> => {
+  await act(async () => {
+    screen.getByRole("button", { name }).click();
+  });
+};
+
+const typeInto = (label: string, value: string): void => {
+  fireEvent.change(screen.getByLabelText(label), { target: { value } });
+};
+
+const fieldValue = (label: string): string =>
+  screen.getByLabelText<HTMLInputElement | HTMLTextAreaElement>(label).value;
 
 const emitTasksChanged = async (
   onTasksChanged: ReturnType<typeof mockHanamask>["onTasksChanged"],
@@ -89,6 +134,8 @@ const createDeferred = <T,>(): Deferred<T> => {
 
 afterEach(() => {
   cleanup();
+  // vi.mockのファクトリで作ったvi.fnはrestoreAllMocksでは呼び出し履歴が消えないため明示的にクリアする。
+  vi.clearAllMocks();
   vi.restoreAllMocks();
 });
 
@@ -165,6 +212,64 @@ describe("TaskDetail", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
   });
 
+  it("ステータス更新の失敗はステータス欄の中に表示する", async () => {
+    const { updateTaskStatus } = mockHanamask(async () => makeTask());
+    updateTaskStatus.mockRejectedValueOnce(new Error("boom"));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    const select = await screen.findByRole("combobox", { name: "ステータス" });
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "done" } });
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(select.closest("div")?.contains(alert)).toBe(true);
+  });
+
+  it("ステータス更新に成功するとステータス欄のエラーが消える", async () => {
+    const { updateTaskStatus } = mockHanamask(async () => makeTask());
+    updateTaskStatus.mockRejectedValueOnce(new Error("boom"));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    const select = await screen.findByRole("combobox", { name: "ステータス" });
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "done" } });
+    });
+    expect(await screen.findByRole("alert")).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.change(select, { target: { value: "in_progress" } });
+    });
+
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("本文が空のタスクでは本文が無いことを文字で示す", async () => {
+    mockHanamask(async () => makeTask({ body: "   " }));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByText("本文はまだありません")).toBeTruthy();
+  });
+
+  it("本文があるタスクでは本文が無いという表示を出さない", async () => {
+    mockHanamask(async () => makeTask({ body: "本文があります" }));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByText("本文があります")).toBeTruthy();
+    expect(screen.queryByText("本文はまだありません")).toBeNull();
+  });
+
+  it("戻るボタンに一覧画面と違う面色を付けない", async () => {
+    mockHanamask(async () => makeTask());
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+
+    const back = await screen.findByRole("button", { name: "戻る" });
+    expect(back.className).not.toContain("bg-paper-raised");
+  });
+
   it("MCP経由の変更通知を受けるとタスクを再取得して表示を更新する", async () => {
     let stored = makeTask();
     const { getTask, onTasksChanged } = mockHanamask(async () => stored);
@@ -239,6 +344,184 @@ describe("TaskDetail", () => {
     });
 
     expect(onBack).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("TaskDetail の本文", () => {
+  it("本文のMarkdownを見出し・箇条書き・表として描画する", async () => {
+    mockHanamask(async () =>
+      makeTask({ body: "## 見出し\n\n- 箇条書き\n\n| 項目 | 値 |\n|---|---|\n| a | b |" }),
+    );
+
+    const { container } = render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+
+    expect(await screen.findByRole("heading", { name: "見出し", level: 2 })).toBeTruthy();
+    expect(container.querySelector("li")?.textContent).toBe("箇条書き");
+    expect(container.querySelectorAll("td")).toHaveLength(2);
+  });
+
+  it("本文のscriptタグは要素としてもテキストとしても通さない", async () => {
+    mockHanamask(async () => makeTask({ body: "前<script>window.__pwned = true;</script>後" }));
+
+    const { container } = render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+
+    await waitFor(() => {
+      expect(screen.getByText(/前/)).toBeTruthy();
+    });
+    expect(container.querySelector("script")).toBeNull();
+    expect(container.textContent).not.toContain("window.__pwned");
+  });
+
+  it("本文のonerror属性を落とす", async () => {
+    mockHanamask(async () =>
+      makeTask({ body: '<img src="https://example.com/a.png" alt="図" onerror="alert(1)">' }),
+    );
+
+    const { container } = render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+
+    const image = await waitFor(() => {
+      const found = container.querySelector("img");
+      expect(found).not.toBeNull();
+      return found;
+    });
+    expect(image?.getAttribute("onerror")).toBeNull();
+  });
+
+  it("本文のmermaidフェンスを図として描画し、フェンスのテキストは出さない", async () => {
+    mockMermaidRender();
+    mockHanamask(async () => makeTask({ body: "前書き\n\n```mermaid\ngraph TD;\n  A-->B;\n```" }));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+
+    await waitFor(() => {
+      expect(mermaid.render).toHaveBeenCalledTimes(1);
+    });
+    expect(vi.mocked(mermaid.render).mock.calls[0]?.[1]).toBe("graph TD;\n  A-->B;");
+    expect(screen.queryByText(/```mermaid/)).toBeNull();
+  });
+});
+
+describe("TaskDetail の編集", () => {
+  it("編集ボタンで現在のタイトルと本文をフォームに表示する", async () => {
+    mockHanamask(async () => makeTask({ body: "元の本文" }));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+    await startEditing();
+
+    expect(fieldValue("タイトル")).toBe("MCPサーバーを実装する");
+    expect(fieldValue("本文")).toBe("元の本文");
+  });
+
+  it("保存すると編集内容でupdateTaskを呼び表示を更新する", async () => {
+    const { updateTask } = mockHanamask(async () => makeTask({ body: "元の本文" }));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+    await startEditing();
+    typeInto("タイトル", "改題したタスク");
+    typeInto("本文", "## 新しい本文");
+    await clickButton("保存");
+
+    expect(updateTask).toHaveBeenCalledWith("task-1", {
+      title: "改題したタスク",
+      body: "## 新しい本文",
+    });
+    expect(await screen.findByText("改題したタスク")).toBeTruthy();
+    expect(screen.getByText("新しい本文")).toBeTruthy();
+  });
+
+  it("保存に失敗しても入力内容は残したままエラーを表示する", async () => {
+    mockHanamask(
+      async () => makeTask({ body: "元の本文" }),
+      async () => {},
+      async () => {
+        throw new Error("boom");
+      },
+    );
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+    await startEditing();
+    typeInto("本文", "書きかけの本文");
+    await clickButton("保存");
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(fieldValue("本文")).toBe("書きかけの本文");
+  });
+
+  it("キャンセルすると編集前の内容に戻る", async () => {
+    mockHanamask(async () => makeTask({ body: "元の本文" }));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+    await startEditing();
+    typeInto("本文", "捨てられる本文");
+    await clickButton("キャンセル");
+
+    expect(screen.queryByLabelText("本文")).toBeNull();
+    expect(screen.getByText("元の本文")).toBeTruthy();
+  });
+
+  it("編集中に変更通知を受けても編集内容を上書きしない", async () => {
+    let stored = makeTask({ body: "元の本文" });
+    const { onTasksChanged } = mockHanamask(async () => stored);
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+    await startEditing();
+    typeInto("タイトル", "編集中のタイトル");
+    typeInto("本文", "編集中の本文");
+
+    stored = makeTask({ title: "MCPが書き換えた", body: "MCPが書き換えた本文" });
+    await emitTasksChanged(onTasksChanged);
+
+    expect(fieldValue("タイトル")).toBe("編集中のタイトル");
+    expect(fieldValue("本文")).toBe("編集中の本文");
+  });
+
+  it("編集中に変更通知を受けると通知を表示し、破棄して最新を読み込める", async () => {
+    let stored = makeTask({ body: "元の本文" });
+    const { onTasksChanged } = mockHanamask(async () => stored);
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+    await startEditing();
+    typeInto("本文", "編集中の本文");
+
+    stored = makeTask({ title: "MCPが書き換えた", body: "MCPが書き換えた本文" });
+    await emitTasksChanged(onTasksChanged);
+
+    expect(await screen.findByText(/別の場所で更新されました/)).toBeTruthy();
+
+    await clickButton("破棄して最新を読み込む");
+
+    expect(screen.getByText("MCPが書き換えた")).toBeTruthy();
+    expect(screen.getByText("MCPが書き換えた本文")).toBeTruthy();
+    expect(screen.queryByLabelText("本文")).toBeNull();
+    expect(screen.queryByText(/別の場所で更新されました/)).toBeNull();
+  });
+
+  it("編集中の保存後は外部更新の通知が残らない", async () => {
+    let stored = makeTask({ body: "元の本文" });
+    const { onTasksChanged } = mockHanamask(async () => stored);
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+    await startEditing();
+    typeInto("タイトル", "利用者の保存結果");
+
+    stored = makeTask({ title: "MCPが書き換えた" });
+    await emitTasksChanged(onTasksChanged);
+    await screen.findByText(/別の場所で更新されました/);
+    await clickButton("保存");
+
+    expect(await screen.findByText("利用者の保存結果")).toBeTruthy();
+    expect(screen.queryByText(/別の場所で更新されました/)).toBeNull();
   });
 });
 

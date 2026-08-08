@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DBスキーマ変更とマイグレーションの規約</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../MIGRATIONS.md">docs/MIGRATIONS.md</a></p>
+
+<h1>DBスキーマ変更とマイグレーションの規約</h1>
+
+<p>hanamask は<strong>利用者のPC上のSQLiteファイルが唯一の正</strong>であり、サーバー側に控えが無い。スキーマを変えるということは、<strong>すでに利用者が書き溜めたデータベースをその場で作り替える</strong>ということになる。手順を誤ると、他のどんなバグとも違って<strong>取り返しがつかない</strong>。</p>
+
+<p>対象読者は開発管理者・開発要員。DBのスキーマに手を入れる作業では、着手前に必ず本書を読む。</p>
+
+<h2 id="why">1. なぜ規約が要るのか</h2>
+
+<p>2026-08-08 まで、このリポジトリにマイグレーションの仕組みは無かった。<code>openDb</code> が起動のたびに <code>schema.sql</code> を流すだけで、全テーブルが <code>CREATE TABLE IF NOT EXISTS</code> だった。</p>
+
+<p><strong>この作りは「新規インストールでは正しく、既存の利用者には何も起きない」という形で静かに壊れる。</strong><code>schema.sql</code> に列を足しても、既にテーブルが存在するDBでは <code>IF NOT EXISTS</code> によって定義ごと読み飛ばされる。テストは新規DBを作って走るので<strong>全部緑のまま通る</strong>。壊れていることに気付くのは、更新した利用者が自分のデータを開いたときになる。</p>
+
+<pre class="mermaid">
+flowchart TD
+  C["schema.sql に列を追加"]
+  C --> N["新規インストール<br/>CREATE TABLE が走る"]
+  C --> E["既存の利用者<br/>IF NOT EXISTS で読み飛ばし"]
+  N --> OK["列がある ✓"]
+  E --> NG["列が無いまま ✗<br/>テストは緑"]
+  NG --> M["migrations.ts が<br/>ALTER TABLE で追いつかせる"]
+  M --> OK2["列がある ✓"]
+</pre>
+
+<p>T36（タスクの本文）で初めてこの問題に当たり、マイグレーション機構（<code>src/main/db/migrations.ts</code>）を導入した。</p>
+
+<h2 id="rules">2. 絶対に守ること</h2>
+
+<ul>
+<li><strong>スキーマを変えたら、<code>schema.sql</code> と マイグレーション の両方を書く。</strong>片方だけは必ず事故になる。
+  <ul>
+    <li><code>schema.sql</code> … <strong>新規</strong>インストールのDBを最新の形で作る</li>
+    <li><code>migrations.ts</code> … <strong>既存</strong>のDBを最新の形へ追いつかせる</li>
+  </ul>
+</li>
+<li><strong>マイグレーションは冪等にする。</strong>同じDBを何度開いても失敗してはならない。<strong><code>apply</code> 単体が、既に適用済みのDBに対して実行されても失敗しない</strong>ことまで求める（理由は <a href="#concurrent">§3.1</a>）。</li>
+<li><strong>既存の行を消さない・壊さない。</strong>追加した列には既定値を与え、既存行がその値で読めるようにする。</li>
+<li><strong><code>MIGRATIONS</code> 配列は追記のみ。</strong>既に配布された項目の中身を書き換えたり、順番を入れ替えたりしない。利用者のDBがどの時点の形かは分からない。</li>
+<li><strong>テストで担保する（詳細は <a href="#tests">§5</a>）。</strong>「新規DBで動く」テストだけでは、上記の静かな壊れ方を一切検出できない。</li>
+</ul>
+
+<h2 id="how">3. 仕組み</h2>
+
+<p><code>src/main/db/migrations.ts</code> は、マイグレーションを配列に列挙して順に適用する。</p>
+
+<pre><code>interface Migration {
+  readonly name: string;
+  readonly isApplied: (db: DatabaseHandle) =&gt; boolean;
+  readonly apply: (db: DatabaseHandle) =&gt; void;
+}</code></pre>
+
+<p><strong>各マイグレーションが「自分は既に適用済みか」を自分で判定する</strong>（<code>PRAGMA user_version</code> のような通し番号は使わない）。理由は <code>migrations.ts</code> にコメントとして残してあるとおりで、<code>schema.sql</code> が新規DBを最新形で作る以上、通し番号方式だと<strong>番号を2か所で進める必要が生じ、かつ元から必要のないDBにも <code>ALTER</code> が走る</strong>ため。</p>
+
+<p>適用の呼び出しは <code>src/main/db/db.ts</code> の <code>applySchema</code> 直後に置く。<strong><code>openDb</code> を通る経路はすべてここを通る</strong>——これはバックアップ取り込み（<code>src/main/backup/import-backup.ts</code>）にとって重要で、取り込みはDBファイルごと差し替えるうえ検証がテーブル名の存在チェックのみのため、<strong>古い形のzipを取り込んでも再オープン時にマイグレーションが追いつかせる</strong>という関係になっている。</p>
+
+<h3 id="concurrent">3.1 同時に2つのプロセスが開いた場合</h3>
+
+<p><code>isApplied</code> で確かめてから <code>apply</code> するのは check-then-act であり、その隙間に別プロセスが同じ適用を終えていることがある。後発の <code>ALTER TABLE ... ADD COLUMN</code> は <code>duplicate column name</code> になり、<strong>そのプロセスの起動が丸ごと失敗する</strong>。</p>
+
+<pre class="mermaid">
+sequenceDiagram
+  participant A as プロセスA
+  participant DB as 同じDBファイル
+  participant B as プロセスB
+  A->>DB: isApplied? → いいえ
+  B->>DB: isApplied? → いいえ
+  A->>DB: ALTER TABLE ADD COLUMN
+  DB-->>A: 成功
+  B->>DB: ALTER TABLE ADD COLUMN
+  DB-->>B: duplicate column name → 起動失敗
+</pre>
+
+<p>このため、</p>
+
+<ul>
+<li>列を足すマイグレーションは <code>addColumnMigration(table, column, definition)</code> で定義する。<code>apply</code> が失敗しても<strong>目的の列が既に存在するなら成功として扱う</strong>（存在しないときだけ送出する）</li>
+<li>アプリ側では <code>src/main/index.ts</code> が <code>app.requestSingleInstanceLock()</code> で二重起動そのものを抑止し、後発は既存ウィンドウを前に出して終了する（E2Eは <code>HANAMASK_DB_PATH</code> で各自のDBを見るため対象外）</li>
+<li>ロック競合の待ち時間（<code>PRAGMA busy_timeout</code>）は better-sqlite3 の既定で 5000ms 入っている。<code>new Database(path, { timeout: 0 })</code> のように既定を下げない</li>
+</ul>
+
+<h2 id="sqlite">4. SQLiteの制約（設計を縛る）</h2>
+
+<ul>
+<li><code>ALTER TABLE ... ADD COLUMN</code> で <strong>NOT NULL 列を足すときは <code>DEFAULT</code> が必須</strong>（既存行に入れる値が無いため）</li>
+<li>列の<strong>削除・改名・型変更・制約変更は <code>ALTER TABLE</code> では基本的にできない</strong>。必要なら「新テーブルを作る → データを移す → 旧テーブルを落とす → 改名する」という手順になる。<strong>これはデータ損失の危険がある作業なので、着手前に管理者の承認を得る</strong>（<a href="GOVERNANCE.html">docs/GOVERNANCE.md</a> §6）</li>
+<li>したがって<strong>列の追加は安全、それ以外は要相談</strong>と考えてよい</li>
+</ul>
+
+<h2 id="tests">5. テストの要件</h2>
+
+<p>以下を満たさないマイグレーションは未完成とみなす。</p>
+
+<ul>
+<li><strong>変更前の形のDBを実際に作り、行を入れてから</strong> <code>openDb</code> する。列が追加され、<strong>既存行が消えず、既定値で読める</strong>ことを検証する</li>
+<li>同じDBを2回開いても失敗しない（冪等性）</li>
+<li><strong>適用済みのDBに対して <code>apply</code> を直接呼んでも落ちない</strong>（二重起動時の競合。<a href="#concurrent">§3.1</a>）</li>
+<li><strong>マイグレーションの呼び出しを外すと、そのテストが実際に落ちる</strong>ことを一度確認する。落ちないなら、それは新規DBだけを見ているテストであり、意味が無い</li>
+<li>新規DBでも同じ形になる（<code>schema.sql</code> 側の担保）</li>
+</ul>
+
+<h2 id="realdata">6. リリース前の実データ検証</h2>
+
+<p>テストが緑でも、それだけでは配布しない。</p>
+
+<ol>
+<li><p>利用者（管理者）の実DBを <strong>SQLiteのオンラインバックアップで退避する</strong>。アプリ起動中はWALがあるため、単純なファイルコピーでは整合性が保証されない</p>
+<pre><code>python3 -c "
+import sqlite3
+src = sqlite3.connect('file:&lt;実DBのパス&gt;?mode=ro', uri=True)
+dst = sqlite3.connect('&lt;退避先&gt;.sqlite3')
+src.backup(dst); dst.close()
+"</code></pre></li>
+<li><p><strong>その複製に対して本番と同じ <code>openDb</code> を通し</strong>、件数が変わらないこと・<code>PRAGMA integrity_check</code> が <code>ok</code> であることを確認する</p></li>
+<li><p>その上で実インストールを更新し、利用者の目で開けることを確認する</p></li>
+</ol>
+
+<p>T36 での実績（2026-08-08）: ノート15件・タスク7件・リンク2件・編集履歴1件が保持され、<code>body</code> 列が追加、NULL行ゼロ、<code>integrity_check: ok</code>。</p>
+
+<h2 id="steps">7. 手順のまとめ</h2>
+
+<ol>
+<li><code>schema.sql</code> を新しい形に更新する</li>
+<li><code>MIGRATIONS</code> 配列の<strong>末尾に</strong>項目を追記する（<code>isApplied</code> と <code>apply</code>）</li>
+<li><a href="#tests">§5</a> のテストを書く。<strong>マイグレーションを外して落ちることを確認する</strong></li>
+<li><code>npm test</code> / <code>npm run lint</code> / <code>npm run typecheck</code> を通す</li>
+<li><a href="#realdata">§6</a> の実データ検証を行う</li>
+<li>本書に実績を追記する</li>
+</ol>
+
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+  });
+</script>
+</body>
+</html>

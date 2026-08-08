@@ -89,6 +89,7 @@ const mockHanamask = (
     listTasks: vi.fn(async () => []),
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
+    updateTask: vi.fn(async () => null),
     onTasksChanged: vi.fn(() => () => {}),
     attachImage: attachImageMock,
     listImages: listImagesMock,
@@ -193,6 +194,23 @@ describe("NoteDetail", () => {
 
     expect(await screen.findByText(/1行目/)).toBeTruthy();
     expect(screen.getByText(/2行目/)).toBeTruthy();
+  });
+
+  it("本文が空のノートでは本文が無いことを文字で示す", async () => {
+    mockHanamask(async () => makeNote({ body: "   " }));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByText("本文はまだありません")).toBeTruthy();
+  });
+
+  it("本文があるノートでは本文が無いという表示を出さない", async () => {
+    mockHanamask(async () => makeNote({ body: "本文があります" }));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+
+    expect(await screen.findByText("本文があります")).toBeTruthy();
+    expect(screen.queryByText("本文はまだありません")).toBeNull();
   });
 
   it("ノートが見つからない場合はエラーメッセージを表示する", async () => {
