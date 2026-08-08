@@ -125,4 +125,18 @@ describe("MarkdownBody（実際に描画した結果）", () => {
     expect(div?.textContent).toBe("色付き");
     expect(div?.getAttribute("style")).toContain("color");
   });
+
+  it("Markdown記法の表を要素として描画する", async () => {
+    const container = await renderBody("| 項目 | 値 |\n|---|---|\n| テスト | 479件 |");
+
+    expect(container.querySelector("table")).not.toBeNull();
+    expect(container.querySelectorAll("td")).toHaveLength(2);
+  });
+
+  it("タスクリストと取り消し線を描画する", async () => {
+    const container = await renderBody("- [x] 済んだこと\n- [ ] これから\n\n~~取り消し~~");
+
+    expect(container.querySelectorAll('input[type="checkbox"]')).toHaveLength(2);
+    expect(container.querySelector("del")?.textContent).toBe("取り消し");
+  });
 });

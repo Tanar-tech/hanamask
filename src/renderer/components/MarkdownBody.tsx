@@ -2,6 +2,7 @@ import type { JSX } from "react";
 import Markdown, { type Components } from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import remarkGfm from "remark-gfm";
 
 interface MarkdownBodyProps {
   content: string;
@@ -60,7 +61,13 @@ const COMPONENTS: Components = {
 
 export const MarkdownBody = ({ content }: MarkdownBodyProps): JSX.Element => (
   <div className={BODY}>
-    <Markdown rehypePlugins={[rehypeRaw, [rehypeSanitize, SANITIZE_SCHEMA]]} components={COMPONENTS}>
+    <Markdown
+      // gfm: エージェントが表・取り消し線・タスクリストを素のMarkdown記法で書けるようにする。
+      remarkPlugins={[remarkGfm]}
+      // 順序が要。rehypeRawが生HTMLを差し込んだ後にsanitizeしないと素通りする。
+      rehypePlugins={[rehypeRaw, [rehypeSanitize, SANITIZE_SCHEMA]]}
+      components={COMPONENTS}
+    >
       {content}
     </Markdown>
   </div>
