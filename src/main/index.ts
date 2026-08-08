@@ -23,7 +23,7 @@ import {
   updateNote,
   type NoteUpdateInput,
 } from "./db/notes-repo.js";
-import { getTask, listTasks, updateTask } from "./db/tasks-repo.js";
+import { getTask, listTasks, updateTask, type TaskUpdateInput } from "./db/tasks-repo.js";
 import { listImages } from "./db/images-repo.js";
 import { createLink, deleteLink, listLinks, type LinkInput } from "./db/links-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
@@ -79,6 +79,7 @@ const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
 const NOTES_RESTORE_CHANNEL = "notes:restore";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
+const TASKS_UPDATE_CHANNEL = "tasks:update";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
 const CHAT_SETTINGS_READ_CHANNEL = "chat:read-settings";
 const CHAT_SEND_CHANNEL = "chat:send";
@@ -245,6 +246,17 @@ const undeleteNote = (_event: IpcMainInvokeEvent, id: string): Note | null => {
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
 const updateTaskStatus = (_event: IpcMainInvokeEvent, id: string, status: TaskStatus): void => {
   if (updateTask(id, { status }) !== null) emitTasksChanged();
+};
+
+// MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
+const editTask = (
+  _event: IpcMainInvokeEvent,
+  id: string,
+  input: TaskUpdateInput,
+): Task | null => {
+  const updated = updateTask(id, input);
+  if (updated !== null) emitTasksChanged();
+  return updated;
 };
 
 const attachImageToNote = (
@@ -428,6 +440,7 @@ ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(NOTES_LIST_DELETED_CHANNEL, () => listDeletedNotes());
 ipcMain.handle(NOTES_RESTORE_CHANNEL, undeleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
+ipcMain.handle(TASKS_UPDATE_CHANNEL, editTask);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
 ipcMain.handle(CHAT_SETTINGS_READ_CHANNEL, () => readChatSettings());
 ipcMain.handle(

@@ -89,6 +89,7 @@ const mockHanamask = (
     listTasks: vi.fn(async () => []),
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
+    updateTask: vi.fn(async () => null),
     onTasksChanged: vi.fn(() => () => {}),
     attachImage: attachImageMock,
     listImages: listImagesMock,

@@ -16,6 +16,7 @@ const stubImage: Image = {
 const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: "task-1",
   title: "MCPサーバーを実装する",
+  body: "",
   status: "todo",
   dueDate: "2026-08-10",
   createdAt: "2026-08-03T00:00:00.000Z",
@@ -47,6 +48,7 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     listTasks,
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
+    updateTask: vi.fn(async () => null),
     onTasksChanged,
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),

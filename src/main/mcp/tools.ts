@@ -170,7 +170,6 @@ const updateNoteTool: NoteTool = {
     const id = readString(args, "id");
     const note = updateNote(id, {
       title: readOptionalString(args, "title"),
-      body: readOptionalString(args, "body"),
       tags: readOptionalTags(args),
     });
     if (note === null) {
@@ -357,6 +356,7 @@ const createTaskTool: McpTool = {
       type: "object",
       properties: {
         title: { type: "string", description: "Task title" },
+        body: { type: "string", description: "Task body in Markdown, omitted when there is none" },
         status: TASK_STATUS_SCHEMA,
         due_date: { type: "string", description: "Due date (ISO date), omitted when there is none" },
       },
@@ -366,6 +366,7 @@ const createTaskTool: McpTool = {
   handler: toToolHandler((args) => {
     const task = createTask({
       title: readString(args, "title"),
+      body: readOptionalString(args, "body"),
       status: readOptionalStatus(args) ?? DEFAULT_TASK_STATUS,
       dueDate: readOptionalDueDate(args) ?? null,
     });
@@ -377,12 +378,14 @@ const createTaskTool: McpTool = {
 const updateTaskTool: McpTool = {
   definition: {
     name: "update_task",
-    description: "Update a task's title, status and/or due date. Omitted fields are left unchanged.",
+    description:
+      "Update a task's title, body, status and/or due date. Omitted fields are left unchanged.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string", description: "Task id (uuid)" },
         title: { type: "string", description: "New title" },
+        body: { type: "string", description: "New body in Markdown" },
         status: TASK_STATUS_SCHEMA,
         due_date: { type: ["string", "null"], description: "New due date, or null to clear it" },
       },
@@ -393,6 +396,7 @@ const updateTaskTool: McpTool = {
     const id = readString(args, "id");
     const task = updateTask(id, {
       title: readOptionalString(args, "title"),
+      body: readOptionalString(args, "body"),
       status: readOptionalStatus(args),
       dueDate: readOptionalDueDate(args),
     });
