@@ -45,6 +45,42 @@ describe("tasks-repo", () => {
     expect(getTask(task.id)).toEqual(task);
   });
 
+  it("本文を指定して作成すると、getTaskで同じ本文が取得できる", () => {
+    const created = createTask({
+      title: "本文つき",
+      status: "todo",
+      dueDate: null,
+      body: "# 見出し\n\n本文です",
+    });
+
+    expect(created.body).toBe("# 見出し\n\n本文です");
+    expect(getTask(created.id)?.body).toBe("# 見出し\n\n本文です");
+  });
+
+  it("本文を指定せずに作成すると本文は空文字になる", () => {
+    const created = createTask({ title: "本文なし", status: "todo", dueDate: null });
+
+    expect(created.body).toBe("");
+    expect(getTask(created.id)?.body).toBe("");
+  });
+
+  it("listTasksの結果にも本文が含まれる", () => {
+    createTask({ title: "一覧", status: "todo", dueDate: null, body: "抜粋のもと" });
+
+    expect(listTasks().map((task) => task.body)).toEqual(["抜粋のもと"]);
+  });
+
+  it("updateTaskで本文を更新でき、指定しなければ元の本文が残る", () => {
+    const created = createTask({ title: "編集", status: "todo", dueDate: null, body: "旧本文" });
+
+    const updated = updateTask(created.id, { body: "新本文" });
+    expect(updated?.body).toBe("新本文");
+    expect(getTask(created.id)?.body).toBe("新本文");
+
+    const statusOnly = updateTask(created.id, { status: "done" });
+    expect(statusOnly?.body).toBe("新本文");
+  });
+
   it("作成したタスクをgetTaskで取得できる", () => {
     const created = createTask({ title: "取得", status: "in_progress", dueDate: null });
 
