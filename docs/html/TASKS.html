@@ -55,8 +55,6 @@
 <table>
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th></tr></thead>
 <tbody>
-<tr><td><a href="#t32"><strong>T32</strong></a></td><td><strong>エージェントの変更をOS通知で知らせる（優先度: 高）</strong></td><td>なし</td></tr>
-<tr><td><a href="#t33"><strong>T33</strong></a></td><td><strong>新しく現れたノート・タスクをアニメーションで示す（優先度: 高）</strong></td><td>T25 PR 1</td></tr>
 </tbody>
 </table>
 
@@ -100,10 +98,9 @@ flowchart LR
   class T22,T23,T24,T26,T27,T28 done;
   class T25 done;
   class T29,T30 done;
-  class T12 done;
+  class T12,T32,T33,T34,T35 done;
   class T22 done;
   class T31 done;
-  class T32,T33 todo;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -558,7 +555,7 @@ flowchart LR
 
 <h3 id="t32">T32: エージェントの変更をOS通知で知らせる</h3>
 <ul>
-<li>ステータス: 未着手（優先度: 高。管理者提案、2026-08-06。設計5点は承認済み）</li>
+<li>ステータス: 完了（PR #90）</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §4.6は「記録が自動で書き足されていく様子を眺められる」ことを狙いとしているが、<strong>画面を見ていないときは何も伝わらない</strong>。OS通知でこの穴を埋める。</li>
 <li><strong>設計上の注意（実装前に必読）</strong>: 現在の<code>emitNotesChanged()</code>は<strong>利用者自身のUI操作でも同じ経路で発火する</strong>。素朴に通知を繋ぐと自分でノートを保存するたびに通知が飛ぶ。<strong>ウィンドウが非フォーカスのときだけ通知する</strong>こと。UIで編集するにはフォーカスが要るため、非フォーカス時の変更はほぼエージェント由来と言える。</li>
 <li>管理者承認済みの仕様: (1) 作成・更新・<strong>削除も対象</strong>。(2) 短時間の連続変更は<strong>まとめて1通</strong>に集約。(3) <strong>クリックで該当ノート/タスクを開く</strong>。(4) オン/オフ設定は最初は持たない。</li>
@@ -568,7 +565,7 @@ flowchart LR
 
 <h3 id="t33">T33: 新しく現れたノート・タスクをアニメーションで示す</h3>
 <ul>
-<li>ステータス: 未着手（優先度: 高。管理者提案、2026-08-06）</li>
+<li>ステータス: 完了（PR #95）</li>
 <li>目的: エージェントが書いたノート・タスクが現れるとき<strong>アニメーションで「いま増えた」ことを示す</strong>。現在はピンクの縦線と文字で伝えているが静的で見落としうる。PR 1で<code>motion</code>を導入したまま<strong>まだ一度も使っていない</strong>ので、ここが最初の使い所。</li>
 <li><strong>設計上の注意（実装前に必読）</strong>: 要求定義 §4.6は「<strong>反映粒度は画面全体の再取得</strong>」と定めており、変更のたびに一覧が丸ごと再描画される。<strong>素朴に入場アニメーションを付けると変更のたびに全項目がアニメーションする。</strong>前回の描画に無かったidだけを対象にすること。</li>
 <li>禁止事項: <code>motion.*</code>を使わない（<code>m.*</code>のみ）。動きを派手にしない——T25の絶対条件「直観的に分かりやすい」を損なう。既存テストのシナリオを変えない。<code>prefers-reduced-motion</code>を尊重する。</li>
