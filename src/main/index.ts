@@ -1,4 +1,11 @@
-import { app, BrowserWindow, ipcMain, session, type IpcMainInvokeEvent } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Notification,
+  session,
+  type IpcMainInvokeEvent,
+} from "electron";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "./db/db.js";
@@ -44,7 +51,9 @@ import {
   onLinksChanged,
   onNotesChanged,
   onTasksChanged,
+  type EntityChange,
 } from "./mcp/change-emitter.js";
+import { createChangeNotifier, type ChangeNotification } from "./notify/change-notifier.js";
 import { startMcpServer } from "./mcp/server.js";
 
 const DB_FILE_NAME = "hanamask.sqlite3";
@@ -294,6 +303,36 @@ const navigateMainWindow = (target: NavigateTarget): void => {
   sendNavigate(showMainWindow(), target);
 };
 
+const isMainWindowFocused = (): boolean =>
+  BrowserWindow.getAllWindows().some((window) => window.isFocused());
+
+const showOsNotification = ({ title, body, onClick }: ChangeNotification): void => {
+  if (!Notification.isSupported()) return;
+  const notification = new Notification({ title, body });
+  notification.on("click", onClick);
+  notification.show();
+};
+
+const changeNotifier = createChangeNotifier({
+  isWindowFocused: isMainWindowFocused,
+  showNotification: showOsNotification,
+  showWindow: () => {
+    showMainWindow();
+  },
+  navigate: navigateMainWindow,
+});
+
+// 画面の更新は変更の中身に関わらず必要だが、OS通知は何が変わったか分かるときだけ出す。
+const handleNotesChanged = (change?: EntityChange): void => {
+  broadcastNotesChanged();
+  if (change !== undefined) changeNotifier.recordChange(change);
+};
+
+const handleTasksChanged = (change?: EntityChange): void => {
+  broadcastTasksChanged();
+  if (change !== undefined) changeNotifier.recordChange(change);
+};
+
 let stopMcpServer: (() => Promise<void>) | undefined;
 
 // E2E tests point this at a temp file to avoid touching the developer's real note database.
@@ -316,8 +355,8 @@ const start = async (): Promise<void> => {
     },
     navigate: navigateMainWindow,
   });
-  onNotesChanged(broadcastNotesChanged);
-  onTasksChanged(broadcastTasksChanged);
+  onNotesChanged(handleNotesChanged);
+  onTasksChanged(handleTasksChanged);
   onLinksChanged(broadcastLinksChanged);
   const mcpServer = await startMcpServer();
   stopMcpServer = mcpServer.close;
