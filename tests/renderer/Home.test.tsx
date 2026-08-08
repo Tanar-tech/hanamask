@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { renderWithMotion as render } from "./motion-render";
 import { Home } from "../../src/renderer/components/Home";
 import type { Image, Note, Task } from "../../src/shared/preload-api";
@@ -111,6 +111,8 @@ const mockHanamask = (notesByCall: Note[][], tasksByCall: Task[][] = [[]]) => {
     createLink: vi.fn(),
     deleteLink: vi.fn(async () => true),
     onLinksChanged: vi.fn(() => () => {}),
+    exportBackup: vi.fn(),
+    importBackup: vi.fn(),
     sendChatMessage: vi.fn(async () => []),
     abortChat: vi.fn(async () => {}),
     onChatEvent: vi.fn(() => () => {}),
@@ -424,8 +426,14 @@ describe("Home", () => {
 
     const { unmount } = renderHome();
     expect(await screen.findByText(AGENT_MARK)).toBeTruthy();
+    /*
+     * 印が出た時点ではまだタイマーが張られていないことがある（effectは描画の後に走る）。
+     * CIの遅い環境ではここが露わになり、待たずに読むと -1 を掴む。
+     */
+    await waitFor(() => {
+      expect(tickTimerCallIndexOf(setIntervalSpy)).toBeGreaterThanOrEqual(0);
+    });
     const tickCallIndex = tickTimerCallIndexOf(setIntervalSpy);
-    expect(tickCallIndex).toBeGreaterThanOrEqual(0);
     const timerId: unknown = setIntervalSpy.mock.results[tickCallIndex]?.value;
 
     unmount();

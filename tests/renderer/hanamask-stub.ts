@@ -38,6 +38,8 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     createLink: vi.fn(notStubbed("createLink")),
     deleteLink: vi.fn(async () => true),
     onLinksChanged: vi.fn(() => () => {}),
+    exportBackup: vi.fn(notStubbed("exportBackup")),
+    importBackup: vi.fn(notStubbed("importBackup")),
     ...overrides,
   };
 };

@@ -101,6 +101,22 @@ export interface Image {
   mimeType: string;
 }
 
+/** 書き出し・取り込みで運んだ件数。利用者に「何が移ったか」を数で見せるために使う。 */
+export interface BackupCounts {
+  notes: number;
+  tasks: number;
+  images: number;
+}
+
+/* ファイル選択はmain側のダイアログで行うため、利用者が選ばずに閉じた場合が結果に含まれる。 */
+export type BackupExportResult =
+  | { status: "saved"; filePath: string; counts: BackupCounts }
+  | { status: "cancelled" };
+
+export type BackupImportResult =
+  | { status: "imported"; counts: BackupCounts; safetyCopyPath: string }
+  | { status: "cancelled" };
+
 // Which screen the renderer should show. MCP UI tools (open_note 等) drive this from the
 // main process, so the shape has to stay serializable over IPC.
 export type NavigateTarget =
@@ -154,4 +170,7 @@ export interface HanamaskPreloadApi {
   }): Promise<Link>;
   deleteLink(id: string): Promise<boolean>;
   onLinksChanged(callback: () => void): () => void;
+  // 保存先・読み込み元の選択はmain側のOSダイアログで行う。レンダラーはパスを組み立てない。
+  exportBackup(): Promise<BackupExportResult>;
+  importBackup(): Promise<BackupImportResult>;
 }

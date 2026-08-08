@@ -1,6 +1,7 @@
 import { LazyMotion, MotionConfig } from "motion/react";
 import { useEffect, useState, type JSX } from "react";
 import { AppShell, type ShellSection } from "./components/AppShell";
+import { BackupSettings } from "./components/BackupSettings";
 import { ChatPanel } from "./components/ChatPanel";
 import { ChatSettings } from "./components/ChatSettings";
 import { Home } from "./components/Home";
@@ -66,7 +67,10 @@ export const App = (): JSX.Element => {
           }
         >
           {view.kind === "list" && section === "settings" ? (
-            <ChatSettings />
+            <>
+              <ChatSettings />
+              <BackupSettings />
+            </>
           ) : view.kind === "list" && section === "home" ? (
             <Home
               onSelectNote={openNote}
