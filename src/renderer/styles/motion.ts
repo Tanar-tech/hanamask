@@ -32,6 +32,17 @@ export const TRANSITION = {
   exit: { duration: DURATION_S.fast, ease: EASING.exit },
 } as const satisfies Record<string, Transition>;
 
+/*
+ * 新しく現れた項目の入場。控えめにしているのは、T25の絶対条件が
+ * 「利用者が直観的に操作できる分かりやすいUI」で、大きな動きがこれを損なうため。
+ * 動かすのは不透明度と僅かな縦位置だけで、レイアウトには影響させない。
+ */
+export const ENTRY_MOTION = {
+  initial: { opacity: 0, y: -6 },
+  animate: { opacity: 1, y: 0 },
+  transition: TRANSITION.enter,
+} as const;
+
 /** `<LazyMotion features>` に渡すローダー。別チャンクに切り出され初期ロードから外れる。 */
 export const loadMotionFeatures = async (): Promise<FeatureBundle> =>
   (await import("./motion-features")).default;

@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, screen, within } from "@testing-library/react";
+import { renderWithMotion as render } from "./motion-render";
 import { NoteList } from "../../src/renderer/components/NoteList";
 import type { Image, Note } from "../../src/shared/preload-api";
 
@@ -185,5 +186,26 @@ describe("NoteList", () => {
     unmount();
 
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+  /*
+   * 変更のたびに一覧を丸ごと取り直すため、これが効いていないと毎回すべての項目が
+   * アニメーションする。「増えたものだけを対象にする」判定は useNewlyArrived が持ち、
+   * その正しさは useNewlyArrived.test.tsx で網羅している（誤実装で落ちることも実測済み）。
+   * ここでは NoteList がその判定を実際に使って描画できていること（＝結線）を確かめる。
+   */
+  it("ノートが増えても一覧が壊れない", async () => {
+    const existing = makeNote({ id: "note-1", title: "元からあるノート" });
+    const arrived = makeNote({ id: "note-2", title: "いま増えたノート" });
+    const { listeners } = mockHanamask([[existing], [arrived, existing]]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("元からあるノート");
+    await act(async () => {
+      listeners.forEach((listener) => listener());
+    });
+
+    expect(await screen.findByText("いま増えたノート")).toBeTruthy();
+    expect(screen.getByText("元からあるノート")).toBeTruthy();
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
 });
