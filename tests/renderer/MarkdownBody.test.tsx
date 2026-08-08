@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
 import Markdown, { type Components } from "react-markdown";
 import rehypeRaw from "rehype-raw";
@@ -70,5 +70,59 @@ describe("MarkdownBody のサニタイズ設定", () => {
     render(<MarkdownBody content={'<div style="color">壊れたCSS</div>'} />);
 
     expect(document.body.textContent).toContain("壊れたCSS");
+  });
+});
+
+/*
+ * 上のテスト群は react-markdown をモックして props を見ている。それだけだと
+ * 「実際に描画したときに何がDOMへ出るか」は分からないので、本物を通した結果も見る。
+ * 本文はAIエージェントが書くため、ここが最後の砦になる。
+ */
+describe("MarkdownBody（実際に描画した結果）", () => {
+  const renderBody = async (content: string): Promise<HTMLElement> => {
+    vi.doUnmock("react-markdown");
+    vi.resetModules();
+    const { MarkdownBody: Real } = await import("../../src/renderer/components/MarkdownBody");
+    const { container } = render(<Real content={content} />);
+    return container;
+  };
+
+  it("scriptタグをDOMへ出さない", async () => {
+    const container = await renderBody('前<script>window.pwned = true;</script>後');
+
+    expect(container.querySelector("script")).toBeNull();
+  });
+
+  it("iframeをDOMへ出さない", async () => {
+    const container = await renderBody('<iframe src="https://example.com"></iframe>');
+
+    expect(container.querySelector("iframe")).toBeNull();
+  });
+
+  it("イベントハンドラ属性をDOMへ出さない", async () => {
+    const container = await renderBody('<img src="x" onerror="window.pwned = true">');
+
+    expect(container.querySelector("img")?.getAttribute("onerror")).toBeNull();
+  });
+
+  it("javascript: のリンクを踏めないようにする", async () => {
+    const container = await renderBody("[押すな](javascript:window.pwned=true)");
+
+    expect(container.querySelector("a")?.getAttribute("href") ?? "").not.toContain("javascript:");
+  });
+
+  it("見出しと箇条書きを要素として描画する", async () => {
+    const container = await renderBody("# 見出し\n\n- ひとつ\n- ふたつ");
+
+    expect(container.querySelector("h1")?.textContent).toBe("見出し");
+    expect(container.querySelectorAll("li")).toHaveLength(2);
+  });
+
+  it("埋め込んだHTMLとstyleは通す", async () => {
+    const container = await renderBody('<div style="color: red">色付き</div>');
+
+    const div = container.querySelector("div[style]");
+    expect(div?.textContent).toBe("色付き");
+    expect(div?.getAttribute("style")).toContain("color");
   });
 });
