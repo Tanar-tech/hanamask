@@ -573,6 +573,48 @@ flowchart LR
 <li>停止条件: <code>m.*</code>のテストには<code>LazyMotion</code>のprovider配下が必要で、コンポーネント単体テストはprovider外で動いている（T25 PR 4でカンバンが<code>motion</code>を見送った理由の一つ）。既存テストの構造を変えないと通せない場合は管理者に確認する。</li>
 </ul>
 
+<h3 id="t34">T34: ノート本文をMarkdownとして描画する</h3>
+<ul>
+<li>ステータス: 完了（PR #94）</li>
+<li>優先度: <strong>高</strong>（管理者要望、2026-08-08）</li>
+<li>依存: 必須: なし／推奨: なし</li>
+<li>目的: <strong>これは新機能ではなく、要求定義と実装の乖離の解消である。</strong><code>docs/REQUIREMENTS.md</code>は本文をMarkdownと3箇所で明記している（§3の用語定義、§4.2の機能要件、§6のデータモデル）が、実装は<code>whitespace-pre-wrap</code>の素のテキストとして描画しており、Mermaidのコードフェンスだけが例外的に図になっている。見出しも箇条書きも強調も記号のまま表示される。管理者の要望「初心者がAIの実施内容を把握しやすくしたい」に直接効く。</li>
+<li>変更範囲: <code>src/renderer/components/NoteDetail.tsx</code>（本文の描画）、必要なら<code>MermaidDiagram.tsx</code>との組み合わせ方、<code>package.json</code>（Markdownレンダラの追加）。<strong>編集モードの入力は素のテキストエリアのまま</strong>（プレビューと編集を分ける。WYSIWYGは要求定義に無い）。</li>
+<li><strong>設計上の注意（実装前に必読）</strong>: <strong>ノート本文はAIエージェントが書く。</strong>Markdown→HTML文字列→<code>dangerouslySetInnerHTML</code>という経路は取らないこと。<code>react-markdown</code>のようにReact要素を直接生成するライブラリを使えばこの経路を踏まずに済む。T27で入れたCSP（<code>script-src &#x27;self&#x27;</code>）も多層防御として効くが、それに依存しない実装にすること。</li>
+<li>禁止事項: <code>dangerouslySetInnerHTML</code>を使わないこと。生HTMLの埋め込みを許可しないこと（Markdown内の<code>&lt;script&gt;</code>等が通らないようにする）。既存のMermaid描画を壊さないこと（コードフェンスは引き続き図になる）。編集モードをWYSIWYG化しないこと（要求定義に無い）。</li>
+<li>テスト: 見出し・箇条書き・強調・リンク・コードブロックが要素として描画されることのテスト。<strong>埋め込んだHTML（<code>&lt;div&gt;</code>・表・<code>style</code>付きの要素）が描画されることのテスト。</strong> <strong><code>&lt;script&gt;</code>・<code>&lt;iframe&gt;</code>・<code>javascript:</code>リンク・<code>onerror</code>等のイベントハンドラ属性が通らないことのテスト</strong>（AIエージェントが書く入力であるため必須。CSPに頼らずレンダラ側で落ちることを確かめる）。既存のMermaidコードフェンスが引き続き図として描画されることの回帰テスト。</li>
+<li>停止条件: <strong>Markdownレンダラの依存追加は<code>docs/GOVERNANCE.md</code> §6により管理者承認が必要。</strong><code>react-markdown</code>（51KB・9ファイル・直接依存11件）を候補として提案する。リンクのクリックで外部ブラウザが開く挙動が要求定義に無い場合、その扱いを確認する。</li>
+<li>実績（PR #94）: <code>react-markdown</code> + <code>rehype-raw</code> + <code>rehype-sanitize</code> + <code>remark-gfm</code>。<strong>当初のテストは<code>react-markdown</code>をモックしてpropsを見ており、サニタイズを外しても全件通っていた</strong>ため、実DOMを通すテスト6件を開発管理者が追加した。サニタイズを外すと2件、プラグインの順序を逆にすると4件落ちることを実測。順序の逆転は<code>rehype-sanitize</code>の後に生HTMLが入るため素通りする見落としやすい罠。既存12件のノートのうち箇条書きを含む7件の見え方が変わった（要求定義が最初からMarkdownと定めていたため、退行ではなく是正）。</li>
+</ul>
+
+<h3 id="t35">T35: ノートの書き出しと取り込み（移行・復旧）</h3>
+<ul>
+<li>ステータス: 完了（PR #97）</li>
+<li>優先度: <strong>低</strong>（管理者判断、2026-08-08。「該当する利用者はしばらく現れない」ため）</li>
+<li>依存: 必須: T09（画像添付。書き出しに画像を含める必要がある）／推奨: なし</li>
+<li>目的: 別のPCへ移る、OSを入れ直す、<code>userData</code>が壊れる——これらの場合にノートを失わないようにする。管理者の要望では<strong>別PCへの移行も対象</strong>とする。</li>
+<li><strong>調査済みの現状（2026-08-08）</strong>: DBは<code>app.getPath(&quot;userData&quot;)</code>配下の<code>hanamask.sqlite3</code>（Windowsでは<code>AppData\Roaming\hanamask\</code>）にあり、<code>electron-builder.yml</code>のNSIS設定に<code>deleteAppDataOnUninstall</code>が無いため、<strong>同じPCで再インストールしただけならノートは残る</strong>（実機で存在を確認済み）。したがって本タスクが埋めるのは「別PC・OS再インストール・データ破損」の3ケース。</li>
+<li>変更範囲: <code>src/main/</code>（書き出し・取り込みの実装）、<code>src/renderer/components/</code>（設定画面あたりに導線）、<code>src/shared/preload-api.ts</code>（IPC追加）。</li>
+<li><strong>設計上の注意</strong>: <strong>画像も一緒に運ぶ必要がある。</strong>画像は<code>userData/images/</code>に実体があり、DBは<code>file://</code>のパスで参照している。DBだけ持っていくと画像がすべて壊れる。取り込み側でパスを貼り直す処理が要る。</li>
+<li>禁止事項: 取り込みで既存のデータを黙って上書きしないこと（誤って実行したときに戻せなくなる）。書き出したファイルにAPIキー（<code>chat-settings.json</code>）を含めないこと。クラウドへの自動アップロードを実装しないこと（<code>docs/REQUIREMENTS.md</code> §9でスコープ外）。</li>
+<li>テスト: 書き出し→取り込みで、ノート・タスク・タグ・リンク・<strong>画像</strong>・編集履歴が復元されることのテスト。取り込み時に既存データがあるときの挙動（追記か置換か）のテスト。壊れたファイルを取り込もうとしたときにDBを壊さないことのテスト。</li>
+<li>停止条件: <strong>書き出しの形式（zip＝完全復元 / Markdown＋画像＝可搬性）を管理者に確認してから着手する。</strong>前者は他ツールで読めず、後者は編集履歴やリンクを完全には保てない。どちらを取るかは利用者の目的次第。自動バックアップを持つかどうかも要確認（要求定義に記載が無い）。</li>
+<li>実績（PR #97）: zipはNode標準の<code>zlib</code>だけで実装（依存を増やさずに済んだ）。<strong>DBに画像の絶対パスが入っており、別PCではuserDataの場所が変わるため取り込み時に貼り直す</strong>のが肝。Windowsの円記号パスにも対応。取り込み前に現在の状態をzipで退避し、その保存先を画面で伝える。APIキーは「入れるものだけを列挙する」方式で構造的に混入しない。zip slip対策あり。4つの要所（パス貼り直し・退避・マニフェスト検証・zip slip）を壊すと、それぞれ2/4/2/3件が落ちることを実測。</li>
+</ul>
+
+<h3 id="t36">T36: タスクに本文（Markdown＋HTML）を持たせる</h3>
+<ul>
+<li>ステータス: 実装中</li>
+<li>優先度: <strong>中</strong>（管理者要望、2026-08-08）</li>
+<li>依存: 必須: T34（Markdown＋HTML描画。<code>MarkdownBody</code>とサニタイズ方針を再利用する）／推奨: なし</li>
+<li>目的: <code>docs/REQUIREMENTS.md</code> §4.3のタスク管理は現在タイトル・ステータス・期限しか持てず、<strong>経緯・受け入れ条件・参考リンクを書く場所が無い</strong>。ノートと同じ本文（Markdown＋HTML埋め込み＋Mermaid）をタスクにも持たせ、エージェントがMCP経由で本文つきのタスクを作れるようにする。</li>
+<li><strong>設計上の最重要点</strong>: このリポジトリには<strong>マイグレーション機構が無かった</strong>。<code>openDb</code>が<code>schema.sql</code>を流すだけで全テーブルが<code>CREATE TABLE IF NOT EXISTS</code>のため、<strong>列を足しても既存利用者のDBには反映されず、しかもテストは新規DBを作って走るので全部緑のまま通る</strong>。本タスクで<code>src/main/db/migrations.ts</code>を新設し、規約を<code>docs/MIGRATIONS.md</code>に明文化した。</li>
+<li>変更範囲: <code>src/main/db/</code>（<code>schema.sql</code>・<code>migrations.ts</code>新設・<code>tasks-repo.ts</code>）、<code>src/main/mcp/tools.ts</code>、<code>src/main/index.ts</code>・<code>src/preload/index.ts</code>（<code>tasks:update</code>の新設）、<code>src/shared/preload-api.ts</code>、<code>src/renderer/components/</code>（<code>MarkdownDocument.tsx</code>新設・<code>NoteDetail.tsx</code>・<code>TaskDetail.tsx</code>・<code>TaskList.tsx</code>）。</li>
+<li>禁止事項: 本文の編集履歴（<code>task_versions</code>）を作らないこと。タスク本文を検索対象に含めないこと。タスクへの画像添付を実装しないこと。カンバンカードに抜粋を出さないこと（幅が狭くドラッグ対象のため意図的に出さない）。以上はいずれも独立して設計できるため、必要になった時点で別タスクにする。</li>
+<li>テスト: <strong>変更前の形（body列なし）のDBを実際に作ってから</strong><code>openDb</code>し、列が追加され既存行が保持されることのテスト（<code>docs/MIGRATIONS.md</code> §5）。マイグレーションの冪等性。<code>create_task</code>/<code>update_task</code>での本文の往復と、本文を省略しても既存本文が消えないこと。UIでの本文描画・<strong>サニタイズ（<code>&lt;script&gt;</code>が実行されないこと）</strong>・編集して保存・編集中に外部更新が来ても入力が消えないこと・本文が空なら抜粋を出さないこと。</li>
+<li>停止条件: マイグレーション機構の新設は<code>docs/GOVERNANCE.md</code> §6のアーキテクチャ判断に該当するため管理者承認を得る（2026-08-08取得済み）。列の削除・改名・型変更が必要になった場合はデータ損失の危険があるため着手前に確認する。</li>
+</ul>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
