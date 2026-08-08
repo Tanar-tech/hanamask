@@ -8,6 +8,7 @@ vi.mock("electron", () => ({
     whenReady: () => Promise.resolve(),
     on: vi.fn(),
     quit: vi.fn(),
+    requestSingleInstanceLock: () => true,
     getPath: vi.fn(() => "/tmp/hanamask-userdata"),
   },
   // Declared as a function expression because the module under test calls it with `new`.

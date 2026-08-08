@@ -44,7 +44,7 @@ flowchart TD
     <li><code>migrations.ts</code> … <strong>既存</strong>のDBを最新の形へ追いつかせる</li>
   </ul>
 </li>
-<li><strong>マイグレーションは冪等にする。</strong>同じDBを何度開いても失敗してはならない。</li>
+<li><strong>マイグレーションは冪等にする。</strong>同じDBを何度開いても失敗してはならない。<strong><code>apply</code> 単体が、既に適用済みのDBに対して実行されても失敗しない</strong>ことまで求める（理由は <a href="#concurrent">§3.1</a>）。</li>
 <li><strong>既存の行を消さない・壊さない。</strong>追加した列には既定値を与え、既存行がその値で読めるようにする。</li>
 <li><strong><code>MIGRATIONS</code> 配列は追記のみ。</strong>既に配布された項目の中身を書き換えたり、順番を入れ替えたりしない。利用者のDBがどの時点の形かは分からない。</li>
 <li><strong>テストで担保する（詳細は <a href="#tests">§5</a>）。</strong>「新規DBで動く」テストだけでは、上記の静かな壊れ方を一切検出できない。</li>
@@ -64,6 +64,31 @@ flowchart TD
 
 <p>適用の呼び出しは <code>src/main/db/db.ts</code> の <code>applySchema</code> 直後に置く。<strong><code>openDb</code> を通る経路はすべてここを通る</strong>——これはバックアップ取り込み（<code>src/main/backup/import-backup.ts</code>）にとって重要で、取り込みはDBファイルごと差し替えるうえ検証がテーブル名の存在チェックのみのため、<strong>古い形のzipを取り込んでも再オープン時にマイグレーションが追いつかせる</strong>という関係になっている。</p>
 
+<h3 id="concurrent">3.1 同時に2つのプロセスが開いた場合</h3>
+
+<p><code>isApplied</code> で確かめてから <code>apply</code> するのは check-then-act であり、その隙間に別プロセスが同じ適用を終えていることがある。後発の <code>ALTER TABLE ... ADD COLUMN</code> は <code>duplicate column name</code> になり、<strong>そのプロセスの起動が丸ごと失敗する</strong>。</p>
+
+<pre class="mermaid">
+sequenceDiagram
+  participant A as プロセスA
+  participant DB as 同じDBファイル
+  participant B as プロセスB
+  A->>DB: isApplied? → いいえ
+  B->>DB: isApplied? → いいえ
+  A->>DB: ALTER TABLE ADD COLUMN
+  DB-->>A: 成功
+  B->>DB: ALTER TABLE ADD COLUMN
+  DB-->>B: duplicate column name → 起動失敗
+</pre>
+
+<p>このため、</p>
+
+<ul>
+<li>列を足すマイグレーションは <code>addColumnMigration(table, column, definition)</code> で定義する。<code>apply</code> が失敗しても<strong>目的の列が既に存在するなら成功として扱う</strong>（存在しないときだけ送出する）</li>
+<li>アプリ側では <code>src/main/index.ts</code> が <code>app.requestSingleInstanceLock()</code> で二重起動そのものを抑止し、後発は既存ウィンドウを前に出して終了する（E2Eは <code>HANAMASK_DB_PATH</code> で各自のDBを見るため対象外）</li>
+<li>ロック競合の待ち時間（<code>PRAGMA busy_timeout</code>）は better-sqlite3 の既定で 5000ms 入っている。<code>new Database(path, { timeout: 0 })</code> のように既定を下げない</li>
+</ul>
+
 <h2 id="sqlite">4. SQLiteの制約（設計を縛る）</h2>
 
 <ul>
@@ -79,6 +104,7 @@ flowchart TD
 <ul>
 <li><strong>変更前の形のDBを実際に作り、行を入れてから</strong> <code>openDb</code> する。列が追加され、<strong>既存行が消えず、既定値で読める</strong>ことを検証する</li>
 <li>同じDBを2回開いても失敗しない（冪等性）</li>
+<li><strong>適用済みのDBに対して <code>apply</code> を直接呼んでも落ちない</strong>（二重起動時の競合。<a href="#concurrent">§3.1</a>）</li>
 <li><strong>マイグレーションの呼び出しを外すと、そのテストが実際に落ちる</strong>ことを一度確認する。落ちないなら、それは新規DBだけを見ているテストであり、意味が無い</li>
 <li>新規DBでも同じ形になる（<code>schema.sql</code> 側の担保）</li>
 </ul>

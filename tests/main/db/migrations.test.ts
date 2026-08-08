@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { closeDb, getDb, openDb } from "../../../src/main/db/db";
+import { MIGRATIONS } from "../../../src/main/db/migrations";
 
 const LEGACY_TASKS_TABLE = `
 CREATE TABLE tasks (
@@ -92,5 +93,27 @@ describe("migrations", () => {
     openDb(dbFilePath);
 
     expect(columnNames("tasks")).toContain("body");
+  });
+
+  /*
+   * 二重起動すると、2つのプロセスが「未適用」と判定したあとで両方が適用を実行する。
+   * 後発の apply は既に適用済みのDBに当たるので、ここで例外になると後発の起動が丸ごと失敗する。
+   */
+  it("適用済みのDBに対してapplyを実行しても失敗しない", () => {
+    openDb(dbFilePath);
+    const db = getDb();
+
+    MIGRATIONS.forEach((migration) => {
+      expect(() => {
+        migration.apply(db);
+      }, migration.name).not.toThrow();
+    });
+  });
+
+  /* 既定値の0だと、他プロセスがDBを掴んでいる一瞬に当たっただけで起動が失敗する。 */
+  it("ロック競合を待てるようbusy_timeoutを設定する", () => {
+    openDb(dbFilePath);
+
+    expect(getDb().pragma("busy_timeout", { simple: true })).toBeGreaterThan(0);
   });
 });

@@ -12,6 +12,7 @@ vi.mock("electron", () => ({
     whenReady: () => Promise.resolve(),
     on: vi.fn(),
     quit: vi.fn(),
+    requestSingleInstanceLock: () => true,
     getPath: vi.fn(() => "/tmp/hanamask-userdata"),
   },
   session: { defaultSession: { webRequest: { onHeadersReceived } } },

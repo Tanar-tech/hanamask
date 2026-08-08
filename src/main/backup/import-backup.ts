@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { closeDb, getDb, openDb } from "../db/db.js";
@@ -25,6 +25,9 @@ export interface ImportOutcome {
 }
 
 const SAFETY_COPY_PREFIX = "pre-import-";
+// 画像ディレクトリの隣に作る作業用の置き場。入れ替えをrenameで済ませるため同じ親に置く。
+const STAGING_SUFFIX = ".importing";
+const REPLACED_SUFFIX = ".replaced";
 // 開いたDBが本当にhanamaskのものかを、取り込む前に確かめるための表。
 const REQUIRED_TABLE_NAMES = ["notes", "note_versions", "tasks", "images", "links"];
 // 中身だけ差し替えたのに旧DBのジャーナルが残っていると、次に開いたときに巻き戻される。
@@ -91,14 +94,50 @@ const writeSafetyCopy = ({ backupsDirPath, ...source }: ImportPaths): string => 
   return safetyCopyPath;
 };
 
-const replaceImages = (entries: readonly ZipEntry[], imagesDirPath: string): void => {
-  rmSync(imagesDirPath, { recursive: true, force: true });
-  mkdirSync(imagesDirPath, { recursive: true });
+const stagingDirPathFor = (imagesDirPath: string): string => `${imagesDirPath}${STAGING_SUFFIX}`;
+const replacedDirPathFor = (imagesDirPath: string): string => `${imagesDirPath}${REPLACED_SUFFIX}`;
+
+/* 取り込みが途中で落ちて作業用ディレクトリが残ると、以後ずっとuserDataに居座る。 */
+export const removeImportLeftovers = (imagesDirPath: string): void => {
+  [stagingDirPathFor(imagesDirPath), replacedDirPathFor(imagesDirPath)].forEach((path) => {
+    rmSync(path, { recursive: true, force: true });
+  });
+};
+
+const writeImagesTo = (entries: readonly ZipEntry[], dirPath: string): void => {
+  mkdirSync(dirPath, { recursive: true });
   entries
     .filter((entry) => entry.path.startsWith(IMAGES_ENTRY_PREFIX))
     .forEach((entry) => {
-      writeFileSync(join(imagesDirPath, fileNameOf(entry.path)), entry.data);
+      writeFileSync(join(dirPath, fileNameOf(entry.path)), entry.data);
     });
+};
+
+/*
+ * 先に消してから書くと、書き込みが途中で失敗したときに旧画像だけが失われる（DBの差し替えは
+ * この後なので、旧DBは残ったまま全ノートの画像がリンク切れになる）。別の場所へ書き切ってから
+ * 入れ替えることで、どこで失敗しても旧画像が残るようにする。
+ */
+const replaceImages = (entries: readonly ZipEntry[], imagesDirPath: string): void => {
+  const stagingDirPath = stagingDirPathFor(imagesDirPath);
+  const replacedDirPath = replacedDirPathFor(imagesDirPath);
+  removeImportLeftovers(imagesDirPath);
+  try {
+    writeImagesTo(entries, stagingDirPath);
+  } catch (cause) {
+    rmSync(stagingDirPath, { recursive: true, force: true });
+    throw new Error(`書庫の画像を展開できません: ${String(cause)}`);
+  }
+  const hadImages = existsSync(imagesDirPath);
+  if (hadImages) renameSync(imagesDirPath, replacedDirPath);
+  try {
+    renameSync(stagingDirPath, imagesDirPath);
+  } catch (cause) {
+    if (hadImages) renameSync(replacedDirPath, imagesDirPath);
+    rmSync(stagingDirPath, { recursive: true, force: true });
+    throw new Error(`画像の入れ替えに失敗しました: ${String(cause)}`);
+  }
+  rmSync(replacedDirPath, { recursive: true, force: true });
 };
 
 const replaceDatabase = (data: Buffer, dbFilePath: string): void => {
