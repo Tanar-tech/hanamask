@@ -46,6 +46,7 @@ const makeNote = (overrides: Partial<Note> = {}): Note => ({
 const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: "task-1",
   title: "UI一新のモックアップ",
+  body: "",
   status: "in_progress",
   dueDate: null,
   createdAt: isoAgo(120),
@@ -102,6 +103,7 @@ const mockHanamask = (notesByCall: Note[][], tasksByCall: Task[][] = [[]]) => {
     listTasks,
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
+    updateTask: vi.fn(async () => null),
     onTasksChanged,
     attachImage: vi.fn(async () => stubImage),
     listImages: vi.fn(async () => []),

@@ -51,6 +51,7 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
     listTasks: vi.fn(async () => []),
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
+    updateTask: vi.fn(async () => null),
     onTasksChanged: vi.fn(() => () => {}),
     attachImage: vi.fn(),
     listImages: vi.fn(async () => []),

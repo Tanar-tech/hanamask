@@ -2,10 +2,6 @@ import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
 import type { Task, TaskInput, TaskStatus } from "../../shared/preload-api.js";
 
-// 共有の Task / TaskInput に body が入るまでの、DB層側の暫定拡張。
-export type TaskWithBody = Task & { body: string };
-type TaskCreateInput = TaskInput & { body?: string };
-
 interface TaskRow {
   id: string;
   title: string;
@@ -44,7 +40,7 @@ const isTaskRow = (value: unknown): value is TaskRow => {
   );
 };
 
-const toTask = (row: TaskRow): TaskWithBody => ({
+const toTask = (row: TaskRow): Task => ({
   id: row.id,
   title: row.title,
   body: row.body,
@@ -54,9 +50,9 @@ const toTask = (row: TaskRow): TaskWithBody => ({
   updatedAt: row.updated_at,
 });
 
-export const createTask = (input: TaskCreateInput): TaskWithBody => {
+export const createTask = (input: TaskInput): Task => {
   const timestamp = new Date().toISOString();
-  const task: TaskWithBody = {
+  const task: Task = {
     id: randomUUID(),
     title: input.title,
     body: input.body ?? "",
@@ -81,7 +77,7 @@ export const createTask = (input: TaskCreateInput): TaskWithBody => {
   return task;
 };
 
-export const getTask = (id: string): TaskWithBody | null => {
+export const getTask = (id: string): Task | null => {
   const row: unknown = getDb().prepare("SELECT * FROM tasks WHERE id = ?").get(id);
   if (row === undefined) return null;
   if (!isTaskRow(row)) {
@@ -90,7 +86,7 @@ export const getTask = (id: string): TaskWithBody | null => {
   return toTask(row);
 };
 
-export const listTasks = (includeDeleted = false): TaskWithBody[] => {
+export const listTasks = (includeDeleted = false): Task[] => {
   const where = includeDeleted ? "" : "WHERE deleted_at IS NULL";
   const rows: unknown[] = getDb()
     .prepare(`SELECT * FROM tasks ${where} ORDER BY created_at DESC`)
@@ -110,7 +106,7 @@ export interface TaskUpdateInput {
   dueDate?: string | null;
 }
 
-export const updateTask = (id: string, input: TaskUpdateInput): TaskWithBody | null => {
+export const updateTask = (id: string, input: TaskUpdateInput): Task | null => {
   const existing = getTask(id);
   if (existing === null) return null;
 
@@ -137,7 +133,7 @@ export const softDeleteTask = (id: string): boolean => {
   return result.changes > 0;
 };
 
-export const restoreTask = (id: string): TaskWithBody | null => {
+export const restoreTask = (id: string): Task | null => {
   const result = getDb()
     .prepare("UPDATE tasks SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL")
     .run(id);

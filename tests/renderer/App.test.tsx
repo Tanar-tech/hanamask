@@ -34,6 +34,7 @@ const deletedNote: DeletedNote = {
 const task: Task = {
   id: "task-1",
   title: "MCPサーバーを実装する",
+  body: "",
   status: "todo",
   dueDate: "2026-08-10",
   createdAt: "2026-08-03T00:00:00.000Z",
@@ -60,6 +61,7 @@ const mockHanamask = () => {
     listTasks: vi.fn(async () => [task]),
     getTask: vi.fn(async () => task),
     updateTaskStatus: vi.fn(async () => {}),
+    updateTask: vi.fn(async () => null),
     onTasksChanged: vi.fn(() => () => {}),
     onNavigate: vi.fn((callback: (view: NavigateTarget) => void) => {
       navigateListeners.push(callback);

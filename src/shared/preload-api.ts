@@ -69,14 +69,17 @@ export type TaskStatus = "todo" | "in_progress" | "done";
 export interface Task {
   id: string;
   title: string;
+  body: string;
   status: TaskStatus;
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
+// 本文なしのタスク作成を許すため、bodyだけ任意にしている。
 export interface TaskInput {
   title: string;
+  body?: string;
   status: TaskStatus;
   dueDate: string | null;
 }
@@ -150,6 +153,10 @@ export interface HanamaskPreloadApi {
   listTasks(): Promise<Task[]>;
   getTask(id: string): Promise<Task | null>;
   updateTaskStatus(id: string, status: TaskStatus): Promise<void>;
+  updateTask(
+    id: string,
+    input: { title?: string; body?: string; status?: TaskStatus; dueDate?: string | null },
+  ): Promise<Task | null>;
   onTasksChanged(callback: () => void): () => void;
   onNavigate(callback: (view: NavigateTarget) => void): () => void;
   // The renderer cannot read a picked file from disk under contextIsolation, so it hands

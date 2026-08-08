@@ -38,6 +38,7 @@ const mockHanamask = (searchNotes: () => Promise<Note[]>) => {
     listTasks: vi.fn(async () => []),
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),
+    updateTask: vi.fn(async () => null),
     onTasksChanged: vi.fn(() => () => {}),
     onNavigate: vi.fn(() => () => {}),
     attachImage: vi.fn(async () => stubImage),

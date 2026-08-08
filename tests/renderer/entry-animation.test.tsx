@@ -33,6 +33,7 @@ const makeNote = (id: string, title: string): Note => ({
 const makeTask = (id: string, title: string): Task => ({
   id,
   title,
+  body: "",
   status: "todo",
   dueDate: null,
   createdAt: AT_REST,
