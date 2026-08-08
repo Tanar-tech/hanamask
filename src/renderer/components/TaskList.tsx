@@ -2,6 +2,7 @@ import { li as MotionLi } from "motion/react-m";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import { useNewlyArrived } from "../hooks/useNewlyArrived";
 import { ENTRY_MOTION } from "../styles/motion";
+import { toBodyPreview } from "../text/bodyPreview";
 import type { Task, TaskStatus } from "../../shared/preload-api";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -68,41 +69,42 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
 
   return (
     <ul aria-label="タスク一覧" className="m-0 flex list-none flex-col gap-3 p-0">
-      {tasks.map((task) => (
-        <MotionLi
-          {...(newlyArrived.has(task.id) ? ENTRY_MOTION : {})}
-          key={task.id}
-          className="flex flex-col gap-2 rounded-lg border border-line bg-paper-raised px-4 py-3 transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua"
-        >
-          <h2 className="m-0 font-display text-base leading-snug font-semibold">
-            <button
-              type="button"
-              className={`${BARE_BUTTON} text-left text-base font-semibold text-ink-aqua-text underline-offset-4 hover:underline`}
-              onClick={() => {
-                onSelectTask(task.id);
-              }}
-            >
-              {task.title}
-            </button>
-          </h2>
-          <div className="flex items-center gap-3">
-            <p
-              className={`m-0 rounded-full border px-2 py-0.5 font-body text-xs font-semibold ${STATUS_BADGE_CLASSES[task.status]}`}
-            >
-              {STATUS_LABELS[task.status]}
-            </p>
-            {task.dueDate !== null && (
-              <p className="m-0 font-body text-xs text-text-faint">{task.dueDate}</p>
+      {tasks.map((task) => {
+        const preview = toBodyPreview(task.body);
+        return (
+          <MotionLi
+            {...(newlyArrived.has(task.id) ? ENTRY_MOTION : {})}
+            key={task.id}
+            className="flex flex-col gap-2 rounded-lg border border-line bg-paper-raised px-4 py-3 transition-colors duration-[var(--duration-fast)] ease-standard hover:border-ink-aqua"
+          >
+            <h2 className="m-0 font-display text-base leading-snug font-semibold">
+              <button
+                type="button"
+                className={`${BARE_BUTTON} text-left text-base font-semibold text-ink-aqua-text underline-offset-4 hover:underline`}
+                onClick={() => {
+                  onSelectTask(task.id);
+                }}
+              >
+                {task.title}
+              </button>
+            </h2>
+            <div className="flex items-center gap-3">
+              <p
+                className={`m-0 rounded-full border px-2 py-0.5 font-body text-xs font-semibold ${STATUS_BADGE_CLASSES[task.status]}`}
+              >
+                {STATUS_LABELS[task.status]}
+              </p>
+              {task.dueDate !== null && (
+                <p className="m-0 font-body text-xs text-text-faint">{task.dueDate}</p>
+              )}
+            </div>
+            {preview !== "" && (
+              // 一覧でMarkdown/Mermaidを描くと重くレイアウトも崩れるため、記号を落とした素のテキストにする。
+              <p className="m-0 line-clamp-2 font-body text-xs text-text-soft">{preview}</p>
             )}
-          </div>
-          {task.body.trim() !== "" && (
-            // 一覧でMarkdown/Mermaidを描くと重くレイアウトも崩れるため、素のテキストのまま省略する。
-            <p className="m-0 line-clamp-2 font-body text-xs whitespace-pre-wrap text-text-soft">
-              {task.body}
-            </p>
-          )}
-        </MotionLi>
-      ))}
+          </MotionLi>
+        );
+      })}
     </ul>
   );
 };

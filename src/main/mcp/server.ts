@@ -59,10 +59,34 @@ const createNoteMcpServer = (): Server => {
   return server;
 };
 
+// DNSリバインディング対策。攻撃者ドメインを127.0.0.1へ再解決させたページからでも、
+// Hostは攻撃者ドメインのまま・Originは攻撃者オリジンのままなので、ここで弾ける。
+// 正規のMCPクライアント（Claude Code等）はOriginを送らず、Hostはループバックになる。
+const allowedHosts = (port: number): string[] => [
+  `${HOST}:${port}`,
+  `localhost:${port}`,
+  `[::1]:${port}`,
+];
+
+const allowedOrigins = (port: number): string[] => [
+  `http://${HOST}:${port}`,
+  `http://localhost:${port}`,
+  `http://[::1]:${port}`,
+];
+
 // The SDK refuses to reuse a stateless transport, so every request gets its own
 // server/transport pair. All state lives in SQLite, so nothing is lost between requests.
-const handleMcpRequest = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+const handleMcpRequest = async (
+  req: IncomingMessage,
+  res: ServerResponse,
+  port: number,
+): Promise<void> => {
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableDnsRebindingProtection: true,
+    allowedHosts: allowedHosts(port),
+    allowedOrigins: allowedOrigins(port),
+  });
   const server = createNoteMcpServer();
   res.on("close", () => {
     // The response is already gone, so a failed teardown has nowhere to be reported.
@@ -72,12 +96,12 @@ const handleMcpRequest = async (req: IncomingMessage, res: ServerResponse): Prom
   await transport.handleRequest(req, res);
 };
 
-const routeRequest = (req: IncomingMessage, res: ServerResponse): void => {
+const routeRequest = (req: IncomingMessage, res: ServerResponse, port: number): void => {
   if (req.url === undefined || !req.url.startsWith(MCP_PATH)) {
     res.writeHead(NOT_FOUND_STATUS).end();
     return;
   }
-  handleMcpRequest(req, res).catch(() => {
+  handleMcpRequest(req, res, port).catch(() => {
     if (!res.headersSent) {
       res.writeHead(INTERNAL_ERROR_STATUS).end();
       return;
@@ -95,6 +119,16 @@ const listen = (httpServer: HttpServer, port: number): Promise<void> =>
     });
   });
 
+// 許可Hostは実際に待ち受けているポートで組み立てる必要がある（HANAMASK_MCP_PORT=0 なら
+// OSが割り当てた番号になるため、設定値をそのまま使うと正規の接続まで弾かれる）。
+const boundPort = (httpServer: HttpServer): number => {
+  const address = httpServer.address();
+  if (typeof address !== "object" || address === null) {
+    throw new Error("MCP server is not listening on a TCP port");
+  }
+  return address.port;
+};
+
 const closeHttpServer = (httpServer: HttpServer): Promise<void> =>
   new Promise((resolve, reject) => {
     httpServer.close((error) => (error ? reject(error) : resolve()));
@@ -102,7 +136,9 @@ const closeHttpServer = (httpServer: HttpServer): Promise<void> =>
 
 export const startMcpServer = async (): Promise<McpServerHandle> => {
   const port = resolvePort();
-  const httpServer = createServer(routeRequest);
+  const httpServer: HttpServer = createServer((req, res) =>
+    routeRequest(req, res, boundPort(httpServer)),
+  );
   try {
     await listen(httpServer, port);
   } catch (error) {
@@ -110,7 +146,7 @@ export const startMcpServer = async (): Promise<McpServerHandle> => {
   }
 
   return {
-    port,
+    port: boundPort(httpServer),
     close: () => closeHttpServer(httpServer),
   };
 };

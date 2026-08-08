@@ -180,6 +180,44 @@ describe("NoteList", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
   });
 
+  it("本文があるノートはMarkdownの記号を落とした抜粋を表示する", async () => {
+    mockHanamask([[makeNote({ body: "# 見出し\n- 箇条書き" })]]);
+
+    const { container } = render(<NoteList onSelectNote={vi.fn()} />);
+
+    expect(await screen.findByText("見出し 箇条書き")).toBeTruthy();
+    expect(container.querySelector("h1")).toBeNull();
+  });
+
+  it("Mermaidのコードフェンスは抜粋に出さない", async () => {
+    const body = ["前書き", "```mermaid", "flowchart TD", "  A --> B", "```"].join("\n");
+    mockHanamask([[makeNote({ body })]]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+
+    expect(await screen.findByText("前書き")).toBeTruthy();
+    expect(screen.queryByText(/```/)).toBeNull();
+    expect(screen.queryByText(/flowchart/)).toBeNull();
+  });
+
+  it("本文が空のノートでは抜粋を描画しない", async () => {
+    mockHanamask([
+      [
+        makeNote({ body: "" }),
+        makeNote({ id: "note-2", title: "TODO整理", body: "抜粋される本文" }),
+      ],
+    ]);
+
+    const { container } = render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("抜粋される本文");
+
+    const cards = container.querySelectorAll("li");
+    expect(cards).toHaveLength(2);
+    // 抜粋を出すカードだけが段落を持つ。
+    expect(cards[0]?.querySelectorAll("p")).toHaveLength(0);
+    expect(cards[1]?.querySelectorAll("p")).toHaveLength(1);
+  });
+
   it("アンマウント時に購読を解除する", async () => {
     const { unsubscribe } = mockHanamask([[makeNote()]]);
 

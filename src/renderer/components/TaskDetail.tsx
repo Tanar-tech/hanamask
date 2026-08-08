@@ -47,6 +47,9 @@ const FIELD_LABEL = "font-display text-xs tracking-wide text-text-faint";
 // box-border: preflight を入れていないため box-sizing は content-box のまま。
 // w-full と padding/border が足し算になり、指定しないと入力欄が画面からはみ出す。
 const FIELD = `${FOCUS_RING} m-0 box-border w-full rounded-md border border-line bg-paper-raised px-3 py-2 font-body text-sm text-text`;
+const EMPTY_BODY_MESSAGE = "本文はまだありません";
+// 一覧の空状態と同じ見た目。無地の余白だと読み込み失敗と区別が付かない。
+const EMPTY_BODY = `${RESET_TEXT} rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center font-body text-sm text-text-faint`;
 
 const toTaskStatus = (value: string): TaskStatus | null =>
   STATUS_OPTIONS.find((option) => option.status === value)?.status ?? null;
@@ -134,6 +137,7 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
   const [task, setTask] = useState<Task | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reloadError, setReloadError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [draft, setDraft] = useState<TaskDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [externalTask, setExternalTask] = useState<Task | null>(null);
@@ -161,6 +165,7 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
         setTask(loaded);
         setDraft(null);
         setSaveError(null);
+        setStatusError(null);
         setExternalTask(null);
         setError(loaded === null ? NOT_FOUND_MESSAGE : null);
       } catch (cause) {
@@ -203,9 +208,10 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
     try {
       await window.hanamask.updateTaskStatus(id, status);
       setTask((current) => (current === null ? current : { ...current, status }));
-      setError(null);
+      setStatusError(null);
     } catch (cause) {
-      setError(`${UPDATE_FAILED_MESSAGE}: ${String(cause)}`);
+      // 操作の失敗を画面上部の読み込みエラーと同じ場所に出すと、画面全体が壊れたように見える。
+      setStatusError(`${UPDATE_FAILED_MESSAGE}: ${String(cause)}`);
     } finally {
       liveStateRef.current.changingStatus = false;
     }
@@ -252,7 +258,7 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
   return (
     <article className="flex flex-col gap-5 font-body text-text">
       <div>
-        <button type="button" onClick={onBack} className={`${BUTTON_SECONDARY} bg-paper-raised`}>
+        <button type="button" onClick={onBack} className={BUTTON_SECONDARY}>
           戻る
         </button>
       </div>
@@ -326,9 +332,18 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
                 <span>{task.dueDate}</span>
               </p>
             )}
+            {statusError !== null && (
+              <p role="alert" className={`${ALERT} w-full`}>
+                {statusError}
+              </p>
+            )}
           </div>
 
-          <MarkdownDocument content={task.body} />
+          {task.body.trim() === "" ? (
+            <p className={EMPTY_BODY}>{EMPTY_BODY_MESSAGE}</p>
+          ) : (
+            <MarkdownDocument content={task.body} />
+          )}
 
           <EntityLinks entityType="task" entityId={taskId} />
         </>
