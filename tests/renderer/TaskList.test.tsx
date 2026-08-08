@@ -137,6 +137,37 @@ describe("TaskList", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
   });
 
+  it("本文があるタスクは抜粋を素のテキストとして表示する", async () => {
+    mockHanamask([[makeTask({ body: "# 見出し\n- 箇条書き" })]]);
+
+    const { container } = render(<TaskList onSelectTask={vi.fn()} />);
+
+    expect(await screen.findByText(/# 見出し/)).toBeTruthy();
+    expect(container.querySelector("h1")).toBeNull();
+  });
+
+  it("本文が空のタスクでは抜粋を描画しない", async () => {
+    mockHanamask([[makeTask({ body: "" }), makeTask({ id: "task-2", body: "抜粋される本文" })]]);
+
+    const { container } = render(<TaskList onSelectTask={vi.fn()} />);
+    await screen.findByText("抜粋される本文");
+
+    const cards = container.querySelectorAll("li");
+    expect(cards).toHaveLength(2);
+    // 抜粋を出すカードだけが段落を1つ多く持つ。
+    expect(cards[0]?.querySelectorAll("p")).toHaveLength(2);
+    expect(cards[1]?.querySelectorAll("p")).toHaveLength(3);
+  });
+
+  it("空白だけの本文では抜粋を描画しない", async () => {
+    mockHanamask([[makeTask({ body: "   \n  " })]]);
+
+    const { container } = render(<TaskList onSelectTask={vi.fn()} />);
+    await screen.findByText("MCPサーバーを実装する");
+
+    expect(container.querySelectorAll("li p")).toHaveLength(2);
+  });
+
   it("アンマウント時に購読を解除する", async () => {
     const { unsubscribe } = mockHanamask([[makeTask()]]);
 

@@ -95,6 +95,12 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
               <p className="m-0 font-body text-xs text-text-faint">{task.dueDate}</p>
             )}
           </div>
+          {task.body.trim() !== "" && (
+            // 一覧でMarkdown/Mermaidを描くと重くレイアウトも崩れるため、素のテキストのまま省略する。
+            <p className="m-0 line-clamp-2 font-body text-xs whitespace-pre-wrap text-text-soft">
+              {task.body}
+            </p>
+          )}
         </MotionLi>
       ))}
     </ul>
