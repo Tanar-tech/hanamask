@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type JSX } from "react";
 import {
-  NOTE_RETENTION_DAYS,
+  TRASH_RETENTION_DAYS,
   type DeletedNote,
   type DeletedTask,
   type Note,
@@ -35,7 +35,7 @@ const SOON_THRESHOLD_DAYS = 7;
 
 // 切り上げる。当日いっぱい残っている状態を「あと0日」と表示しないため。
 const remainingDaysOf = (deletedAt: string, nowMs: number): number =>
-  Math.max(Math.ceil(NOTE_RETENTION_DAYS - (nowMs - Date.parse(deletedAt)) / MS_PER_DAY), 0);
+  Math.max(Math.ceil(TRASH_RETENTION_DAYS - (nowMs - Date.parse(deletedAt)) / MS_PER_DAY), 0);
 
 const toBodyPreview = (body: string): string =>
   body.length <= BODY_PREVIEW_MAX_LENGTH ? body : `${body.slice(0, BODY_PREVIEW_MAX_LENGTH)}…`;

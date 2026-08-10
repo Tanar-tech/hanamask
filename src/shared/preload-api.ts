@@ -16,9 +16,10 @@ export interface DeletedNote extends Note {
   deletedAt: string;
 }
 
-// パージの猶予期間。mainのパージバッチとゴミ箱の残り日数表示が同じ値を見るよう
+// ゴミ箱のパージ猶予期間。ノートとタスクの両方に同じ値を使う。
+// mainのパージバッチとゴミ箱の残り日数表示が同じ値を見るよう
 // ここを唯一の定義元にする（片方だけ変わると表示と実際の削除時期がずれる）。
-export const NOTE_RETENTION_DAYS = 30;
+export const TRASH_RETENTION_DAYS = 30;
 
 /*
  * AIチャットの設定。APIキーそのものはレンダラーへ渡さず、保存済みかどうかと
