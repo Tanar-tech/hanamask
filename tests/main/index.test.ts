@@ -228,6 +228,7 @@ const sampleTask: Task = {
   id: "task-1",
   title: "タスク",
   body: "",
+  tags: [],
   status: "todo",
   dueDate: null,
   createdAt: "2026-08-03T00:00:00.000Z",

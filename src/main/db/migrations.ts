@@ -42,6 +42,8 @@ const addColumnMigration = (table: string, column: string, definition: string): 
 export const MIGRATIONS: readonly Migration[] = [
   // SQLite requires a DEFAULT when adding a NOT NULL column to a table that may hold rows.
   addColumnMigration("tasks", "body", "TEXT NOT NULL DEFAULT ''"),
+  // ノートと同じ形（JSONの文字列）でタスクにもタグを持たせる。既定は空配列。
+  addColumnMigration("tasks", "tags", "TEXT NOT NULL DEFAULT '[]'"),
 ];
 
 export const applyMigrations = (db: DatabaseHandle): void => {

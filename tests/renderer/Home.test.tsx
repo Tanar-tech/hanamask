@@ -47,6 +47,7 @@ const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: "task-1",
   title: "UI一新のモックアップ",
   body: "",
+  tags: [],
   status: "in_progress",
   dueDate: null,
   createdAt: isoAgo(120),

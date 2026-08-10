@@ -22,6 +22,7 @@ const makeTask = (overrides: Partial<DeletedTask> = {}): DeletedTask => ({
   id: "task-1",
   title: "消したタスク",
   body: "消したタスクの本文",
+  tags: [],
   status: "todo",
   dueDate: null,
   createdAt: "2026-08-03T00:00:00.000Z",

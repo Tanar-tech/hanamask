@@ -73,6 +73,7 @@ const sampleTask: Task = {
   id: "task-1",
   title: "新しいタイトル",
   body: "新しい本文",
+  tags: [],
   status: "todo",
   dueDate: null,
   createdAt: "2026-08-08T00:00:00.000Z",

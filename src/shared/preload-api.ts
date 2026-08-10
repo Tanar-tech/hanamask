@@ -71,6 +71,7 @@ export interface Task {
   id: string;
   title: string;
   body: string;
+  tags: string[];
   status: TaskStatus;
   dueDate: string | null;
   createdAt: string;
@@ -89,6 +90,7 @@ export interface DeletedTask extends Task {
 export interface TaskInput {
   title: string;
   body?: string;
+  tags?: string[];
   status: TaskStatus;
   dueDate: string | null;
 }

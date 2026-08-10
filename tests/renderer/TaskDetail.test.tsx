@@ -28,6 +28,7 @@ const makeTask = (overrides: Partial<Task> = {}): Task => ({
   id: "task-1",
   title: "MCPサーバーを実装する",
   body: "",
+  tags: [],
   status: "todo",
   dueDate: "2026-08-10",
   createdAt: "2026-08-03T00:00:00.000Z",
