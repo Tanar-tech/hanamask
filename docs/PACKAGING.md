@@ -133,6 +133,35 @@ release/win-unpacked/
 
 確認手順は `.claude/skills/e2e-runner/SKILL.md` の方針に従い手動で行う（インストーラー検証の自動化は行わない）。
 
-## 6. リリース時の注意
+## 6. リリース手順（GitHub Actions）
+
+**配布物は手元のWindowsで作らず、タグを打ってCIに作らせる。**手元で作ると、どのコミットから生成されたものかが残らない。
+
+1. `package.json` の `version` を上げ、`CHANGELOG.md` の `Unreleased` を新しいバージョン見出しに変える。この2つは同じPRに含める
+2. `main` にマージする
+3. タグを打って push する
+
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+4. `.github/workflows/release.yml` が Windows ランナーで lint・typecheck・テストを通してからインストーラーをビルドし、GitHub Releases に添付する
+
+**タグと `package.json` の `version` が食い違っているとワークフローは失敗する。**「タグは打ったがバージョンを上げ忘れた」リリースを防ぐため意図的にそうしている。
+
+タグを打ち直したい場合、または過去のタグでビルドし直したい場合は、Actions から `Release` ワークフローを手動実行してタグ名を渡す（`workflow_dispatch`）。
+
+### 添付されるもの
+
+| ファイル | 用途 |
+|---|---|
+| `hanamask Setup <version>.exe` | インストーラー本体 |
+| `*.exe.blockmap` | 差分ダウンロード用 |
+| `latest.yml` | 自動更新のフィード（`electron-builder.yml` の `publish` 設定により生成される） |
+
+**`latest.yml` は現時点では使われていない。**アプリ側に自動更新の仕組み（`electron-updater` 等）はまだ入れていないため、生成しているだけ。
+
+## 7. リリース時の注意
 
 [GOVERNANCE.md](GOVERNANCE.md) §6 により、**リリース・タグ付け・公開リポジトリへの push は管理者の承認が必要**である。ビルド設定の整備やローカルでのインストーラー生成・動作確認はここまでの手順で進めてよいが、生成物を配布物として公開する行為は開発管理者の裁量では行わず、必ず事前に管理者の承認を得ること。

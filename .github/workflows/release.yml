@@ -1,0 +1,105 @@
+name: Release
+
+# タグを打つとWindowsインストーラーをビルドしてGitHub Releasesに添付する。
+# 手元のWindowsで手動ビルドしていると、誰がどのコミットから作ったかが残らない。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "リリースするタグ（例: v0.2.0）。既に存在するタグを指定する。"
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    # better-sqlite3 のネイティブビルドに Visual Studio Build Tools が要る。
+    # Linuxからのクロスコンパイルは node-gyp が非対応（docs/PACKAGING.md）。
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # リリース物はテストが通ったコミットからしか作らない。
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: package.json のバージョンとタグが一致することを確認する
+        shell: bash
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$tag" != "$version" ]; then
+            echo "タグ ($tag) と package.json のバージョン ($version) が一致しない。" >&2
+            echo "package.json を先に更新してからタグを打つこと。" >&2
+            exit 1
+          fi
+
+      # --publish never を明示する。electron-builder.yml に publish 設定があるため、
+      # CI上でタグを検出すると electron-builder 自身がアップロードを試みる。
+      # 添付は後段の gh CLI に一本化し、経路を2つ持たない。
+      - name: Build installer
+        run: npm run package:win -- --publish never
+
+      - name: 成果物を確認する
+        shell: bash
+        run: ls -lh release/
+
+      - name: リリースノートを組み立てる
+        shell: bash
+        run: |
+          cat > release-notes.md <<'EOF'
+          ## インストール
+
+          下の `hanamask Setup *.exe` をダウンロードして実行してください。
+
+          > **このインストーラーには署名を付けていません。**
+          > 実行すると「WindowsによってPCが保護されました」という青い画面が出ます。
+          > **「詳細情報」→「実行」** と進めてください。判断の経緯は `docs/SIGNING.md` にまとめています。
+
+          データは `%APPDATA%\hanamask\` に保存され、アンインストールしても消えません。
+          設定画面から書き出しておくと、別のPCへ移せます。
+          EOF
+
+      - name: Create or update release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --notes-file release-notes.md
+          else
+            gh release create "$tag" --title "$tag" --notes-file release-notes.md
+          fi
+          # latest.yml は publish 設定がある場合のみ生成される（自動更新用）。
+          # 無い場合にリリース全体を失敗させたくないので、存在するものだけ渡す。
+          assets=()
+          for f in release/*.exe release/*.blockmap release/latest.yml; do
+            [ -e "$f" ] && assets+=("$f")
+          done
+          printf '添付する成果物: %s\n' "${assets[@]}"
+          gh release upload "$tag" --clobber "${assets[@]}"
