@@ -140,13 +140,30 @@ const replaceImages = (entries: readonly ZipEntry[], imagesDirPath: string): voi
   rmSync(replacedDirPath, { recursive: true, force: true });
 };
 
+/*
+ * DBを直接上書きすると、書き込みの途中で強制終了された場合に中途半端なファイルが
+ * 残る。sidecar(-wal 等)も消しているのでSQLiteの自動復旧も効かず、次の起動で開けなく
+ * なる。画像と同じく、一時ファイルへ書き切ってから置き換える。
+ */
+const IMPORTING_SUFFIX = ".importing";
+
 const replaceDatabase = (data: Buffer, dbFilePath: string): void => {
   closeDb();
   DB_SIDECAR_SUFFIXES.forEach((suffix) => {
     rmSync(`${dbFilePath}${suffix}`, { force: true });
   });
   mkdirSync(dirname(dbFilePath), { recursive: true });
-  writeFileSync(dbFilePath, data);
+  const importingPath = `${dbFilePath}${IMPORTING_SUFFIX}`;
+  // 前回の取り込みが中断していれば書きかけが残っている。上書きせず消してから作る。
+  rmSync(importingPath, { force: true });
+  try {
+    writeFileSync(importingPath, data);
+    renameSync(importingPath, dbFilePath);
+  } catch (cause) {
+    rmSync(importingPath, { force: true });
+    openDb(dbFilePath);
+    throw new Error(`データベースの入れ替えに失敗しました: ${String(cause)}`);
+  }
   openDb(dbFilePath);
 };
 

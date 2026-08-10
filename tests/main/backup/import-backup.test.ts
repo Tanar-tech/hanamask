@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { closeDb, getDb, openDb } from "../../../src/main/db/db";
@@ -199,6 +206,29 @@ describe("import-backup", () => {
     expect(() => applyBackupArchive(archive, destination)).toThrow(/見つかりません/);
 
     expectDestinationUntouched();
+  });
+
+  /*
+   * DBを直接上書きしていると、書き込みの途中で強制終了された場合に中途半端な
+   * ファイルが残る。sidecar(-wal 等)も消しているのでSQLiteの自動復旧も効かず、
+   * 次の起動で開けなくなる。一時ファイルへ書き切ってから置き換える形なら、
+   * 途中で落ちても元のDBはそのまま残る。
+   *
+   * 「途中で落ちる」ことは直接作れないので、その痕跡（前回の中断で残った
+   * 一時ファイル）を置いて、次の取り込みが片付けることを確かめる。
+   */
+  it("中断で残った一時ファイルを、次の取り込みが片付ける", () => {
+    openDestinationWithOwnData();
+    const archive = buildSourceArchive();
+    openDb(destination.dbFilePath);
+
+    const leftover = `${destination.dbFilePath}.importing`;
+    writeFileSync(leftover, Buffer.from("前回の中断で残った書きかけ"));
+
+    applyBackupArchive(archive, destination);
+
+    expect(existsSync(leftover)).toBe(false);
+    expect(searchNotes("").length).toBeGreaterThan(0);
   });
 
   it("DBの中身がSQLiteでない書庫を断る", () => {
