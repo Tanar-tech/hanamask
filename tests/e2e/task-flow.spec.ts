@@ -95,4 +95,71 @@ describe("task flow (Electron app + MCP server + renderer)", () => {
     await taskList.getByText(TASK_TITLE).waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "task-04-restored.png") });
   });
+
+  /*
+   * update_note がハンドラで body を落としていた回帰（#119）と同じ形の穴が
+   * タスク側にも開きうる。本文が「実際に書き換わる」ことを画面で確かめる。
+   */
+  it("update_task で書き換えた本文が、開いている詳細画面に反映される", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "hanamask-e2e-taskbody-"));
+    dbFilePath = join(tmpDir, "hanamask.sqlite3");
+    app = await launchApp(dbFilePath, E2E_MCP_PORT);
+    const window = await app.firstWindow();
+    await window.waitForLoadState();
+    await openTaskList(window);
+
+    const taskId = readTaskId(
+      await callMcpTool(E2E_MCP_PORT, "create_task", {
+        title: "本文つきタスク",
+        status: "todo",
+        body: "## 反映前\n\n- 前の項目",
+      }),
+    );
+    await taskListOf(window).getByRole("button", { name: "本文つきタスク" }).click();
+    await window.getByRole("heading", { name: "本文つきタスク" }).waitFor();
+    // Markdownとして描画されるので、記号ではなく見出し要素になっていること。
+    await window.getByRole("heading", { name: "反映前" }).waitFor();
+
+    await callMcpTool(E2E_MCP_PORT, "update_task", {
+      id: taskId,
+      body: "## 反映後\n\n- 後の項目",
+    });
+
+    // 手動リロードなしで本文が入れ替わる。
+    await window.getByRole("heading", { name: "反映後" }).waitFor();
+    await expect.poll(() => window.getByText("前の項目").count()).toBe(0);
+    await window.screenshot({ path: join(SCREENSHOT_DIR, "task-05-body-updated.png") });
+  });
+
+  it("一覧から削除したタスクをゴミ箱から復元できる", async () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "hanamask-e2e-tasktrash-"));
+    dbFilePath = join(tmpDir, "hanamask.sqlite3");
+    app = await launchApp(dbFilePath, E2E_MCP_PORT);
+    const window = await app.firstWindow();
+    // 削除は window.confirm で確認する。ハンドラは最初の描画より先に登録する。
+    window.on("dialog", (dialog) => {
+      void dialog.accept();
+    });
+    await window.waitForLoadState();
+    await openTaskList(window);
+
+    await callMcpTool(E2E_MCP_PORT, "create_task", { title: "ゴミ箱往復タスク", status: "todo" });
+    await taskListOf(window).getByText("ゴミ箱往復タスク").waitFor();
+
+    await taskListOf(window).getByRole("button", { name: "削除" }).click();
+    await window.getByText("タスクはまだありません").waitFor();
+
+    await window.getByRole("button", { name: "ゴミ箱" }).click();
+    await window.getByRole("heading", { name: "ゴミ箱" }).waitFor();
+    await window.getByText("ゴミ箱往復タスク").waitFor();
+    await window.screenshot({ path: join(SCREENSHOT_DIR, "task-06-in-trash.png") });
+
+    await window.getByRole("button", { name: "復元" }).click();
+    await window.getByText("削除済みのノート・タスクはありません").waitFor();
+
+    await window.getByRole("button", { name: "戻る" }).click();
+    await openTaskList(window);
+    await taskListOf(window).getByText("ゴミ箱往復タスク").waitFor();
+    await window.screenshot({ path: join(SCREENSHOT_DIR, "task-07-restored.png") });
+  });
 });
