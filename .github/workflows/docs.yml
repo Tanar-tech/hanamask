@@ -26,3 +26,8 @@ jobs:
         env:
           BASE_REF: ${{ github.base_ref }}
         run: bash scripts/check-docs-sync.sh "origin/$BASE_REF"
+
+      # 完了したのに「実装中」のまま残る漏れを今日だけで3回起こしている。
+      # 完了かどうかは機械には分からないので、件数で棚卸しを促すに留める。
+      - name: docs/TASKS.md のステータスを確認する
+        run: node scripts/check-task-status.mjs

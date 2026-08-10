@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:readme": "node scripts/check-readme-tools.mjs",
+    "check:tasks": "node scripts/check-task-status.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
