@@ -25,6 +25,15 @@ export const TRASH_RETENTION_DAYS = 30;
  * AIチャットの設定。APIキーそのものはレンダラーへ渡さず、保存済みかどうかと
  * 末尾4文字（利用者が「どのキーか」を見分けるため）だけを渡す。
  */
+/*
+ * AIチャットは動作しないため、2026-08-10 に利用者から見えない状態にした。
+ * 画面に出さず、mainプロセスのIPCも登録しない。将来つなぎ直すときのために
+ * 実装（src/main/chat/・ChatPanel.tsx・ChatSettings.tsx）はそのまま残してある。
+ *
+ * ここを true に戻すと、UI・IPC・設定画面がまとめて復活する。
+ */
+export const CHAT_ENABLED = false;
+
 export interface ChatSettings {
   apiKeyMask: string | null;
   model: string;
