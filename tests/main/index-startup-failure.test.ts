@@ -68,14 +68,6 @@ const loadMain = async (): Promise<void> => {
   await import("../../src/main/index");
 };
 
-const findAppListener = (eventName: string): ((...args: unknown[]) => void) => {
-  const registration = appOn.mock.calls.find((call) => call[0] === eventName);
-  if (registration === undefined) {
-    throw new Error(`${eventName} listener was not registered`);
-  }
-  return registration[1];
-};
-
 /*
  * DBが壊れていて開けないとき、これまでは例外が投げ直されるだけで、利用者の画面には
  * 何も出なかった。「起動しない」ことしか分からず、退避があることにも辿り着けない。
