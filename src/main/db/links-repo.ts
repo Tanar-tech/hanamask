@@ -49,7 +49,31 @@ export interface LinkInput {
   toId: string;
 }
 
+/*
+ * リンクは links テーブルだけに入り、外部キーが無い。存在しないidでも挿入できるため、
+ * エージェントがidを打ち間違えると「何も指さないリンク」が黙って残る。利用者からは
+ * 開けないリンクにしか見えず、原因も追えない。ここで両端の存在を確かめる。
+ *
+ * 検査はこの1か所に置く。MCPとUIの両方が createLink を通るので、呼び出し側ごとに
+ * 書くと片方だけ抜ける。
+ */
+const TABLE_OF: Readonly<Record<EntityType, "notes" | "tasks">> = {
+  note: "notes",
+  task: "tasks",
+};
+
+const assertEndpointExists = (type: EntityType, id: string): void => {
+  const found = getDb()
+    .prepare(`SELECT 1 FROM ${TABLE_OF[type]} WHERE id = ? AND deleted_at IS NULL`)
+    .get(id);
+  if (found === undefined) {
+    throw new Error(`${type} not found: ${id}`);
+  }
+};
+
 export const createLink = (input: LinkInput): Link => {
+  assertEndpointExists(toEntityType(input.fromType), input.fromId);
+  assertEndpointExists(toEntityType(input.toType), input.toId);
   const link: Link = {
     id: randomUUID(),
     fromType: toEntityType(input.fromType),

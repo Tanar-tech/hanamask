@@ -4,6 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { closeDb, openDb } from "../../../src/main/db/db";
+import { createNote } from "../../../src/main/db/notes-repo";
+import { createTask } from "../../../src/main/db/tasks-repo";
 import { listLinks } from "../../../src/main/db/links-repo";
 import {
   onLinksChanged,
@@ -43,10 +45,15 @@ const linkThroughTool = (args: Record<string, unknown>): string => {
 
 describe("mcp link tools", () => {
   let dbFilePath: string;
+  // リンクは両端の存在を確かめてから張られるので、実在するノート・タスクを用意する。
+  let noteId: string;
+  let taskId: string;
 
   beforeEach(() => {
     dbFilePath = join(tmpdir(), `hanamask-link-mcp-test-${randomUUID()}.sqlite3`);
     openDb(dbFilePath);
+    noteId = createNote({ title: "n1", body: "b1", tags: [] }).id;
+    taskId = createTask({ title: "t1", status: "todo", dueDate: null }).id;
   });
 
   afterEach(() => {
@@ -69,13 +76,13 @@ describe("mcp link tools", () => {
   it("link_entitiesで作成したリンクが永続化される", () => {
     const id = linkThroughTool({
       from_type: "note",
-      from_id: "note-1",
+      from_id: noteId,
       to_type: "task",
-      to_id: "task-1",
+      to_id: taskId,
     });
 
-    expect(listLinks("note", "note-1")).toEqual([
-      { id, fromType: "note", fromId: "note-1", toType: "task", toId: "task-1" },
+    expect(listLinks("note", noteId)).toEqual([
+      { id, fromType: "note", fromId: noteId, toType: "task", toId: taskId },
     ]);
   });
 
@@ -112,7 +119,7 @@ describe("mcp link tools", () => {
     const unsubscribeNotes = onNotesChanged(notesListener);
     const unsubscribeTasks = onTasksChanged(tasksListener);
 
-    linkThroughTool({ from_type: "note", from_id: "note-1", to_type: "task", to_id: "task-1" });
+    linkThroughTool({ from_type: "note", from_id: noteId, to_type: "task", to_id: taskId });
 
     expect(notesListener).not.toHaveBeenCalled();
     expect(tasksListener).not.toHaveBeenCalled();
@@ -125,7 +132,7 @@ describe("mcp link tools", () => {
     const linksListener = vi.fn();
     const unsubscribe = onLinksChanged(linksListener);
 
-    linkThroughTool({ from_type: "note", from_id: "note-1", to_type: "task", to_id: "task-1" });
+    linkThroughTool({ from_type: "note", from_id: noteId, to_type: "task", to_id: taskId });
 
     expect(linksListener).toHaveBeenCalledTimes(1);
 
@@ -136,7 +143,7 @@ describe("mcp link tools", () => {
     const linksListener = vi.fn();
     const unsubscribe = onLinksChanged(linksListener);
 
-    expect(callTool("link_entities", { from_type: "note", from_id: "note-1" }).isError).toBe(true);
+    expect(callTool("link_entities", { from_type: "note", from_id: noteId }).isError).toBe(true);
     expect(linksListener).not.toHaveBeenCalled();
 
     unsubscribe();
@@ -145,9 +152,9 @@ describe("mcp link tools", () => {
   it("unlink_entitiesの成功時はリンクの変更通知を出す", () => {
     const id = linkThroughTool({
       from_type: "note",
-      from_id: "note-1",
+      from_id: noteId,
       to_type: "task",
-      to_id: "task-1",
+      to_id: taskId,
     });
     const linksListener = vi.fn();
     const unsubscribe = onLinksChanged(linksListener);
@@ -173,7 +180,7 @@ describe("mcp link tools", () => {
     const linksListener = vi.fn();
     const unsubscribe = onLinksChanged(linksListener);
 
-    callTool("list_links", { entity_type: "note", entity_id: "note-1" });
+    callTool("list_links", { entity_type: "note", entity_id: noteId });
 
     expect(linksListener).not.toHaveBeenCalled();
 
@@ -183,17 +190,17 @@ describe("mcp link tools", () => {
   it("list_linksはfrom側・to側どちらからでもリンクを返す", () => {
     const id = linkThroughTool({
       from_type: "note",
-      from_id: "note-1",
+      from_id: noteId,
       to_type: "task",
-      to_id: "task-1",
+      to_id: taskId,
     });
     const expected = {
-      links: [{ id, fromType: "note", fromId: "note-1", toType: "task", toId: "task-1" }],
+      links: [{ id, fromType: "note", fromId: noteId, toType: "task", toId: taskId }],
     };
 
-    expect(readJsonPayload(callTool("list_links", { entity_type: "note", entity_id: "note-1" })))
+    expect(readJsonPayload(callTool("list_links", { entity_type: "note", entity_id: noteId })))
       .toEqual(expected);
-    expect(readJsonPayload(callTool("list_links", { entity_type: "task", entity_id: "task-1" })))
+    expect(readJsonPayload(callTool("list_links", { entity_type: "task", entity_id: taskId })))
       .toEqual(expected);
   });
 
@@ -212,16 +219,16 @@ describe("mcp link tools", () => {
   it("unlink_entitiesはリンクを削除する", () => {
     const id = linkThroughTool({
       from_type: "note",
-      from_id: "note-1",
+      from_id: noteId,
       to_type: "task",
-      to_id: "task-1",
+      to_id: taskId,
     });
 
     const result = callTool("unlink_entities", { id });
 
     expect(result.isError).toBeFalsy();
     expect(readJsonPayload(result)).toEqual({ deleted: true });
-    expect(listLinks("note", "note-1")).toEqual([]);
+    expect(listLinks("note", noteId)).toEqual([]);
   });
 
   it("存在しないリンクのunlink_entitiesはエラーを返す", () => {
@@ -232,7 +239,7 @@ describe("mcp link tools", () => {
   it("DBクローズ後の呼び出しはクラッシュせずMCPエラーを返す", () => {
     closeDb();
 
-    const result = callTool("list_links", { entity_type: "note", entity_id: "note-1" });
+    const result = callTool("list_links", { entity_type: "note", entity_id: noteId });
 
     expect(result.isError).toBe(true);
     const [firstContent] = result.content;
