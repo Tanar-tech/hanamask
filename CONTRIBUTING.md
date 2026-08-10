@@ -22,13 +22,27 @@ DBスキーマに触れる変更では、[docs/MIGRATIONS.md](docs/MIGRATIONS.md
 
 ## 開発環境
 
+Node.js 22以上が必要（`package.json` の `engines` 参照）。
+
 ```bash
 npm ci
-npm run dev        # アプリを起動
-npm test           # 単体テスト（Vitest）
-npm run lint       # ESLint
-npm run typecheck  # 型チェック
 ```
+
+`better-sqlite3` はネイティブモジュールのため、インストール時にビルドが走ることがある。Linuxではビルドツール（`build-essential`、`python3` 等）が必要になる場合がある。
+
+### コマンド
+
+| コマンド | 内容 |
+|---|---|
+| `npm run dev` | ビルドしてElectronアプリを起動する（`npm run build && electron .`） |
+| `npm run build` | レンダラー（Vite）とmain/preload（tsc）を `dist/` にビルドする |
+| `npm test` | Vitestで単体テストを実行する（`npm run test:watch` でウォッチ） |
+| `npm run test:e2e` | ビルド後、Electronアプリを実際に起動してE2Eテストを実行する |
+| `npm run lint` | ESLintを実行する |
+| `npm run typecheck` | `tsc --noEmit` で型チェックする |
+| `npm run check:licenses` | 同梱される依存のライセンスを確認する |
+
+**E2Eはウィンドウ描画にディスプレイが要る。**ヘッドレス環境（WSL・CI）では `xvfb-run npm run test:e2e` のようにXvfb配下で実行する。
 
 - **Node.js の管理は npm です。**`yarn` / `pnpm` を混ぜないでください
 - **Prettier は使っていません。**整形の正は ESLint のみです。`npx prettier --write` を掛けると無関係な差分が大量に出ます
