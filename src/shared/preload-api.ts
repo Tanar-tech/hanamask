@@ -76,6 +76,14 @@ export interface Task {
   updatedAt: string;
 }
 
+/*
+ * ソフトデリート済みタスク。DeletedNote と同じ理由で、通常の一覧・カンバンに
+ * deletedAt を持ち込まないようゴミ箱専用の派生型として分けている。
+ */
+export interface DeletedTask extends Task {
+  deletedAt: string;
+}
+
 // 本文なしのタスク作成を許すため、bodyだけ任意にしている。
 export interface TaskInput {
   title: string;
@@ -157,6 +165,9 @@ export interface HanamaskPreloadApi {
     id: string,
     input: { title?: string; body?: string; status?: TaskStatus; dueDate?: string | null },
   ): Promise<Task | null>;
+  deleteTask(id: string): Promise<void>;
+  listDeletedTasks(): Promise<DeletedTask[]>;
+  restoreTask(id: string): Promise<Task | null>;
   onTasksChanged(callback: () => void): () => void;
   onNavigate(callback: (view: NavigateTarget) => void): () => void;
   // The renderer cannot read a picked file from disk under contextIsolation, so it hands

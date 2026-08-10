@@ -7,6 +7,7 @@ import { closeDb, getDb, openDb } from "../../../src/main/db/db";
 import {
   createTask,
   getTask,
+  listDeletedTasks,
   listTasks,
   restoreTask,
   softDeleteTask,
@@ -184,5 +185,33 @@ describe("tasks-repo", () => {
 
     expect(restoreTask(created.id)).toBeNull();
     expect(restoreTask(randomUUID())).toBeNull();
+  });
+
+  it("listDeletedTasksは削除済みタスクだけをdeletedAt付きで返す", () => {
+    const deleted = createTask({ title: "消したタスク", status: "todo", dueDate: null });
+    createTask({ title: "生きているタスク", status: "todo", dueDate: null });
+    softDeleteTask(deleted.id);
+
+    const rows = listDeletedTasks();
+
+    expect(rows.map((task) => task.title)).toEqual(["消したタスク"]);
+    expect(new Date(rows[0]?.deletedAt ?? "").toISOString()).toBe(rows[0]?.deletedAt);
+  });
+
+  it("listDeletedTasksは新しく削除したものから順に返す", () => {
+    const first = createTask({ title: "先に消す", status: "todo", dueDate: null });
+    const second = createTask({ title: "後で消す", status: "todo", dueDate: null });
+    softDeleteTask(first.id);
+    softDeleteTask(second.id);
+
+    expect(listDeletedTasks().map((task) => task.title)).toEqual(["後で消す", "先に消す"]);
+  });
+
+  it("復元したタスクはlistDeletedTasksから消える", () => {
+    const created = createTask({ title: "戻す", status: "todo", dueDate: null });
+    softDeleteTask(created.id);
+    restoreTask(created.id);
+
+    expect(listDeletedTasks()).toEqual([]);
   });
 });

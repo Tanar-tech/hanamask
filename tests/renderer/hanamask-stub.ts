@@ -10,6 +10,9 @@ const notStubbed = (name: string) => (): never => {
 /** 何もしない既定のpreload API。関心のある口だけを差し替えて使う。 */
 export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
   window.hanamask = {
+    deleteTask: vi.fn(async () => {}),
+    listDeletedTasks: vi.fn(async () => []),
+    restoreTask: vi.fn(async () => null),
     listNotes: vi.fn(async () => []),
     searchNotes: vi.fn(async () => []),
     getNote: vi.fn(async () => null),

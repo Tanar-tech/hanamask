@@ -23,7 +23,15 @@ import {
   updateNote,
   type NoteUpdateInput,
 } from "./db/notes-repo.js";
-import { getTask, listTasks, updateTask, type TaskUpdateInput } from "./db/tasks-repo.js";
+import {
+  getTask,
+  listDeletedTasks,
+  listTasks,
+  restoreTask,
+  softDeleteTask,
+  updateTask,
+  type TaskUpdateInput,
+} from "./db/tasks-repo.js";
 import { listImages } from "./db/images-repo.js";
 import { createLink, deleteLink, listLinks, type LinkInput } from "./db/links-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
@@ -84,6 +92,9 @@ const NOTES_RESTORE_CHANNEL = "notes:restore";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
 const TASKS_UPDATE_CHANNEL = "tasks:update";
+const TASKS_DELETE_CHANNEL = "tasks:delete";
+const TASKS_LIST_DELETED_CHANNEL = "tasks:list-deleted";
+const TASKS_RESTORE_CHANNEL = "tasks:restore";
 const IMAGES_ATTACH_CHANNEL = "images:attach";
 const CHAT_SETTINGS_READ_CHANNEL = "chat:read-settings";
 const CHAT_SEND_CHANNEL = "chat:send";
@@ -261,6 +272,18 @@ const editTask = (
   const updated = updateTask(id, input);
   if (updated !== null) emitTasksChanged();
   return updated;
+};
+
+// MCPツール経由の削除と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
+const deleteTask = (_event: IpcMainInvokeEvent, id: string): void => {
+  if (softDeleteTask(id)) emitTasksChanged();
+};
+
+// MCPツール経由の復元と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
+const undeleteTask = (_event: IpcMainInvokeEvent, id: string): Task | null => {
+  const restored = restoreTask(id);
+  if (restored !== null) emitTasksChanged();
+  return restored;
 };
 
 const attachImageToNote = (
@@ -450,6 +473,9 @@ ipcMain.handle(NOTES_LIST_DELETED_CHANNEL, () => listDeletedNotes());
 ipcMain.handle(NOTES_RESTORE_CHANNEL, undeleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 ipcMain.handle(TASKS_UPDATE_CHANNEL, editTask);
+ipcMain.handle(TASKS_DELETE_CHANNEL, deleteTask);
+ipcMain.handle(TASKS_LIST_DELETED_CHANNEL, () => listDeletedTasks());
+ipcMain.handle(TASKS_RESTORE_CHANNEL, undeleteTask);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
 ipcMain.handle(CHAT_SETTINGS_READ_CHANNEL, () => readChatSettings());
 ipcMain.handle(

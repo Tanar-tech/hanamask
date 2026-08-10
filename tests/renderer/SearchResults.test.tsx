@@ -25,6 +25,9 @@ const makeNote = (overrides: Partial<Note> = {}): Note => ({
 const mockHanamask = (searchNotes: () => Promise<Note[]>) => {
   const search = vi.fn(searchNotes);
   window.hanamask = {
+    deleteTask: vi.fn(async () => {}),
+    listDeletedTasks: vi.fn(async () => []),
+    restoreTask: vi.fn(async () => null),
     listDeletedNotes: vi.fn(async () => []),
     restoreNote: vi.fn(async () => null),
     listNotes: vi.fn(async () => []),

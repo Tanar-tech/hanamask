@@ -39,6 +39,15 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
     }
   }, []);
 
+  const deleteTask = useCallback(async (task: Task) => {
+    if (!window.confirm(`「${task.title}」を削除しますか?`)) return;
+    try {
+      await window.hanamask.deleteTask(task.id);
+    } catch (cause) {
+      setError(`タスクの削除に失敗しました: ${String(cause)}`);
+    }
+  }, []);
+
   useEffect(() => {
     void reload();
     return window.hanamask.onTasksChanged(() => {
@@ -102,6 +111,15 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
               // 一覧でMarkdown/Mermaidを描くと重くレイアウトも崩れるため、記号を落とした素のテキストにする。
               <p className="m-0 line-clamp-2 font-body text-xs text-text-soft">{preview}</p>
             )}
+            <button
+              type="button"
+              className={`${FOCUS_RING} cursor-pointer self-start rounded-md border border-line bg-transparent px-3 py-1 font-body text-xs text-text-faint transition-colors duration-[var(--duration-fast)] ease-standard hover:border-crit hover:text-crit`}
+              onClick={() => {
+                void deleteTask(task);
+              }}
+            >
+              削除
+            </button>
           </MotionLi>
         );
       })}
