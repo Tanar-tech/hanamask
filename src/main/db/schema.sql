@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   body TEXT NOT NULL DEFAULT '',
+  tags TEXT NOT NULL DEFAULT '[]',
   status TEXT NOT NULL,
   due_date TEXT,
   deleted_at TEXT,

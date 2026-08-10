@@ -84,6 +84,8 @@ interface Migration {
 
 T36 での実績（2026-08-08）: ノート15件・タスク7件・リンク2件・編集履歴1件が保持され、`body` 列が追加、NULL行ゼロ、`integrity_check: ok`。
 
+T42 での実績（2026-08-10）: ノート20件・タスク12件・リンク2件が保持され、`tags` 列が追加、`integrity_check: ok`。
+
 ## 7. 手順のまとめ
 
 1. `schema.sql` を新しい形に更新する

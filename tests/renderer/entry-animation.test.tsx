@@ -34,6 +34,7 @@ const makeTask = (id: string, title: string): Task => ({
   id,
   title,
   body: "",
+  tags: [],
   status: "todo",
   dueDate: null,
   createdAt: AT_REST,

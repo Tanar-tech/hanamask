@@ -6,7 +6,11 @@ const exec = vi.fn();
 vi.mock("better-sqlite3", () => ({
   default: vi.fn(function createFakeDatabase() {
     // Reports every migrated column as already present so this suite stays focused on openDb.
-    return { close, exec, prepare: () => ({ all: (): unknown[] => [{ name: "body" }] }) };
+    return {
+      close,
+      exec,
+      prepare: () => ({ all: (): unknown[] => [{ name: "body" }, { name: "tags" }] }),
+    };
   }),
 }));
 

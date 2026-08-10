@@ -79,6 +79,24 @@ describe("migrations", () => {
     });
   });
 
+  it("tags列を持たない既存DBを開くとtasks.tagsが追加される", () => {
+    createLegacyDbFile(dbFilePath);
+
+    openDb(dbFilePath);
+
+    expect(columnNames("tasks")).toContain("tags");
+  });
+
+  it("tags列の追加で既存のタスク行が失われず、tagsは空配列になる", () => {
+    createLegacyDbFile(dbFilePath);
+
+    openDb(dbFilePath);
+    const row: unknown = getDb().prepare("SELECT * FROM tasks WHERE id = ?").get(LEGACY_TASK_ID);
+
+    // ノートと同じくJSONの文字列として持つ。空配列の既定値なら、既存行もそのまま読める。
+    expect(row).toMatchObject({ id: LEGACY_TASK_ID, title: "旧タスク", tags: "[]" });
+  });
+
   it("同じDBを二度開いてもマイグレーションは失敗しない", () => {
     createLegacyDbFile(dbFilePath);
 

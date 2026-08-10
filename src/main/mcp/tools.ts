@@ -96,6 +96,17 @@ const readOptionalTags = (args: Record<string, unknown>): string[] | undefined =
   return value;
 };
 
+/*
+ * タグはノートとタスクで同じ意味を持つ。片方だけ説明が変わると、エージェントが
+ * 種別ごとに違う付け方をしてしまうので、宣言を1つにまとめる。
+ */
+const TAGS_SCHEMA = {
+  type: "array",
+  items: { type: "string" },
+  description: "Tags used to group notes and tasks (for example a project name)",
+} as const;
+
+
 const createNoteTool: NoteTool = {
   definition: {
     name: "create_note",
@@ -105,7 +116,7 @@ const createNoteTool: NoteTool = {
       properties: {
         title: { type: "string", description: "Note title" },
         body: { type: "string", description: "Note body in Markdown" },
-        tags: { type: "array", items: { type: "string" }, description: "Tags for the note" },
+        tags: TAGS_SCHEMA,
       },
       required: ["title", "body"],
     },
@@ -161,7 +172,7 @@ const updateNoteTool: NoteTool = {
         id: { type: "string", description: "Note id (uuid)" },
         title: { type: "string", description: "New title" },
         body: { type: "string", description: "New body in Markdown" },
-        tags: { type: "array", items: { type: "string" }, description: "New tags" },
+        tags: TAGS_SCHEMA,
       },
       required: ["id"],
     },
@@ -358,6 +369,7 @@ const createTaskTool: McpTool = {
       properties: {
         title: { type: "string", description: "Task title" },
         body: { type: "string", description: "Task body in Markdown, omitted when there is none" },
+        tags: TAGS_SCHEMA,
         status: TASK_STATUS_SCHEMA,
         due_date: { type: "string", description: "Due date (ISO date), omitted when there is none" },
       },
@@ -368,6 +380,7 @@ const createTaskTool: McpTool = {
     const task = createTask({
       title: readString(args, "title"),
       body: readOptionalString(args, "body"),
+      tags: readOptionalTags(args),
       status: readOptionalStatus(args) ?? DEFAULT_TASK_STATUS,
       dueDate: readOptionalDueDate(args) ?? null,
     });
@@ -387,6 +400,7 @@ const updateTaskTool: McpTool = {
         id: { type: "string", description: "Task id (uuid)" },
         title: { type: "string", description: "New title" },
         body: { type: "string", description: "New body in Markdown" },
+        tags: TAGS_SCHEMA,
         status: TASK_STATUS_SCHEMA,
         due_date: { type: ["string", "null"], description: "New due date, or null to clear it" },
       },
@@ -398,6 +412,7 @@ const updateTaskTool: McpTool = {
     const task = updateTask(id, {
       title: readOptionalString(args, "title"),
       body: readOptionalString(args, "body"),
+      tags: readOptionalTags(args),
       status: readOptionalStatus(args),
       dueDate: readOptionalDueDate(args),
     });
