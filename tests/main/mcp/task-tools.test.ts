@@ -60,11 +60,11 @@ describe("mcp task tools", () => {
     ]);
     expect(findTaskTool("create_task")?.definition.inputSchema.type).toBe("object");
     expect(Object.keys(findTaskTool("create_task")?.definition.inputSchema.properties ?? {}).sort()).toEqual(
-      ["body", "due_date", "status", "title"],
+      ["body", "due_date", "status", "tags", "title"],
     );
     expect(
       Object.keys(findTaskTool("update_task")?.definition.inputSchema.properties ?? {}).sort(),
-    ).toEqual(["body", "due_date", "id", "status", "title"]);
+    ).toEqual(["body", "due_date", "id", "status", "tags", "title"]);
   });
 
   // 本文なしのタスク作成は今後も許すため、bodyはrequiredに入れない。
@@ -85,6 +85,46 @@ describe("mcp task tools", () => {
     const id = createTaskThroughTool({ title: "本文なし" });
 
     expect(getTask(id)?.body).toBe("");
+  });
+
+  it("create_taskに渡したタグが保存され、list_tasksで読み出せる", () => {
+    const id = createTaskThroughTool({ title: "タグつき", tags: ["プロジェクトA", "設計"] });
+
+    expect(getTask(id)?.tags).toEqual(["プロジェクトA", "設計"]);
+    expect(readJsonPayload(callTool("list_tasks", {}))).toEqual({
+      tasks: [expect.objectContaining({ id, tags: ["プロジェクトA", "設計"] })],
+    });
+  });
+
+  it("tagsを省略したcreate_taskではタグが空になる", () => {
+    const id = createTaskThroughTool({ title: "タグなし" });
+
+    expect(getTask(id)?.tags).toEqual([]);
+  });
+
+  it("update_taskでタグだけを更新でき、他のフィールドは巻き添えにならない", () => {
+    const id = createTaskThroughTool({
+      title: "元のタイトル",
+      body: "元の本文",
+      tags: ["プロジェクトA"],
+    });
+
+    callTool("update_task", { id, tags: ["プロジェクトB"] });
+
+    expect(getTask(id)).toMatchObject({
+      title: "元のタイトル",
+      body: "元の本文",
+      tags: ["プロジェクトB"],
+    });
+  });
+
+  it("update_taskでtagsを省略すると既存のタグが残る", () => {
+    const id = createTaskThroughTool({ title: "元のタイトル", tags: ["プロジェクトA"] });
+
+    callTool("update_task", { title: "新しいタイトル" });
+    callTool("update_task", { id, title: "新しいタイトル" });
+
+    expect(getTask(id)?.tags).toEqual(["プロジェクトA"]);
   });
 
   it("bodyが文字列でないcreate_taskはエラーを返す", () => {
