@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { SearchResults } from "../../src/renderer/components/SearchResults";
 import type { Image, Note } from "../../src/shared/preload-api";
 
@@ -155,5 +155,24 @@ describe("SearchResults", () => {
     render(<SearchResults query="設計" onSelectNote={noop} onBack={noop} />);
 
     expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+  it("検索結果にもタグを出す", async () => {
+    mockHanamask(async () => [makeNote({ tags: ["プロジェクトA", "設計"] })]);
+
+    render(<SearchResults query="設計" onSelectNote={noop} onBack={noop} />);
+    await screen.findByRole("button", { name: "設計メモ" });
+
+    const tags = within(screen.getByRole("list", { name: "タグ" }));
+    expect(tags.getByText("プロジェクトA")).toBeTruthy();
+    expect(tags.getByText("設計")).toBeTruthy();
+  });
+
+  it("タグが無いノートではタグの列を出さない", async () => {
+    mockHanamask(async () => [makeNote({ tags: [] })]);
+
+    render(<SearchResults query="設計" onSelectNote={noop} onBack={noop} />);
+    await screen.findByRole("button", { name: "設計メモ" });
+
+    expect(screen.queryByRole("list", { name: "タグ" })).toBeNull();
   });
 });
