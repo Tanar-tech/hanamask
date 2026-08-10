@@ -29,6 +29,6 @@ describe("packaging layout", () => {
 
     const shared = readFileSync(sharedPath, "utf-8");
     expect(shared).not.toContain("exports.");
-    expect(shared).toContain("export const NOTE_RETENTION_DAYS");
+    expect(shared).toContain("export const TRASH_RETENTION_DAYS");
   });
 });

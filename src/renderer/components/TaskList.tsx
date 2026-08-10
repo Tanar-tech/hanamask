@@ -4,6 +4,7 @@ import { useNewlyArrived } from "../hooks/useNewlyArrived";
 import { ENTRY_MOTION } from "../styles/motion";
 import { toBodyPreview } from "../text/bodyPreview";
 import type { Task, TaskStatus } from "../../shared/preload-api";
+import { DeleteButton } from "./DeleteButton";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "未着手",
@@ -40,7 +41,6 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
   }, []);
 
   const deleteTask = useCallback(async (task: Task) => {
-    if (!window.confirm(`「${task.title}」を削除しますか?`)) return;
     try {
       await window.hanamask.deleteTask(task.id);
     } catch (cause) {
@@ -111,15 +111,12 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
               // 一覧でMarkdown/Mermaidを描くと重くレイアウトも崩れるため、記号を落とした素のテキストにする。
               <p className="m-0 line-clamp-2 font-body text-xs text-text-soft">{preview}</p>
             )}
-            <button
-              type="button"
-              className={`${FOCUS_RING} cursor-pointer self-start rounded-md border border-line bg-transparent px-3 py-1 font-body text-xs text-text-faint transition-colors duration-[var(--duration-fast)] ease-standard hover:border-crit hover:text-crit`}
-              onClick={() => {
+            <DeleteButton
+              title={task.title}
+              onConfirm={() => {
                 void deleteTask(task);
               }}
-            >
-              削除
-            </button>
+            />
           </MotionLi>
         );
       })}
