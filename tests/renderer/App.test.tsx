@@ -175,6 +175,31 @@ describe("App の左レール", () => {
     expect(screen.getByRole("button", { name: "ホーム" }).getAttribute("aria-current")).toBeNull();
   });
 
+  it("タスク詳細を開いている間は「タスク」を現在地として示す", async () => {
+    mockHanamask();
+
+    render(<App />);
+    // ノートを選んでから、MCPのopen_taskと同じ経路でタスク詳細へ飛ばす。
+    await clickButton("ノート");
+    await emitNavigate({ kind: "task", id: task.id });
+
+    expect(await screen.findByRole("heading", { name: task.title })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "タスク" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: "ノート" }).getAttribute("aria-current")).toBeNull();
+  });
+
+  it("ノート詳細を開いている間は「ノート」を現在地として示す", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await clickButton("タスク");
+    await emitNavigate({ kind: "note", id: note.id });
+
+    expect(await screen.findByRole("heading", { name: note.title })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "ノート" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: "タスク" }).getAttribute("aria-current")).toBeNull();
+  });
+
   it("「ノート」でノート一覧を開き、ホームは表示しない", async () => {
     mockHanamask();
 
