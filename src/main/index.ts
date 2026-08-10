@@ -36,6 +36,7 @@ import { listImages } from "./db/images-repo.js";
 import { createLink, deleteLink, listLinks, type LinkInput } from "./db/links-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
 import { abortChat, sendChatMessage } from "./chat/session.js";
+import { CHAT_ENABLED } from "../shared/preload-api.js";
 import type { ChatMessage } from "../shared/preload-api.js";
 import {
   clearApiKey,
@@ -488,34 +489,43 @@ ipcMain.handle(TASKS_DELETE_CHANNEL, deleteTask);
 ipcMain.handle(TASKS_LIST_DELETED_CHANNEL, () => listDeletedTasks());
 ipcMain.handle(TASKS_RESTORE_CHANNEL, undeleteTask);
 ipcMain.handle(IMAGES_ATTACH_CHANNEL, attachImageToNote);
-ipcMain.handle(CHAT_SETTINGS_READ_CHANNEL, () => readChatSettings());
-ipcMain.handle(
-  CHAT_SEND_CHANNEL,
-  (event: IpcMainInvokeEvent, history: ChatMessage[], userText: string) =>
-    // 経過はイベントで逐次送る。完了まで何も出ないと、動いているのか分からない。
-    sendChatMessage({
-      history,
-      userText,
-      onEvent: (chatEvent) => {
-        event.sender.send(CHAT_EVENT_CHANNEL, chatEvent);
-      },
-    }),
-);
-ipcMain.handle(CHAT_ABORT_CHANNEL, () => {
-  abortChat();
-});
-ipcMain.handle(CHAT_SETTINGS_SAVE_KEY_CHANNEL, (_event: IpcMainInvokeEvent, apiKey: string) => {
-  saveApiKey(apiKey);
-  return readChatSettings();
-});
-ipcMain.handle(CHAT_SETTINGS_CLEAR_KEY_CHANNEL, () => {
-  clearApiKey();
-  return readChatSettings();
-});
-ipcMain.handle(CHAT_SETTINGS_SAVE_MODEL_CHANNEL, (_event: IpcMainInvokeEvent, model: string) => {
-  saveChatModel(model);
-  return readChatSettings();
-});
+/*
+ * チャットのIPCは CHAT_ENABLED が false の間まったく登録しない。画面から消すだけでは
+ * 「使えない」ことにならず、レンダラーへの経路が残っていると呼び出せてしまう。
+ * 実装（src/main/chat/）はそのまま残してあるので、フラグを戻せば復活する。
+ */
+const registerChatHandlers = (): void => {
+  ipcMain.handle(CHAT_SETTINGS_READ_CHANNEL, () => readChatSettings());
+  ipcMain.handle(
+    CHAT_SEND_CHANNEL,
+    (event: IpcMainInvokeEvent, history: ChatMessage[], userText: string) =>
+      // 経過はイベントで逐次送る。完了まで何も出ないと、動いているのか分からない。
+      sendChatMessage({
+        history,
+        userText,
+        onEvent: (chatEvent) => {
+          event.sender.send(CHAT_EVENT_CHANNEL, chatEvent);
+        },
+      }),
+  );
+  ipcMain.handle(CHAT_ABORT_CHANNEL, () => {
+    abortChat();
+  });
+  ipcMain.handle(CHAT_SETTINGS_SAVE_KEY_CHANNEL, (_event: IpcMainInvokeEvent, apiKey: string) => {
+    saveApiKey(apiKey);
+    return readChatSettings();
+  });
+  ipcMain.handle(CHAT_SETTINGS_CLEAR_KEY_CHANNEL, () => {
+    clearApiKey();
+    return readChatSettings();
+  });
+  ipcMain.handle(CHAT_SETTINGS_SAVE_MODEL_CHANNEL, (_event: IpcMainInvokeEvent, model: string) => {
+    saveChatModel(model);
+    return readChatSettings();
+  });
+};
+
+if (CHAT_ENABLED) registerChatHandlers();
 ipcMain.handle(IMAGES_LIST_CHANNEL, findImages);
 ipcMain.handle(LINKS_LIST_CHANNEL, findLinks);
 ipcMain.handle(LINKS_CREATE_CHANNEL, addLink);

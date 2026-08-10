@@ -2,6 +2,7 @@ import { LazyMotion, MotionConfig } from "motion/react";
 import { useEffect, useState, type JSX } from "react";
 import { AppShell, type ShellSection } from "./components/AppShell";
 import { BackupSettings } from "./components/BackupSettings";
+import { CHAT_ENABLED } from "../shared/preload-api";
 import { ChatPanel } from "./components/ChatPanel";
 import { ChatSettings } from "./components/ChatSettings";
 import { Home } from "./components/Home";
@@ -68,17 +69,20 @@ export const App = (): JSX.Element => {
         <AppShell
           current={railSection()}
           onSelect={selectSection}
+          // CHAT_ENABLED が false の間、チャットの枠ごと出さない（preload-api.ts 参照）。
           aside={
-            <ChatPanel
-              onOpenSettings={() => {
-                selectSection("settings");
-              }}
-            />
+            CHAT_ENABLED ? (
+              <ChatPanel
+                onOpenSettings={() => {
+                  selectSection("settings");
+                }}
+              />
+            ) : undefined
           }
         >
           {view.kind === "list" && section === "settings" ? (
             <>
-              <ChatSettings />
+              {CHAT_ENABLED && <ChatSettings />}
               <BackupSettings />
             </>
           ) : view.kind === "list" && section === "home" ? (
