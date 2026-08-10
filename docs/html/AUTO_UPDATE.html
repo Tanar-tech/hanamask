@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>自動更新の調査（未実装）</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../AUTO_UPDATE.md">docs/AUTO_UPDATE.md</a></p>
+
+<h1>自動更新の調査（未実装）</h1>
+<p><strong>現時点で hanamask に自動更新の仕組みは無い。</strong>修正を配ってもインストーラーを再度落として実行してもらうしかなく、<strong>利用者が古いまま気付かない。</strong>実際 0.2.0 には「エージェントがノート本文を書き換えられない」不具合が入っており、0.2.1 で直したが、届ける手段が無い。</p>
+<p>対象読者は管理者。実装の可否を判断するための材料をまとめる。</p>
+<h2 id="s1">1. 使う道具</h2>
+<p><code>electron-updater</code>（2026-08-10 時点で 6.8.9、MIT）。直接依存は8件（<code>semver</code> / <code>js-yaml</code> / <code>fs-extra</code> / <code>lazy-val</code> / <code>lodash.isequal</code> / <code>tiny-typed-emitter</code> / <code>lodash.escaperegexp</code> / <code>builder-util-runtime</code>）。<strong>依存の追加は <code>docs/GOVERNANCE.md</code> §6 により管理者の承認が要る。</strong></p>
+<p>配布側の準備は既にできている。<code>electron-builder.yml</code> に <code>publish</code> を宣言済みで、リリースのたびに <code>latest.yml</code>（更新の目印）が作られ GitHub Releases に添付されている。<strong>アプリ側が読みに行っていないだけ。</strong></p>
+<h2 id="s2">2. 前提: リポジトリの公開が要る</h2>
+<p>更新の目印は <code>https://github.com/&lt;owner&gt;/&lt;repo&gt;/releases/download/...</code> から取りに行く。<strong>非公開リポジトリだと、アプリの中にアクセストークンを埋め込むことになる。</strong>配布物に埋めたトークンは秘密ではないので、この形は取らない。</p>
+<p><strong>つまり自動更新は、リポジトリ（少なくともリリース）を公開する判断とセットになる。</strong></p>
+<h2 id="s3">3. 未署名との組み合わせ（最重要）</h2>
+<p>インストーラーには署名を付けない判断をしている（<a href="SIGNING.html">SIGNING.md</a>）。この状態で自動更新を入れるとどうなるかを、<code>electron-updater</code> の実装を読んで確かめた。</p>
+<p><strong>署名の検証は、丸ごとスキップされる。</strong></p>
+<pre><code>// NsisUpdater.js
+async verifySignature(tempUpdateFile) {
+  publisherName = (await this.configOnDisk.value).publisherName;
+  if (publisherName == null) {
+    return null;   // ← 検証せず「問題なし」として先へ進む
+  }
+  ...
+}</code></pre>
+<p><code>publisherName</code> は署名証明書から作られる値で、<strong>未署名のビルドでは存在しない。</strong>つまり「検証に失敗する」のではなく「検証されない」。</p>
+<h3>では何が守られているのか</h3>
+<table><thead><tr><th>守り</th><th>未署名でも効くか</th></tr></thead><tbody>
+<tr><td>配信経路の暗号化（HTTPS）</td><td><strong>効く</strong></td></tr>
+<tr><td><code>latest.yml</code> に書かれた <strong>sha512 との照合</strong></td><td><strong>効く</strong>（<code>DownloadedUpdateHelper</code> が突き合わせる）</td></tr>
+<tr><td>配布元が本人であることの証明（署名）</td><td><strong>効かない</strong></td></tr>
+</tbody></table>
+<p><strong><code>latest.yml</code> 自体も同じHTTPS経路で取ってくるので、その経路とGitHubを信頼することが前提になる。</strong></p>
+<h3>判断材料</h3>
+<p><strong>この信頼の形は、今の手動配布と同じ</strong>である。利用者はいま、同じHTTPS経路で同じ場所から未署名の <code>.exe</code> を落として実行している。<strong>自動更新を入れても、信頼の前提は増えない。</strong></p>
+<p>変わるのは頻度と自動性で、<strong>一度信頼した経路が後から侵害された場合の影響が大きくなる</strong>（利用者が気付かないうちに置き換わる）。ここを重く見るなら、自動更新より先に署名を検討することになる。</p>
+<h2 id="s4">4. 実装するとしたら</h2>
+<ol><li>1. <code>electron-updater</code> を追加する（<strong>承認が要る</strong>）</li><li>2. main プロセスで起動時に更新を確認し、<strong>利用者に知らせてから</strong>適用する。黙って再起動しない</li><li>3. <strong><code>HANAMASK_DB_PATH</code> 指定時（E2E）は動かさない。</strong>テストのたびに更新を取りに行くのは無駄で、外部への通信も増える</li><li>4. 更新の確認に失敗してもアプリは普通に使えること（ネットワークが無い環境で起動できなくなってはいけない）</li><li>5. E2Eでは「更新が無いときに何も起きない」ことだけ確かめる。<strong>実際の更新適用は、リリース済みのバージョン同士でしか試せない</strong></li></ol>
+<h2 id="s5">5. 現時点の結論</h2>
+<p><strong>リポジトリを公開する判断が出るまでは実装できない。</strong>公開する場合も、署名の判断（<a href="SIGNING.html">SIGNING.md</a>）と合わせて考える必要がある。</p>
+<p>それまでの間、修正を届ける手段は「リリースページから落とし直してもらう」しかない。<strong>READMEとリリースノートに、更新の確認方法を書いておくのが現実的な次善策。</strong></p>
+</main>
+</body>
+</html>
