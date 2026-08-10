@@ -83,6 +83,14 @@ claude mcp add --transport http hanamask http://127.0.0.1:39217/mcp
 
 データは `%APPDATA%\hanamask\` に保存され、アンインストールしても消えない。別のPCへ移すときは設定画面から書き出す。
 
+### 新しい版が出ていないか
+
+**自動更新の仕組みはまだ無い。**[Releases](../../releases) を見て、いま入っているものより新しい版があれば、同じ手順で入れ直す。**上書きしてもデータは消えない。**
+
+いま入っている版は、Windowsの「設定 → アプリ」の一覧か、インストール先（`%LOCALAPPDATA%\Programs\hanamask\`）の `hanamask.exe` のプロパティで確認できる。
+
+不具合の修正が入っていることもあるので、[CHANGELOG.md](CHANGELOG.md) の「修正」に目を通してから判断するとよい。自動更新を入れられるかの調査は [docs/AUTO_UPDATE.md](docs/AUTO_UPDATE.md) にある。
+
 ## 画面構成
 
 左側に常設のレール（ホーム／ノート／タスク／ゴミ箱）、右側に内容という2カラム構成。
