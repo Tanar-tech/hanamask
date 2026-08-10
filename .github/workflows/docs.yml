@@ -16,10 +16,13 @@ jobs:
   html-sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c1a2ab0f2eb69 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # マージベースとの差分を取るため全履歴が要る。
           fetch-depth: 0
 
+      # ${{ }} を run: に直接展開しない（run-shell-injection）。env経由で渡す。
       - name: docs と docs/html の同期を確認する
-        run: bash scripts/check-docs-sync.sh "origin/${{ github.base_ref }}"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: bash scripts/check-docs-sync.sh "origin/$BASE_REF"
