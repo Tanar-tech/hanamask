@@ -17,7 +17,14 @@ concurrency:
 
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    # 配布対象は Windows なのに、CI は ubuntu でしか回っていなかった。
+    # 0.2.0 のリリースで初めて Windows 上でテストが走り、パス区切りを直書きした
+    # アサーションが落ちた。同種の不具合をPRの時点で捕まえるため両方で回す。
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -41,5 +48,7 @@ jobs:
       # 公開リポジトリとして配布するため、同梱される依存に強いコピーレフトが
       # 混ざっていないことを機械的に確かめる。Apache-2.0 の成果物に GPL/AGPL を
       # 取り込むと配布条件が変わってしまう（docs/TASKS.md T38）。
+      # ライセンスはOSに依らないので1つの環境でだけ確認する。
       - name: 依存ライセンスを確認する
+        if: matrix.os == 'ubuntu-latest'
         run: npm run check:licenses
