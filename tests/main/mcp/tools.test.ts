@@ -204,6 +204,28 @@ describe("mcp note tools", () => {
     ]);
   });
 
+  // update_note は本文の書き換えが主な用途。タイトルとタグだけを検証していたため、
+  // ハンドラが body を渡し忘れていても既存テストは緑のままだった（#103で実際に発生）。
+  it("update_note は本文・タイトル・タグをそれぞれ書き換える", async () => {
+    const id = readNoteId(await callTool("create_note", { title: "前", body: "前の本文", tags: ["a"] }));
+
+    await callTool("update_note", { id, title: "後", body: "後の本文", tags: ["b"] });
+
+    expect(readJsonPayload(await callTool("get_note", { id }))).toEqual({
+      note: expect.objectContaining({ title: "後", body: "後の本文", tags: ["b"] }),
+    });
+  });
+
+  it("update_note で省いた項目は元のまま残る", async () => {
+    const id = readNoteId(await callTool("create_note", { title: "前", body: "前の本文", tags: ["a"] }));
+
+    await callTool("update_note", { id, body: "後の本文" });
+
+    expect(readJsonPayload(await callTool("get_note", { id }))).toEqual({
+      note: expect.objectContaining({ title: "前", body: "後の本文", tags: ["a"] }),
+    });
+  });
+
   it("lists the snapshots taken by update_note through list_note_versions", async () => {
     const id = readNoteId(await callTool("create_note", { title: "v1", body: "本文1", tags: [] }));
     await callTool("update_note", { id, body: "本文2" });
