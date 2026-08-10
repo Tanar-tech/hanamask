@@ -1,0 +1,18 @@
+# 外部の貢献者の環境差で空白の差分が出るのを防ぐ。
+# 整形の正はESLintだが、ESLintが見ないファイル（yml・md・json）にも効かせる。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+# Markdown の行末2スペースは改行の意味を持つため、削らない。
+trim_trailing_whitespace = false
+
+[*.ps1]
+end_of_line = crlf

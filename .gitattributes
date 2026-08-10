@@ -1,0 +1,17 @@
+# CIを Windows と Linux の両方で回しているため、改行コードを明示する。
+# 指定が無いと、Windows での checkout が CRLF に変換した内容を差分として拾い、
+# 環境ごとに違う結果になりうる。
+* text=auto eol=lf
+
+# Windows のシェルが解釈するものだけ CRLF を保つ。
+# PowerShell 5.1 は LF だけのファイルも読めるが、編集時に混在すると気付きにくい。
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# バイナリは変換させない。
+*.png binary
+*.ico binary
+*.exe binary
+*.blockmap binary
+*.sqlite3 binary
