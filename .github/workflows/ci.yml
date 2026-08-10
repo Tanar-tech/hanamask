@@ -52,3 +52,19 @@ jobs:
       - name: 依存ライセンスを確認する
         if: matrix.os == 'ubuntu-latest'
         run: npm run check:licenses
+
+      # E2EはMCP経由の書き込みが画面へ反映されることを検証する唯一の層。
+      # CIで走らせていなかった間に update_note が本文を保存しない回帰が入り、
+      # 単体テスト633件が緑のまま2日間気付かれなかった。
+      # Electronの描画にディスプレイが要るのでLinuxでのみ xvfb 配下で回す。
+      - name: E2E
+        if: matrix.os == 'ubuntu-latest'
+        run: xvfb-run -a npm run test:e2e
+
+      - name: E2Eのスクリーンショットを残す
+        if: matrix.os == 'ubuntu-latest' && failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: e2e-screenshots
+          path: tests/e2e/.artifacts/
+          if-no-files-found: ignore

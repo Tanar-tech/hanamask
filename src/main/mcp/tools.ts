@@ -170,6 +170,7 @@ const updateNoteTool: NoteTool = {
     const id = readString(args, "id");
     const note = updateNote(id, {
       title: readOptionalString(args, "title"),
+      body: readOptionalString(args, "body"),
       tags: readOptionalTags(args),
     });
     if (note === null) {
