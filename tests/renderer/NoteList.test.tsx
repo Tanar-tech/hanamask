@@ -214,7 +214,8 @@ describe("NoteList", () => {
     const { container } = render(<NoteList onSelectNote={vi.fn()} />);
     await screen.findByText("抜粋される本文");
 
-    const cards = container.querySelectorAll("li");
+    // タグも <li> なので、カードは一覧の直下だけを数える。
+    const cards = container.querySelectorAll('ul[aria-label="ノート一覧"] > li');
     expect(cards).toHaveLength(2);
     // 抜粋を出すカードだけが段落を持つ。
     expect(cards[0]?.querySelectorAll("p")).toHaveLength(0);
@@ -250,6 +251,30 @@ describe("NoteList", () => {
 
     expect(await screen.findByText("いま増えたノート")).toBeTruthy();
     expect(screen.getByText("元からあるノート")).toBeTruthy();
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    // タグも listitem なので、ノート一覧に属するものだけを数える。
+    expect(within(screen.getByRole("list", { name: "ノート一覧" })).getAllByRole("listitem").filter((item) => item.parentElement?.getAttribute("aria-label") === "ノート一覧")).toHaveLength(2);
+  });
+
+  /*
+   * タグは詳細画面にしか出ておらず、一覧を見てもどの記録がどの案件のものか
+   * 分からなかった。案件で見分けられることがこの機能の目的なので、一覧に出す。
+   */
+  it("一覧のカードにタグを表示する", async () => {
+    mockHanamask([[makeNote({ tags: ["プロジェクトA", "設計"] })]]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+
+    const card = (await screen.findAllByRole("listitem"))[0];
+    expect(within(card!).getByText("プロジェクトA")).toBeTruthy();
+    expect(within(card!).getByText("設計")).toBeTruthy();
+  });
+
+  it("タグが無いノートにはタグ欄を出さない", async () => {
+    mockHanamask([[makeNote({ title: "タグなし", tags: [] })]]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+
+    await screen.findByText("タグなし");
+    expect(screen.queryByRole("list", { name: "タグ" })).toBeNull();
   });
 });

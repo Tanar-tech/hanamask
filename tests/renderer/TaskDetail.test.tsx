@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import mermaid from "mermaid";
 import { TaskDetail } from "../../src/renderer/components/TaskDetail";
 import type { Image, Task } from "../../src/shared/preload-api";
@@ -542,5 +542,15 @@ describe("TaskDetail のリンク", () => {
     await waitFor(() => {
       expect(listLinks).toHaveBeenCalledWith("task", "task-1");
     });
+  });
+
+  it("タスク詳細にタグを表示する", async () => {
+    mockHanamask(async () => makeTask({ tags: ["プロジェクトB", "不具合"] }));
+
+    render(<TaskDetail taskId="task-1" onBack={vi.fn()} />);
+
+    const tags = await screen.findByRole("list", { name: "タグ" });
+    expect(within(tags).getByText("プロジェクトB")).toBeTruthy();
+    expect(within(tags).getByText("不具合")).toBeTruthy();
   });
 });

@@ -5,6 +5,7 @@ import { ENTRY_MOTION } from "../styles/motion";
 import { toBodyPreview } from "../text/bodyPreview";
 import type { Task, TaskStatus } from "../../shared/preload-api";
 import { DeleteButton } from "./DeleteButton";
+import { TagList } from "./TagList";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "未着手",
@@ -111,6 +112,7 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
               // 一覧でMarkdown/Mermaidを描くと重くレイアウトも崩れるため、記号を落とした素のテキストにする。
               <p className="m-0 line-clamp-2 font-body text-xs text-text-soft">{preview}</p>
             )}
+            <TagList tags={task.tags} />
             <DeleteButton
               title={task.title}
               onConfirm={() => {

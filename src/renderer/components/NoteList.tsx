@@ -5,6 +5,7 @@ import { ENTRY_MOTION } from "../styles/motion";
 import { toBodyPreview } from "../text/bodyPreview";
 import type { Note } from "../../shared/preload-api";
 import { DeleteButton } from "./DeleteButton";
+import { TagList } from "./TagList";
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
 const FOCUS_RING =
@@ -88,6 +89,7 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
             {preview !== "" && (
               <p className="m-0 font-body text-sm leading-relaxed text-text-soft">{preview}</p>
             )}
+            <TagList tags={note.tags} />
             <DeleteButton
               title={note.title}
               onConfirm={() => {
