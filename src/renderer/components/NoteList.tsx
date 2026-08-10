@@ -6,7 +6,7 @@ import { toBodyPreview } from "../text/bodyPreview";
 import type { Note } from "../../shared/preload-api";
 import { DeleteButton } from "./DeleteButton";
 import { TagList } from "./TagList";
-import { useTagFilter } from "./TagFilter";
+import { TagGroups, useTagFilter } from "./TagFilter";
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
 const FOCUS_RING =
@@ -68,18 +68,9 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
     );
   }
 
-  const shown = tagFilter.visible(notes);
-
-  return (
-    <div className="flex flex-col gap-3">
-      {tagFilter.control}
-      {shown.length === 0 ? (
-        <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center font-body text-sm text-text-faint">
-          このタグが付いたノートはありません
-        </p>
-      ) : (
+  const renderList = (items: readonly Note[]): JSX.Element => (
     <ul aria-label="ノート一覧" className="m-0 flex list-none flex-col gap-3 p-0">
-      {shown.map((note) => {
+      {items.map((note) => {
         const preview = toBodyPreview(note.body);
         return (
           <MotionLi
@@ -112,6 +103,21 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
         );
       })}
     </ul>
+  );
+
+  const shown = tagFilter.visible(notes);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {tagFilter.control}
+      {tagFilter.grouped ? (
+        <TagGroups groups={tagFilter.groupsOf(shown)} render={renderList} />
+      ) : shown.length === 0 ? (
+        <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center font-body text-sm text-text-faint">
+          このタグが付いたノートはありません
+        </p>
+      ) : (
+        renderList(shown)
       )}
     </div>
   );

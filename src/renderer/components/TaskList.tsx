@@ -6,7 +6,7 @@ import { toBodyPreview } from "../text/bodyPreview";
 import type { Task, TaskStatus } from "../../shared/preload-api";
 import { DeleteButton } from "./DeleteButton";
 import { TagList } from "./TagList";
-import { useTagFilter } from "./TagFilter";
+import { TagGroups, useTagFilter } from "./TagFilter";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "未着手",
@@ -80,18 +80,9 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
     );
   }
 
-  const shown = tagFilter.visible(tasks);
-
-  return (
-    <div className="flex flex-col gap-3">
-      {tagFilter.control}
-      {shown.length === 0 ? (
-        <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center font-body text-sm text-text-faint">
-          このタグが付いたタスクはありません
-        </p>
-      ) : (
+  const renderList = (items: readonly Task[]): JSX.Element => (
     <ul aria-label="タスク一覧" className="m-0 flex list-none flex-col gap-3 p-0">
-      {shown.map((task) => {
+      {items.map((task) => {
         const preview = toBodyPreview(task.body);
         return (
           <MotionLi
@@ -135,6 +126,21 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
         );
       })}
     </ul>
+  );
+
+  const shown = tagFilter.visible(tasks);
+
+  return (
+    <div className="flex flex-col gap-3">
+      {tagFilter.control}
+      {tagFilter.grouped ? (
+        <TagGroups groups={tagFilter.groupsOf(shown)} render={renderList} />
+      ) : shown.length === 0 ? (
+        <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center font-body text-sm text-text-faint">
+          このタグが付いたタスクはありません
+        </p>
+      ) : (
+        renderList(shown)
       )}
     </div>
   );

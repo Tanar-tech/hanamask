@@ -1,4 +1,4 @@
-import { useMemo, useState, type JSX } from "react";
+import { useMemo, useState, type JSX, type ReactNode } from "react";
 
 /*
  * エージェントが記録を増やし続けると、案件Aの話と案件Bの話が同じ一覧に混ざる。
@@ -17,6 +17,12 @@ interface Taggable {
   tags: string[];
 }
 
+export interface TagGroup<T> {
+  /** 見出しに出すタグ名。タグが無いものは「タグなし」。 */
+  name: string;
+  items: T[];
+}
+
 export interface TagFilterState {
   /** 絞り込みを通過した記録。 */
   visible: <T extends Taggable>(items: readonly T[]) => T[];
@@ -24,6 +30,13 @@ export interface TagFilterState {
   selected: ReadonlySet<string>;
   /** 絞り込みの操作列。一覧の上に置く。 */
   control: JSX.Element | null;
+  /** タグごとに分けて並べる指定。 */
+  grouped: boolean;
+  /**
+   * タグごとに分ける。1つの記録が複数のタグを持つなら、それぞれの見出しの下に出る。
+   * どちらか一方にしか出さないと、「この案件にも属している」ことが見えなくなる。
+   */
+  groupsOf: <T extends Taggable>(items: readonly T[]) => TagGroup<T>[];
 }
 
 const CHIP = "rounded-full border px-3 py-1 font-body text-xs cursor-pointer";
@@ -34,6 +47,7 @@ const FOCUS =
 
 export const useTagFilter = (items: readonly Taggable[]): TagFilterState => {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [grouped, setGrouped] = useState(false);
 
   const available = useMemo(() => {
     const names = new Set<string>();
@@ -59,6 +73,16 @@ export const useTagFilter = (items: readonly Taggable[]): TagFilterState => {
         ? true
         : item.tags.some((tag) => selected.has(tag)),
     );
+  };
+
+  const groupsOf = <T extends Taggable>(list: readonly T[]): TagGroup<T>[] => {
+    const names = new Set<string>();
+    list.forEach((item) => item.tags.forEach((tag) => names.add(tag)));
+    const groups = [...names]
+      .sort((a, b) => a.localeCompare(b, "ja"))
+      .map((name) => ({ name, items: list.filter((item) => item.tags.includes(name)) }));
+    const untagged = list.filter((item) => item.tags.length === 0);
+    return untagged.length === 0 ? groups : [...groups, { name: UNTAGGED, items: [...untagged] }];
   };
 
   // 絞り込む相手がいないときは操作列そのものを出さない。
@@ -93,6 +117,17 @@ export const useTagFilter = (items: readonly Taggable[]): TagFilterState => {
             {tag}
           </button>
         ))}
+        <span className="flex-1" />
+        <button
+          type="button"
+          aria-pressed={grouped}
+          onClick={() => {
+            setGrouped((current) => !current);
+          }}
+          className={`${grouped ? CHIP_ON : CHIP_IDLE} ${FOCUS}`}
+        >
+          タグごとに分ける
+        </button>
         {hasUntagged && (
           <button
             type="button"
@@ -108,5 +143,29 @@ export const useTagFilter = (items: readonly Taggable[]): TagFilterState => {
       </div>
     );
 
-  return { visible, selected, control };
+  return { visible, selected, control, grouped, groupsOf };
 };
+
+/*
+ * グループの見出しと枠。ノートとタスクで同じ見た目にするため、中身の描き方だけを
+ * 呼び出し側から渡す。
+ */
+export const TagGroups = <T,>({
+  groups,
+  render,
+}: {
+  groups: readonly TagGroup<T>[];
+  render: (items: T[]) => ReactNode;
+}): JSX.Element => (
+  <div className="flex flex-col gap-5">
+    {groups.map((group) => (
+      <section key={group.name} aria-label={group.name} className="flex flex-col gap-2">
+        <h3 className="m-0 flex items-center gap-2 border-b border-line pb-1 font-body text-sm text-text-soft">
+          {group.name}
+          <span className="font-mono text-xs text-text-faint">{group.items.length}件</span>
+        </h3>
+        {render(group.items)}
+      </section>
+    ))}
+  </div>
+);
