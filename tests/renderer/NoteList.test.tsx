@@ -277,4 +277,84 @@ describe("NoteList", () => {
     await screen.findByText("タグなし");
     expect(screen.queryByRole("list", { name: "タグ" })).toBeNull();
   });
+
+  /*
+   * この機能の目的そのもの。「あるノートがプロジェクトAに所属し、プロジェクトBには
+   * 所属していない」ことを、利用者が選ぶだけで判別できること。
+   */
+  it("タグを選ぶと、そのタグを持たないノートが消える", async () => {
+    mockHanamask([
+      [
+        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
+        makeNote({ id: "b", title: "Bのノート", tags: ["プロジェクトB"] }),
+      ],
+    ]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("Aのノート");
+
+    const filter = screen.getByRole("group", { name: "タグで絞り込む" });
+    await act(async () => {
+      within(filter).getByRole("button", { name: "プロジェクトA" }).click();
+    });
+
+    expect(screen.getByText("Aのノート")).toBeTruthy();
+    expect(screen.queryByText("Bのノート")).toBeNull();
+  });
+
+  it("複数のタグを選ぶと、どれかに一致するノートが残る", async () => {
+    mockHanamask([
+      [
+        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
+        makeNote({ id: "b", title: "Bのノート", tags: ["プロジェクトB"] }),
+        makeNote({ id: "c", title: "Cのノート", tags: ["その他"] }),
+      ],
+    ]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("Aのノート");
+    const filter = screen.getByRole("group", { name: "タグで絞り込む" });
+
+    await act(async () => {
+      within(filter).getByRole("button", { name: "プロジェクトA" }).click();
+    });
+    await act(async () => {
+      within(filter).getByRole("button", { name: "プロジェクトB" }).click();
+    });
+
+    expect(screen.getByText("Aのノート")).toBeTruthy();
+    expect(screen.getByText("Bのノート")).toBeTruthy();
+    expect(screen.queryByText("Cのノート")).toBeNull();
+  });
+
+  it("「すべて」で絞り込みを解除できる", async () => {
+    mockHanamask([
+      [
+        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
+        makeNote({ id: "b", title: "Bのノート", tags: ["プロジェクトB"] }),
+      ],
+    ]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("Aのノート");
+    const filter = screen.getByRole("group", { name: "タグで絞り込む" });
+
+    await act(async () => {
+      within(filter).getByRole("button", { name: "プロジェクトA" }).click();
+    });
+    await act(async () => {
+      within(filter).getByRole("button", { name: "すべて" }).click();
+    });
+
+    expect(screen.getByText("Bのノート")).toBeTruthy();
+  });
+
+  it("タグが1つも無いときは絞り込みを出さない", async () => {
+    mockHanamask([[makeNote({ tags: [] })]]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    expect(screen.queryByRole("group", { name: "タグで絞り込む" })).toBeNull();
+  });
 });

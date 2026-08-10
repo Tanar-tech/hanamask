@@ -6,6 +6,7 @@ import { toBodyPreview } from "../text/bodyPreview";
 import type { Task, TaskStatus } from "../../shared/preload-api";
 import { DeleteButton } from "./DeleteButton";
 import { TagList } from "./TagList";
+import { useTagFilter } from "./TagFilter";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "未着手",
@@ -58,6 +59,8 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
 
   const newlyArrived = useNewlyArrived(tasks.map((task) => task.id));
 
+  const tagFilter = useTagFilter(tasks);
+
   if (error !== null) {
     return (
       <p
@@ -77,9 +80,18 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
     );
   }
 
+  const shown = tagFilter.visible(tasks);
+
   return (
+    <div className="flex flex-col gap-3">
+      {tagFilter.control}
+      {shown.length === 0 ? (
+        <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center font-body text-sm text-text-faint">
+          このタグが付いたタスクはありません
+        </p>
+      ) : (
     <ul aria-label="タスク一覧" className="m-0 flex list-none flex-col gap-3 p-0">
-      {tasks.map((task) => {
+      {shown.map((task) => {
         const preview = toBodyPreview(task.body);
         return (
           <MotionLi
@@ -112,7 +124,7 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
               // 一覧でMarkdown/Mermaidを描くと重くレイアウトも崩れるため、記号を落とした素のテキストにする。
               <p className="m-0 line-clamp-2 font-body text-xs text-text-soft">{preview}</p>
             )}
-            <TagList tags={task.tags} />
+            <TagList tags={task.tags} selected={tagFilter.selected} />
             <DeleteButton
               title={task.title}
               onConfirm={() => {
@@ -123,5 +135,7 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
         );
       })}
     </ul>
+      )}
+    </div>
   );
 };
