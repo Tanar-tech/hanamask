@@ -1,0 +1,28 @@
+name: Docs
+
+# ci.yml は docs/** を除外しているため、ドキュメントだけのPRではチェックが1つも
+# 走らない。同期漏れを捕まえたいのはまさにそのPRなので、専用に用意する。
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+
+concurrency:
+  group: docs-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  html-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # マージベースとの差分を取るため全履歴が要る。
+          fetch-depth: 0
+
+      # ${{ }} を run: に直接展開しない（run-shell-injection）。env経由で渡す。
+      - name: docs と docs/html の同期を確認する
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: bash scripts/check-docs-sync.sh "origin/$BASE_REF"

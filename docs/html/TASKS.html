@@ -615,6 +615,64 @@ flowchart LR
 <li>停止条件: マイグレーション機構の新設は<code>docs/GOVERNANCE.md</code> §6のアーキテクチャ判断に該当するため管理者承認を得る（2026-08-08取得済み）。列の削除・改名・型変更が必要になった場合はデータ損失の危険があるため着手前に確認する。</li>
 </ul>
 
+<h3 id="t37">T37: エージェントチームによる敵対的検証（利便性・可用性・セキュリティ）</h3>
+<ul>
+<li>ステータス: 実装中</li>
+<li>優先度: <strong>高</strong>（管理者要望、2026-08-08）</li>
+<li>依存: 必須: T36（検証対象に本文つきタスクを含めるため）／推奨: なし</li>
+<li>目的: これまでの検証は「作った本人（またはその指示を受けたエージェント）が、自分の想定どおりに動くか」を確かめるものだった。<strong>想定の外側は誰も見ていない。</strong>観点を分けた独立のレビュアーを立て、<strong>壊すつもりで</strong>アプリを見る。指摘の再現条件まで示させ、修正に繋げる。</li>
+<li><strong>観点ごとに独立したエージェントを立てる理由</strong>: 1人に3観点を渡すと、最初に見つけた観点に引きずられて他が薄くなる。観点を固定した別々のレビュアーは互いの見落としを埋める。</li>
+<ul>
+<li><strong>利便性</strong>: 初めて触る利用者が詰まる箇所。操作の一貫性。ノートとタスクで挙動が食い違う点。エラー時に次に何をすればよいか分かるか。</li>
+<li><strong>可用性</strong>: データを失う経路。壊れた入力・巨大な入力・同時操作・異常終了。<strong>マイグレーションと取り込みは特に重点</strong>（<code>docs/MIGRATIONS.md</code>）。</li>
+<li><strong>セキュリティ</strong>: 本文はAIエージェントが書く前提での注入経路。MCPサーバーの到達性。ファイルパスの扱い。APIキーの保管と漏出経路。</li>
+</ul>
+<li>変更範囲: 検証自体は<strong>読み取りのみ</strong>。修正は指摘を採否判断した上で、該当箇所へ個別に行う。</li>
+<li>禁止事項: 指摘を鵜呑みにして修正しないこと（誤検知を含むため、<strong>再現を確認してから直す</strong>）。検証の過程で実データ（<code>AppData\Roaming\hanamask\</code>）を書き換えないこと。指摘を「対応済み」と報告する前にテストで固定すること。</li>
+<li>テスト: 採用した指摘それぞれについて、<strong>修正前に落ちるテスト</strong>を書いてから直す。誤検知として却下した指摘は、却下の理由を記録する（同じ指摘が繰り返し上がるのを防ぐ）。</li>
+<li>停止条件: 指摘がアーキテクチャの変更や要求定義の変更を要する場合、その場で直さず管理者に確認する（<code>docs/GOVERNANCE.md</code> §6）。<strong>データ損失に直結する指摘が出た場合は、他の作業より優先して報告する。</strong></li>
+</ul>
+
+<h3 id="t38">T38: OSS化の準備（公開そのものは行わない）</h3>
+<ul>
+<li>ステータス: 実装中（メタファイル整備まで完了。パブリック化は管理者判断待ち）</li>
+<li>優先度: <strong>中</strong>（管理者要望、2026-08-08）</li>
+<li>依存: 必須: なし／推奨: T37（敵対的検証。公開前にセキュリティ指摘を解消しておきたい）</li>
+<li>目的: hanamaskをオープンソースとして公開できる状態にする。<strong>リポジトリのパブリック化と公開告知は本タスクに含めない</strong>（管理者の明示的な指示。公開は不可逆で、一度公開したものはgit履歴ごと残る）。副次的に、T36で調査した署名の選択肢C（Certum Open Source Code Signing、年$50〜70）が使えるようになる。</li>
+<li><strong>棚卸しの結果（2026-08-08時点）</strong>:</li>
+<ul>
+<li><code>LICENSE</code> は Apache-2.0 が置かれているが、<strong><code>package.json</code> に <code>license</code> フィールドが無く <code>private: true</code></strong>。ライセンス表明が2箇所で食い違っている</li>
+<li>依存ライセンスは MIT 275 / ISC 41 / BSD 10 / Apache-2.0 1 / 0BSD 1 / Unlicense 2 と<strong>すべて許容的</strong>。唯一 <code>dompurify</code> が <code>(MPL-2.0 OR Apache-2.0)</code> の選択制で、Apache-2.0 を選べば問題ない</li>
+<li>git履歴に秘密情報らしき文字列が3件あるが、<strong>いずれもテスト用の固定値</strong>（<code>tests/</code> 配下、<code>sk-ant-api03-do-not-export-me</code> 等）で実在の鍵ではない</li>
+<li><strong><code>SPEC.md</code> に管理者個人のWindowsパス（<code>C:\Users\&lt;ユーザー名&gt;\...</code>）が含まれている</strong>。公開前に一般化する</li>
+<li><code>CONTRIBUTING.md</code> / <code>SECURITY.md</code> / <code>CODE_OF_CONDUCT.md</code> / Issue・PRテンプレートがいずれも無い</li>
+</ul>
+<li>優先度つきの内訳:</li>
+<ul>
+<li><strong>最優先（公開前に必須）</strong>: (1) <code>package.json</code> のライセンス整合。(2) 個人情報・ローカルパスの除去。(3) <strong><code>SECURITY.md</code></strong> ——<strong>MCPサーバーは <code>127.0.0.1</code> で待ち受け、認証もOrigin検証も持たない</strong>。これは設計上の前提であって脆弱性ではないが、<strong>公開する以上は明文化しないと利用者が危険な使い方をする</strong>。脆弱性の報告先も要る。(4) <code>docs/</code> の公開可否棚卸し（<code>GOVERNANCE.md</code>・<code>CODEX.md</code>・<code>HERDR.md</code>・<code>HUNK.md</code> は個人の開発運用が前提の記述を含む）</li>
+<li><strong>高</strong>: (5) READMEを公開向けに補う（何ができるか・入れ方・スクリーンショット・<strong>未署名インストーラーの警告についての案内</strong>）。(6) <code>CONTRIBUTING.md</code></li>
+<li><strong>中</strong>: (7) Issue・PRテンプレート（完了）。(8) <code>CODE_OF_CONDUCT.md</code>（完了。Contributor Covenant 2.1 をもとに個人開発の規模に合わせて記述）</li>
+<li><strong>管理者判断（本タスクでは実施しない）</strong>: リポジトリのパブリック化、公開告知、<code>private: true</code> の解除可否</li>
+</ul>
+<li>変更範囲: リポジトリ直下のメタファイル群、<code>.github/</code>、<code>docs/</code>、<code>README.md</code>、<code>package.json</code>。<strong>アプリケーションコードは変更しない。</strong></li>
+<li>禁止事項: <strong>リポジトリを public にしないこと。</strong>公開告知を行わないこと。git履歴の書き換え（<code>filter-branch</code> 等）を管理者の承認なく行わないこと。ライセンスをApache-2.0から変更しないこと（既にLICENSEが置かれており、変更は権利関係の判断を伴う）。</li>
+<li>テスト: <code>package.json</code> のライセンス表記と <code>LICENSE</code> の内容が一致していることの確認。<strong>リポジトリ全体に個人を特定できるローカルパス・氏名が残っていないことの確認</strong>（grepで機械的に）。依存ライセンス一覧の再取得。</li>
+<li>停止条件: <strong>パブリック化の実行は必ず管理者の指示を待つ。</strong>git履歴に実在の秘密情報が見つかった場合は、その場で公開準備を止めて報告する。<code>docs/</code>の中に公開すべきでない記述が見つかった場合、削除するか公開用に書き換えるかを管理者に確認する。</li>
+</ul>
+
+<h3 id="t39">T39: タスクをUIから削除・復元できるようにする</h3>
+<ul>
+<li>ステータス: 完了（PR #113）</li>
+<li>優先度: <strong>高</strong>（T37の敵対的検証で発見、2026-08-10）</li>
+<li>依存: 必須: T36（タスク本文。削除の対象にタイトル以外の中身が入ったため）／推奨: なし</li>
+<li>目的: <strong>ノートには削除ボタンとゴミ箱からの復元があるのに、タスクには一覧・詳細のどちらにも導線が無い。</strong>このアプリは「エージェントが増やし、人間が把握して片付ける」形（<code>docs/REQUIREMENTS.md</code> §4.6）なので、片付ける手段が無いのは機能の欠落にあたる。</li>
+<li><strong>見過ごせない点</strong>: DB層（<code>softDeleteTask</code>/<code>restoreTask</code>）とMCP（<code>delete_task</code>/<code>restore_task</code>）は既にあり、<strong><code>src/main/db/purge.ts</code> は削除済みタスクを保持期間後に実際に消去している</strong>。つまり<strong>エージェントが削除したタスクは、人間がそれを見る手段も戻す手段も無いまま完全に消える</strong>。ノートと同じ安全網をタスクにも用意する。</li>
+<li>変更範囲: <code>src/main/db/tasks-repo.ts</code>（<code>listDeletedTasks</code>）、<code>src/shared/preload-api.ts</code>（<code>DeletedTask</code> 型とAPI）、<code>src/main/index.ts</code>・<code>src/preload/index.ts</code>（IPC）、<code>src/renderer/components/TaskList.tsx</code>（削除ボタン）、<code>src/renderer/components/TrashView.tsx</code>（削除済みタスクの表示と復元、文言の修正）。</li>
+<li>禁止事項: 物理削除の導線をUIに作らないこと（ソフトデリートのみ。保持期間後の消去は<code>purge.ts</code>に任せる）。確認なしで削除できるようにしないこと（ノートと同じく確認を挟む）。ノート側の既存の挙動を変えないこと。カンバンに削除導線を足さないこと（ドラッグ対象と競合する）。</li>
+<li>テスト: 削除ボタンで<code>deleteTask</code>が呼ばれること。<strong>確認をキャンセルしたら削除されないこと。</strong>ゴミ箱に削除済みタスクが出て復元できること。<strong>削除済みが0件のときの文言が、ノートとタスクの双方を正しく表す</strong>こと（現在は「削除済みのノートはありません」でノート専用）。復元後に一覧へ戻ること。</li>
+<li>停止条件: ゴミ箱の画面をノートとタスクで分けるか1画面にまとめるかは要求定義に記載が無い。実装者が1画面にまとめる方針で進め、実装が複雑になる場合は管理者に確認する。</li>
+</ul>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
