@@ -7,7 +7,7 @@ Loop engineering の実践にあたり、自律ループ（`/loop` や自動起�
 - **利用者の実データ**（`app.getPath("userData")` 配下。Windowsでは `%APPDATA%\hanamask\`）。DB本体・画像・APIキーの保管先であり、**書き換えると復旧できない**。テスト・E2Eは `HANAMASK_DB_PATH` で必ず別のDBを指す
 - `src/main/db/migrations.ts` の **既存**エントリ。追記はしてよいが、既に配布された項目の書き換え・並べ替えは利用者のDBを壊す（[MIGRATIONS.md](MIGRATIONS.md) §2）
 - `src/main/db/schema.sql` の**単独**変更。マイグレーションを伴わない列追加は、新規インストールでだけ正しく動き既存利用者を取り残す（同 §1）
-- `.github/workflows/`（CI/CD定義）
+- `.github/workflows/`（CI/CD定義）。**ただし管理者がCI・リリースの整備を明示的に指示した場合はその範囲で編集してよい**（2026-08-10 追記。リリースパイプラインの構築を指示された際、この行と実際の作業が食い違ったため明文化した）。指示の無い自発的な変更は引き続き禁止
 - 秘匿情報を含みうるファイル全般（credentials, secrets, `*.pem`, `*.key`）、および `.env`, `.env.*`（`.env.example` を除く）
 
 > 2026-08-10 改訂。旧版は `infra/` と `prisma/migrations/` を挙げていたが、**いずれもこのリポジトリに存在しない**（AWS構成の廃止・PrismaではなくSQLite直接利用のため）。存在しないパスを守っても意味がなく、実際に危険な上記が漏れていた。

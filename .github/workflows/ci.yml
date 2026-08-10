@@ -37,3 +37,9 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # 公開リポジトリとして配布するため、同梱される依存に強いコピーレフトが
+      # 混ざっていないことを機械的に確かめる。Apache-2.0 の成果物に GPL/AGPL を
+      # 取り込むと配布条件が変わってしまう（docs/TASKS.md T38）。
+      - name: 依存ライセンスを確認する
+        run: npm run check:licenses

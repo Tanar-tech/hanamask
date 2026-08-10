@@ -22,6 +22,10 @@ asarUnpack:
 win:
   target:
     - nsis
+  # 既定の "hanamask Setup 0.1.0.exe" は空白を含む。GitHub Releases は添付時に空白を
+  # ドットへ置換する一方、latest.yml（自動更新のフィード）はハイフンで書き出すため、
+  # 3者の名前が食い違って自動更新が対象を見つけられなくなる。空白を使わせない。
+  artifactName: ${name}-Setup-${version}.${ext}
   # 既定のElectronアイコンだとタスクバーで他のElectronアプリと見分けが付かない。
   # 意匠は承認済みのデザイントークンに合わせ、アクア（利用者）とピンク（エージェント）が
   # 重なる形にしている。build/generate-icon.py で再生成できる。
