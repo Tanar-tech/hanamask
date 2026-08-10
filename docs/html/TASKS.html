@@ -617,16 +617,27 @@ flowchart LR
 
 <h3 id="t37">T37: エージェントチームによる敵対的検証（利便性・可用性・セキュリティ）</h3>
 <ul>
-<li>ステータス: 実装中</li>
+<li>ステータス: 完了（PR #103 / #112 / #136 / #137）</li>
+<li><strong>指摘と対応の突き合わせ（2026-08-10 完了時点）</strong>:</li>
+<table><thead><tr><th>観点</th><th>指摘</th><th>対応</th></tr></thead><tbody>
+<tr><td>可用性</td><td>取り込みが画像を先に全削除するため、失敗すると旧画像が失われる</td><td>#103</td></tr>
+<tr><td>可用性</td><td>二重起動でマイグレーションが競合し起動不能</td><td>#103</td></tr>
+<tr><td>可用性</td><td><strong>DBの置き換えがatomicでない</strong></td><td><strong>#137</strong></td></tr>
+<tr><td>可用性</td><td><strong>起動に失敗したとき画面に何も出ない</strong></td><td><strong>#136</strong></td></tr>
+<tr><td>可用性</td><td><code>PRAGMA busy_timeout</code> 未設定</td><td><strong>対応せず</strong>。better-sqlite3 が既定 5000ms を設定しており<strong>指摘が誤り</strong>だと実測で確認した。既定を下げたら気付けるよう回帰テストのみ追加</td></tr>
+<tr><td>可用性</td><td>zip が Zip64 非対応 / EOCD の後方走査</td><td>未対応。現行の想定データ量では到達しない（<strong>未確認</strong>と報告された項目）</td></tr>
+<tr><td>セキュリティ</td><td>MCPサーバーがDNSリバインディングに無防備</td><td>#103</td></tr>
+<tr><td>セキュリティ</td><td><code>style</code> 全許可でアプリ内クリックジャッキング</td><td>#103（<code>contain: paint</code> ＋ <code>&lt;style&gt;</code> タグの破棄）</td></tr>
+<tr><td>利便性</td><td>一覧に生のMarkdown記号が出る／本文が空だと無地／エラー表示位置／削除導線の不在ほか</td><td>#103 / #112 / T39</td></tr>
+</tbody></table>
+<li><strong>この検証から派生したタスク</strong>: T39（タスクの削除・復元をUIに追加）。「タスクをUIから削除できない」という指摘が、調べると<strong><code>purge.ts</code> が削除済みタスクを実際に消去している</strong>＝人間が気付かないまま消えるという、より重い問題だった。</li>
 <li>優先度: <strong>高</strong>（管理者要望、2026-08-08）</li>
 <li>依存: 必須: T36（検証対象に本文つきタスクを含めるため）／推奨: なし</li>
 <li>目的: これまでの検証は「作った本人（またはその指示を受けたエージェント）が、自分の想定どおりに動くか」を確かめるものだった。<strong>想定の外側は誰も見ていない。</strong>観点を分けた独立のレビュアーを立て、<strong>壊すつもりで</strong>アプリを見る。指摘の再現条件まで示させ、修正に繋げる。</li>
 <li><strong>観点ごとに独立したエージェントを立てる理由</strong>: 1人に3観点を渡すと、最初に見つけた観点に引きずられて他が薄くなる。観点を固定した別々のレビュアーは互いの見落としを埋める。</li>
-<ul>
 <li><strong>利便性</strong>: 初めて触る利用者が詰まる箇所。操作の一貫性。ノートとタスクで挙動が食い違う点。エラー時に次に何をすればよいか分かるか。</li>
 <li><strong>可用性</strong>: データを失う経路。壊れた入力・巨大な入力・同時操作・異常終了。<strong>マイグレーションと取り込みは特に重点</strong>（<code>docs/MIGRATIONS.md</code>）。</li>
 <li><strong>セキュリティ</strong>: 本文はAIエージェントが書く前提での注入経路。MCPサーバーの到達性。ファイルパスの扱い。APIキーの保管と漏出経路。</li>
-</ul>
 <li>変更範囲: 検証自体は<strong>読み取りのみ</strong>。修正は指摘を採否判断した上で、該当箇所へ個別に行う。</li>
 <li>禁止事項: 指摘を鵜呑みにして修正しないこと（誤検知を含むため、<strong>再現を確認してから直す</strong>）。検証の過程で実データ（<code>AppData\Roaming\hanamask\</code>）を書き換えないこと。指摘を「対応済み」と報告する前にテストで固定すること。</li>
 <li>テスト: 採用した指摘それぞれについて、<strong>修正前に落ちるテスト</strong>を書いてから直す。誤検知として却下した指摘は、却下の理由を記録する（同じ指摘が繰り返し上がるのを防ぐ）。</li>
