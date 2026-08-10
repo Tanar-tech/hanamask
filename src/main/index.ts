@@ -396,12 +396,23 @@ const dbPathOverride = (): string | undefined => {
 const resolveDbFilePath = (): string =>
   dbPathOverride() ?? join(app.getPath("userData"), DB_FILE_NAME);
 
-const resolveImagesDirPath = (): string => join(app.getPath("userData"), IMAGES_DIR_NAME);
+/*
+ * HANAMASK_DB_PATH を指定した起動（E2E）は、画像・バックアップ・設定も
+ * そのDBの隣に置く。DBだけを別にしても、画像は利用者の userData を指したままで、
+ * E2Eが実データのディレクトリへ書き込む。取り込みは画像ディレクトリを丸ごと
+ * 差し替えるため、そのままE2Eを書くと利用者の画像を消すことになる。
+ */
+const resolveDataDirPath = (): string => {
+  const override = dbPathOverride();
+  return override === undefined ? app.getPath("userData") : dirname(override);
+};
+
+const resolveImagesDirPath = (): string => join(resolveDataDirPath(), IMAGES_DIR_NAME);
 
 const resolveBackupPaths = (): ImportPaths => ({
   dbFilePath: resolveDbFilePath(),
   imagesDirPath: resolveImagesDirPath(),
-  backupsDirPath: join(app.getPath("userData"), BACKUPS_DIR_NAME),
+  backupsDirPath: join(resolveDataDirPath(), BACKUPS_DIR_NAME),
 });
 
 const defaultBackupFileName = (): string =>
@@ -443,7 +454,7 @@ const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
   removeImportLeftovers(resolveImagesDirPath());
   setImagesDirPath(resolveImagesDirPath());
-  setChatSettingsPath(join(app.getPath("userData"), CHAT_SETTINGS_FILE_NAME));
+  setChatSettingsPath(join(resolveDataDirPath(), CHAT_SETTINGS_FILE_NAME));
   purgeSoftDeletedRecords(new Date());
   applyContentSecurityPolicy();
   createMainWindow();
