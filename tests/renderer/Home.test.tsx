@@ -458,4 +458,28 @@ describe("Home", () => {
     expect(unsubscribeNotes).toHaveBeenCalledTimes(1);
     expect(unsubscribeTasks).toHaveBeenCalledTimes(1);
   });
+
+  /*
+   * ホームは「最近のノート」と「進行中のタスク」を一目で見る場所。タグが無いと、
+   * 案件Aの話と案件Bの話が並んでいても区別が付かない。
+   */
+  it("最近のノートにタグを表示する", async () => {
+    mockHanamask([[makeNote({ tags: ["プロジェクトA", "設計"] })]]);
+
+    render(<Home onSelectNote={vi.fn()} onSelectTask={vi.fn()} onSearch={vi.fn()} />);
+
+    await screen.findByRole("heading", { name: "最近のノート" });
+    const tags = await screen.findByRole("list", { name: "タグ" });
+    expect(within(tags).getByText("プロジェクトA")).toBeTruthy();
+    expect(within(tags).getByText("設計")).toBeTruthy();
+  });
+
+  it("進行中のタスクにタグを表示する", async () => {
+    mockHanamask([[]], [[makeTask({ status: "in_progress", tags: ["プロジェクトB"] })]]);
+
+    render(<Home onSelectNote={vi.fn()} onSelectTask={vi.fn()} onSearch={vi.fn()} />);
+
+    const tags = await screen.findByRole("list", { name: "タグ" });
+    expect(within(tags).getByText("プロジェクトB")).toBeTruthy();
+  });
 });

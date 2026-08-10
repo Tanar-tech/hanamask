@@ -389,4 +389,70 @@ describe("NoteList", () => {
     // タグが無いものも取りこぼさない。
     expect(within(screen.getByRole("region", { name: "タグなし" })).getByText("タグなしノート")).toBeTruthy();
   });
+
+  /*
+   * 記録が増えると一覧は下へ伸び続け、古いものに辿り着くまで延々とスクロールする
+   * ことになる。1ページ20件で区切る。
+   */
+  const manyNotes = (count: number, tags: string[] = []) =>
+    Array.from({ length: count }, (_, index) =>
+      makeNote({ id: `n${index}`, title: `ノート${String(index).padStart(2, "0")}`, tags }),
+    );
+
+  it("20件を超えると区切って出し、次へで続きが見える", async () => {
+    mockHanamask([manyNotes(25)]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("ノート00");
+
+    expect(screen.getByText("25件中 1–20件")).toBeTruthy();
+    expect(screen.queryByText("ノート20")).toBeNull();
+
+    await act(async () => {
+      screen.getByRole("button", { name: "次へ" }).click();
+    });
+
+    expect(screen.getByText("ノート20")).toBeTruthy();
+    expect(screen.queryByText("ノート00")).toBeNull();
+  });
+
+  it("20件以内なら操作列を出さない", async () => {
+    mockHanamask([manyNotes(20)]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("ノート00");
+
+    expect(screen.queryByRole("button", { name: "次へ" })).toBeNull();
+  });
+
+  it("タグを選ぶと1ページ目に戻る", async () => {
+    // 絞り込んだ結果も複数ページ残る量にする。1ページに収まる量だと、
+    // 範囲外を最後のページへ寄せる処理だけで辻褄が合ってしまい、戻す処理を検証できない。
+    const tagged = manyNotes(30, ["A"]);
+    const untagged = Array.from({ length: 20 }, (_, index) =>
+      makeNote({ id: `u${index}`, title: `無タグ${String(index).padStart(2, "0")}` }),
+    );
+    mockHanamask([[...tagged, ...untagged]]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("ノート00");
+
+    await act(async () => {
+      screen.getByRole("button", { name: "次へ" }).click();
+    });
+    await act(async () => {
+      screen.getByRole("button", { name: "次へ" }).click();
+    });
+    expect(screen.queryByText("ノート00")).toBeNull();
+
+    await act(async () => {
+      within(screen.getByRole("group", { name: "タグで絞り込む" }))
+        .getByRole("button", { name: "A" })
+        .click();
+    });
+
+    // 3ページ目に留まったままだと、絞り込んだ結果の先頭が見えない。
+    expect(screen.getByText("ノート00")).toBeTruthy();
+    expect(screen.getByText("30件中 1–20件")).toBeTruthy();
+  });
 });

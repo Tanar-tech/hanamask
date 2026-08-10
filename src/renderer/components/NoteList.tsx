@@ -7,6 +7,7 @@ import type { Note } from "../../shared/preload-api";
 import { DeleteButton } from "./DeleteButton";
 import { TagList } from "./TagList";
 import { TagGroups, useTagFilter } from "./TagFilter";
+import { usePaging } from "./Paging";
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
 const FOCUS_RING =
@@ -48,6 +49,12 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
   const newlyArrived = useNewlyArrived(notes.map((note) => note.id));
 
   const tagFilter = useTagFilter(notes);
+
+  // フックは早期returnより前に呼ぶ。絞り込みを変えたら1ページ目に戻す（Paging.tsx 参照）。
+
+  const shown = tagFilter.visible(notes);
+
+  const paged = usePaging(shown, [...tagFilter.selected].sort().join(" "));
 
   if (error !== null) {
     return (
@@ -105,8 +112,6 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
     </ul>
   );
 
-  const shown = tagFilter.visible(notes);
-
   return (
     <div className="flex flex-col gap-3">
       {tagFilter.control}
@@ -117,7 +122,10 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
           このタグが付いたノートはありません
         </p>
       ) : (
-        renderList(shown)
+        <>
+          {renderList(paged.items)}
+          {paged.control}
+        </>
       )}
     </div>
   );
