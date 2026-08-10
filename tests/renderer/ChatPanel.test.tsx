@@ -13,6 +13,9 @@ const mockHanamask = (overrides: Overrides = {}) => {
   const sendChatMessage = vi.fn(overrides.sendChatMessage ?? (async () => []));
   const abortChat = vi.fn(async () => {});
   window.hanamask = {
+    deleteTask: vi.fn(async () => {}),
+    listDeletedTasks: vi.fn(async () => []),
+    restoreTask: vi.fn(async () => null),
     sendChatMessage,
     abortChat,
     onChatEvent: (callback: (event: ChatEvent) => void) => {

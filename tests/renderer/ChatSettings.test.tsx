@@ -25,6 +25,9 @@ const mockHanamask = (overrides: Overrides = {}) => {
   );
   const saveChatModel = vi.fn(async (model: string) => ({ apiKeyMask: "4f2a", model }) as Settings);
   window.hanamask = {
+    deleteTask: vi.fn(async () => {}),
+    listDeletedTasks: vi.fn(async () => []),
+    restoreTask: vi.fn(async () => null),
     readChatSettings,
     saveChatApiKey,
     clearChatApiKey,

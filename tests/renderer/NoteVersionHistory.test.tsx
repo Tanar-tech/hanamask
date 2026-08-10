@@ -33,6 +33,9 @@ const mockHanamask = (overrides: HistoryApiOverrides = {}) => {
   const listNoteVersions = vi.fn(overrides.listNoteVersions ?? (async () => []));
   const restoreNoteVersion = vi.fn(overrides.restoreNoteVersion ?? (async () => makeNote()));
   window.hanamask = {
+    deleteTask: vi.fn(async () => {}),
+    listDeletedTasks: vi.fn(async () => []),
+    restoreTask: vi.fn(async () => null),
     listDeletedNotes: vi.fn(async () => []),
     restoreNote: vi.fn(async () => null),
     listNotes: vi.fn(async () => []),

@@ -48,6 +48,9 @@ const mockHanamask = () => {
   navigateListeners.length = 0;
   unsubscribeNavigate.mockClear();
   window.hanamask = {
+    deleteTask: vi.fn(async () => {}),
+    listDeletedTasks: vi.fn(async () => []),
+    restoreTask: vi.fn(async () => null),
     listNotes: vi.fn(async () => [note]),
     searchNotes: vi.fn(async () => [note]),
     getNote: vi.fn(async () => note),

@@ -1,16 +1,24 @@
 import { useEffect, useRef, useState, type JSX } from "react";
-import { NOTE_RETENTION_DAYS, type DeletedNote } from "../../shared/preload-api";
+import {
+  NOTE_RETENTION_DAYS,
+  type DeletedNote,
+  type DeletedTask,
+  type Note,
+  type Task,
+} from "../../shared/preload-api";
 
 interface TrashViewProps {
   onBack: () => void;
 }
 
 const HEADING = "ゴミ箱";
-const EMPTY_MESSAGE = "削除済みのノートはありません";
+const EMPTY_MESSAGE = "削除済みのノート・タスクはありません";
 const RESTORE_LABEL = "復元";
 const BACK_LABEL = "戻る";
 const NOTE_MISSING_MESSAGE = "対象のノートが見つかりません";
-const LIST_LABEL = "削除済みノート";
+const TASK_MISSING_MESSAGE = "対象のタスクが見つかりません";
+const NOTE_LIST_LABEL = "削除済みノート";
+const TASK_LIST_LABEL = "削除済みタスク";
 const BODY_PREVIEW_MAX_LENGTH = 80;
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
@@ -32,8 +40,76 @@ const remainingDaysOf = (deletedAt: string, nowMs: number): number =>
 const toBodyPreview = (body: string): string =>
   body.length <= BODY_PREVIEW_MAX_LENGTH ? body : `${body.slice(0, BODY_PREVIEW_MAX_LENGTH)}…`;
 
+/** ノートとタスクで共通に見せる項目。ゴミ箱ではこの4つしか使わない。 */
+interface TrashItem {
+  id: string;
+  title: string;
+  body: string;
+  deletedAt: string;
+}
+
+const loadErrorOf = (result: PromiseSettledResult<unknown>, subject: string): string | null =>
+  result.status === "rejected"
+    ? `削除済み${subject}の読み込みに失敗しました: ${String(result.reason)}`
+    : null;
+
+interface TrashSectionProps {
+  label: string;
+  items: TrashItem[];
+  nowMs: number;
+  restoring: boolean;
+  onRestore: (id: string) => void;
+}
+
+const TrashSection = ({
+  label,
+  items,
+  nowMs,
+  restoring,
+  onRestore,
+}: TrashSectionProps): JSX.Element | null => {
+  if (items.length === 0) return null;
+  return (
+    <ul aria-label={label} className="m-0 flex list-none flex-col gap-3 p-0">
+      {items.map((item) => (
+        <li
+          key={item.id}
+          className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-solid border-line bg-paper-raised px-4 py-3"
+        >
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="font-display text-base font-semibold">{item.title}</span>
+            <p className="m-0 text-sm leading-relaxed text-text-soft">
+              {toBodyPreview(item.body)}
+            </p>
+          </div>
+          <span
+            className={`shrink-0 self-center font-mono text-xs tabular-nums ${
+              remainingDaysOf(item.deletedAt, nowMs) <= SOON_THRESHOLD_DAYS
+                ? "text-crit"
+                : "text-warn"
+            }`}
+          >
+            あと {remainingDaysOf(item.deletedAt, nowMs)} 日
+          </span>
+          <button
+            type="button"
+            disabled={restoring}
+            onClick={() => {
+              onRestore(item.id);
+            }}
+            className={BUTTON_PRIMARY}
+          >
+            {RESTORE_LABEL}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+};
+
 export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
   const [notes, setNotes] = useState<DeletedNote[]>([]);
+  const [tasks, setTasks] = useState<DeletedTask[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   // 一覧を取り直したときだけ現在時刻を更新する。描画のたびに読むと同じ画面で値がぶれる。
@@ -52,15 +128,17 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
     // アンマウント後に古い取得結果が届いて状態を上書きするのを防ぐ。
     let current = true;
     const load = async (): Promise<void> => {
-      try {
-        const loaded = await window.hanamask.listDeletedNotes();
-        if (!current) return;
-        setNotes(loaded);
-        setNowMs(Date.now());
-        setError(null);
-      } catch (cause) {
-        if (current) setError(`削除済みノートの読み込みに失敗しました: ${String(cause)}`);
-      }
+      // 片方が落ちてももう片方は見せる。ゴミ箱は「戻せるものを見つける」ための画面なので、
+      // 全部出ないより一部でも出た方が利用者の役に立つ。
+      const [noteResult, taskResult] = await Promise.allSettled([
+        window.hanamask.listDeletedNotes(),
+        window.hanamask.listDeletedTasks(),
+      ]);
+      if (!current) return;
+      if (noteResult.status === "fulfilled") setNotes(noteResult.value);
+      if (taskResult.status === "fulfilled") setTasks(taskResult.value);
+      setNowMs(Date.now());
+      setError(loadErrorOf(noteResult, "ノート") ?? loadErrorOf(taskResult, "タスク"));
     };
     void load();
     return () => {
@@ -68,28 +146,63 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
     };
   }, []);
 
-  const restore = async (id: string): Promise<void> => {
+  const reloadNotes = async (): Promise<void> => {
+    const reloaded = await window.hanamask.listDeletedNotes();
+    if (!mounted.current) return;
+    setNotes(reloaded);
+    setNowMs(Date.now());
+  };
+
+  const reloadTasks = async (): Promise<void> => {
+    const reloaded = await window.hanamask.listDeletedTasks();
+    if (!mounted.current) return;
+    setTasks(reloaded);
+    setNowMs(Date.now());
+  };
+
+  interface RestoreParams {
+    restore: () => Promise<Note | Task | null>;
+    reload: () => Promise<void>;
+    missingMessage: string;
+    failureMessage: string;
+  }
+
+  const runRestore = async (params: RestoreParams): Promise<void> => {
     // 復元中は全ての復元ボタンを無効化する。多重復元を許すと、先に完了した方の
     // 再取得結果を後から届いた復元の再取得結果が上書きしうる。
     setRestoring(true);
     try {
       setError(null);
-      const restored = await window.hanamask.restoreNote(id);
+      const restored = await params.restore();
       if (!mounted.current) return;
       if (restored === null) {
-        setError(NOTE_MISSING_MESSAGE);
+        setError(params.missingMessage);
         return;
       }
-      const reloaded = await window.hanamask.listDeletedNotes();
-      if (mounted.current) {
-        setNotes(reloaded);
-        setNowMs(Date.now());
-      }
+      await params.reload();
     } catch (cause) {
-      if (mounted.current) setError(`ノートの復元に失敗しました: ${String(cause)}`);
+      if (mounted.current) setError(`${params.failureMessage}: ${String(cause)}`);
     } finally {
       if (mounted.current) setRestoring(false);
     }
+  };
+
+  const restoreNote = (id: string): void => {
+    void runRestore({
+      restore: () => window.hanamask.restoreNote(id),
+      reload: reloadNotes,
+      missingMessage: NOTE_MISSING_MESSAGE,
+      failureMessage: "ノートの復元に失敗しました",
+    });
+  };
+
+  const restoreTask = (id: string): void => {
+    void runRestore({
+      restore: () => window.hanamask.restoreTask(id),
+      reload: reloadTasks,
+      missingMessage: TASK_MISSING_MESSAGE,
+      failureMessage: "タスクの復元に失敗しました",
+    });
   };
 
   return (
@@ -108,47 +221,25 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
           {error}
         </p>
       )}
-      {notes.length === 0 && (
+      {notes.length === 0 && tasks.length === 0 && (
         <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center text-sm text-text-faint">
           {EMPTY_MESSAGE}
         </p>
       )}
-      {notes.length > 0 && (
-        <ul aria-label={LIST_LABEL} className="m-0 flex list-none flex-col gap-3 p-0">
-          {notes.map((note) => (
-            <li
-              key={note.id}
-              className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-solid border-line bg-paper-raised px-4 py-3"
-            >
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="font-display text-base font-semibold">{note.title}</span>
-                <p className="m-0 text-sm leading-relaxed text-text-soft">
-                  {toBodyPreview(note.body)}
-                </p>
-              </div>
-              <span
-                className={`shrink-0 self-center font-mono text-xs tabular-nums ${
-                  remainingDaysOf(note.deletedAt, nowMs) <= SOON_THRESHOLD_DAYS
-                    ? "text-crit"
-                    : "text-warn"
-                }`}
-              >
-                あと {remainingDaysOf(note.deletedAt, nowMs)} 日
-              </span>
-              <button
-                type="button"
-                disabled={restoring}
-                onClick={() => {
-                  void restore(note.id);
-                }}
-                className={BUTTON_PRIMARY}
-              >
-                {RESTORE_LABEL}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <TrashSection
+        label={NOTE_LIST_LABEL}
+        items={notes}
+        nowMs={nowMs}
+        restoring={restoring}
+        onRestore={restoreNote}
+      />
+      <TrashSection
+        label={TASK_LIST_LABEL}
+        items={tasks}
+        nowMs={nowMs}
+        restoring={restoring}
+        onRestore={restoreTask}
+      />
     </section>
   );
 };

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, screen } from "@testing-library/react";
+import { act, cleanup, screen, within } from "@testing-library/react";
 import { renderWithMotion as render } from "./motion-render";
 import { TaskList } from "../../src/renderer/components/TaskList";
 import type { Image, Task } from "../../src/shared/preload-api";
@@ -35,7 +35,11 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     listeners.push(callback);
     return unsubscribe;
   });
+  const deleteTask = vi.fn(async () => {});
   window.hanamask = {
+    deleteTask,
+    listDeletedTasks: vi.fn(async () => []),
+    restoreTask: vi.fn(async () => null),
     listDeletedNotes: vi.fn(async () => []),
     restoreNote: vi.fn(async () => null),
     listNotes: vi.fn(async () => []),
@@ -68,7 +72,15 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatModel: vi.fn(async (model: string) => ({ apiKeyMask: null, model })),
   };
-  return { listTasks, onTasksChanged, listeners, unsubscribe };
+  return { listTasks, onTasksChanged, listeners, unsubscribe, deleteTask };
+};
+
+const clickDeleteButtonOf = async (title: string): Promise<void> => {
+  const item = (await screen.findByText(title)).closest("li");
+  if (item === null) throw new Error(`no list item for ${title}`);
+  await act(async () => {
+    within(item).getByRole("button", { name: "削除" }).click();
+  });
 };
 
 afterEach(() => {
@@ -186,6 +198,59 @@ describe("TaskList", () => {
     await screen.findByText("MCPサーバーを実装する");
 
     expect(container.querySelectorAll("li p")).toHaveLength(2);
+  });
+
+  it("削除ボタンで確認してOKするとそのタスクを削除する", async () => {
+    const { deleteTask } = mockHanamask([
+      [makeTask(), makeTask({ id: "task-2", title: "消すタスク" })],
+    ]);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<TaskList onSelectTask={vi.fn()} />);
+    await clickDeleteButtonOf("消すタスク");
+
+    expect(deleteTask).toHaveBeenCalledTimes(1);
+    expect(deleteTask).toHaveBeenCalledWith("task-2");
+  });
+
+  it("削除の確認をキャンセルすると削除しない", async () => {
+    const { deleteTask } = mockHanamask([[makeTask()]]);
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<TaskList onSelectTask={vi.fn()} />);
+    await clickDeleteButtonOf("MCPサーバーを実装する");
+
+    expect(deleteTask).not.toHaveBeenCalled();
+  });
+
+  it("削除後のonTasksChangedで削除したタスクが一覧から消える", async () => {
+    const { deleteTask, listeners } = mockHanamask([
+      [makeTask(), makeTask({ id: "task-2", title: "消すタスク" })],
+      [makeTask()],
+    ]);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<TaskList onSelectTask={vi.fn()} />);
+    await clickDeleteButtonOf("消すタスク");
+    expect(deleteTask).toHaveBeenCalledWith("task-2");
+
+    await act(async () => {
+      listeners.forEach((listener) => listener());
+    });
+
+    expect(screen.queryByText("消すタスク")).toBeNull();
+    expect(screen.getByText("MCPサーバーを実装する")).toBeTruthy();
+  });
+
+  it("削除に失敗したらエラーを表示する", async () => {
+    const { deleteTask } = mockHanamask([[makeTask()]]);
+    deleteTask.mockRejectedValueOnce(new Error("boom"));
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<TaskList onSelectTask={vi.fn()} />);
+    await clickDeleteButtonOf("MCPサーバーを実装する");
+
+    expect((await screen.findByRole("alert")).textContent).toContain("タスクの削除に失敗しました");
   });
 
   it("アンマウント時に購読を解除する", async () => {

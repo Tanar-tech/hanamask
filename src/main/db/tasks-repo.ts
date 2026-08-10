@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
-import type { Task, TaskInput, TaskStatus } from "../../shared/preload-api.js";
+import type { DeletedTask, Task, TaskInput, TaskStatus } from "../../shared/preload-api.js";
 
 interface TaskRow {
   id: string;
@@ -96,6 +96,24 @@ export const listTasks = (includeDeleted = false): Task[] => {
       throw new Error("Unexpected tasks row shape in list results");
     }
     return toTask(row);
+  });
+};
+
+export const listDeletedTasks = (): DeletedTask[] => {
+  const rows: unknown[] = getDb()
+    .prepare(
+      // 同じミリ秒に2件消えることがあるため、rowidで挿入順に倒して順序を確定させる。
+      "SELECT * FROM tasks WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC, rowid DESC",
+    )
+    .all();
+  return rows.map((row) => {
+    if (!isTaskRow(row)) {
+      throw new Error("Unexpected tasks row shape in deleted tasks");
+    }
+    if (row.deleted_at === null) {
+      throw new Error("A deleted task came back without deleted_at");
+    }
+    return { ...toTask(row), deletedAt: row.deleted_at };
   });
 };
 
