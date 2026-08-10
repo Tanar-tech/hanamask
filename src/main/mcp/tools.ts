@@ -18,6 +18,7 @@ import {
   toTaskStatus,
   updateTask,
 } from "../db/tasks-repo.js";
+import { listTagsInUse } from "../db/tags-repo.js";
 import { createLink, deleteLink, listLinks, toEntityType } from "../db/links-repo.js";
 import { attachImage } from "../images/attach-image.js";
 import { navigateUi, showUiWindow } from "../ui/navigate.js";
@@ -103,14 +104,18 @@ const readOptionalTags = (args: Record<string, unknown>): string[] | undefined =
 const TAGS_SCHEMA = {
   type: "array",
   items: { type: "string" },
-  description: "Tags used to group notes and tasks (for example a project name)",
+  description:
+    "Tags that group notes and tasks, typically by project or topic (for example a project name). " +
+    "Always tag what you create so the user can tell which project a record belongs to. " +
+    "Call list_tags first and reuse an existing tag when it means the same thing.",
 } as const;
 
 
 const createNoteTool: NoteTool = {
   definition: {
     name: "create_note",
-    description: "Create a note in the local hanamask database.",
+    description:
+      "Create a note in the local hanamask database. Tag it (see tags) so it can be grouped by project.",
     inputSchema: {
       type: "object",
       properties: {
@@ -363,7 +368,8 @@ const TASK_STATUS_SCHEMA = {
 const createTaskTool: McpTool = {
   definition: {
     name: "create_task",
-    description: "Create a task in the local hanamask database.",
+    description:
+      "Create a task in the local hanamask database. Tag it (see tags) so it can be grouped by project.",
     inputSchema: {
       type: "object",
       properties: {
@@ -436,6 +442,25 @@ const listTasksTool: McpTool = {
   handler: toToolHandler(() => jsonResult({ tasks: listTasks() })),
 };
 
+/*
+ * エージェントは過去に自分が何と名付けたかを覚えていない。既存のタグを引けないと、
+ * 同じ案件に「プロジェクトA」「project-a」のような別名が付き、グループとして
+ * 機能しなくなる。付ける前にこれを引いてもらう。
+ */
+const listTagsTool: McpTool = {
+  definition: {
+    name: "list_tags",
+    description:
+      "List tags already in use, with how many notes and tasks carry each one. " +
+      "Call this before tagging so you reuse an existing tag instead of inventing a new name for the same thing.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  handler: toToolHandler(() => jsonResult({ tags: listTagsInUse() })),
+};
+
 const deleteTaskTool: McpTool = {
   definition: {
     name: "delete_task",
@@ -493,6 +518,7 @@ export const taskTools: readonly McpTool[] = [
   createTaskTool,
   updateTaskTool,
   listTasksTool,
+  listTagsTool,
   deleteTaskTool,
   restoreTaskTool,
 ];
