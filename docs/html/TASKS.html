@@ -673,6 +673,20 @@ flowchart LR
 <li>停止条件: ゴミ箱の画面をノートとタスクで分けるか1画面にまとめるかは要求定義に記載が無い。実装者が1画面にまとめる方針で進め、実装が複雑になる場合は管理者に確認する。</li>
 </ul>
 
+<h3 id="t40">T40: E2Eの回帰を直し、CIで走らせる</h3>
+<ul>
+<li>ステータス: 完了（PR #119）</li>
+<li>優先度: <strong>高</strong>（2026-08-10、E2Eの手動実行で発覚）</li>
+<li>依存: 必須: なし／推奨: なし</li>
+<li>目的: <strong>E2Eは4本あるのにCIで一度も走っていなかった。</strong>MCP経由の書き込みが画面へ反映されることを検証する唯一の層がこれであり、走らせていなければ壊れても誰にも見えない。</li>
+<li><strong>見つかった回帰</strong>: <code>src/main/mcp/tools.ts</code> の <code>update_note</code> ハンドラが <code>updateNote</code> に <strong><code>body</code> を渡していなかった</strong>。<code>notes-repo</code> 側は <code>input.body ?? existing.body</code> なので<strong>既存の本文が黙って残る</strong>。タイトルとタグは正しく更新されるため画面上は「更新された」ように見え、気付きにくい。<strong>0.2.0 に含まれてしまい、0.2.1 で修正した。</strong></li>
+<li><strong>なぜ2日間見逃されたか</strong>: 単体テストは <code>update_note</code> に <code>body</code> を渡していたが、<strong>本文が実際に変わったかを検証していなかった</strong>（版スナップショットの確認にしか使っていなかった）。633件が緑のまま通り抜けた。</li>
+<li>変更範囲: <code>src/main/mcp/tools.ts</code>、<code>tests/main/mcp/tools.test.ts</code>、<code>tests/e2e/note-trash-and-realtime.spec.ts</code>（#113の文言変更に追従）、<code>.github/workflows/ci.yml</code>。</li>
+<li>禁止事項: E2Eをスキップ・無効化して緑にしないこと。テストの期待値を実装に合わせて緩めないこと（<strong>実装が正しい場合のみ</strong>テスト側を直す）。E2Eの実行を任意扱い（<code>continue-on-error</code>）にしないこと。</li>
+<li>テスト: <strong>本文・タイトル・タグそれぞれが書き換わること</strong>と、<strong>省略した項目が元のまま残ること</strong>を検証する単体テストを追加した（修正前に2件とも失敗することを確認済み）。E2EはCIのLinuxジョブで <code>xvfb-run</code> 配下で実行し、失敗時はスクリーンショットを成果物として残す。</li>
+<li>停止条件: E2EがCIで不安定（flaky）だと判明した場合、無効化せず原因を特定する。特定に3回失敗したら管理者に報告する。</li>
+</ul>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
