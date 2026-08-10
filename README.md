@@ -49,7 +49,7 @@ AIエージェントからは、MCPクライアント（例: SDKの `Client` + `
 
 ## 入れ方
 
-[Releases](../../releases) から `hanamask Setup *.exe` をダウンロードして実行する。
+[Releases](../../releases) から `hanamask-Setup-*.exe` をダウンロードして実行する。
 
 > **このインストーラーには署名を付けていない。**実行すると「WindowsによってPCが保護されました」という青い画面が出るので、**「詳細情報」→「実行」**と進める。署名しない判断の経緯と、配布範囲を広げる場合の選択肢は [docs/SIGNING.md](docs/SIGNING.md) にまとめてある。
 

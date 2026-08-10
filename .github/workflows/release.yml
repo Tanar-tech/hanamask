@@ -46,10 +46,14 @@ jobs:
       - name: Test
         run: npm test
 
+      # ${{ }} を run: の中へ直接展開すると、入力値がシェルとして解釈される
+      # （yaml.github-actions.security.run-shell-injection）。env経由で渡す。
       - name: package.json のバージョンとタグが一致することを確認する
         shell: bash
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          tag="$TAG"
           version="v$(node -p "require('./package.json').version")"
           if [ "$tag" != "$version" ]; then
             echo "タグ ($tag) と package.json のバージョン ($version) が一致しない。" >&2
@@ -73,7 +77,7 @@ jobs:
           cat > release-notes.md <<'EOF'
           ## インストール
 
-          下の `hanamask Setup *.exe` をダウンロードして実行してください。
+          下の `hanamask-Setup-*.exe` をダウンロードして実行してください。
 
           > **このインストーラーには署名を付けていません。**
           > 実行すると「WindowsによってPCが保護されました」という青い画面が出ます。
@@ -87,9 +91,10 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
           set -euo pipefail
-          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          tag="$TAG"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release edit "$tag" --notes-file release-notes.md
           else

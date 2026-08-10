@@ -146,8 +146,8 @@ flowchart LR
 
 <p>WSL から Windows 側のツールチェーンを使い、<code>npm ci &amp;&amp; npm run package:win</code> が完走することを確認した。生成物:</p>
 
-<pre><code>release/hanamask Setup 0.1.0.exe            約 118 MB
-release/hanamask Setup 0.1.0.exe.blockmap
+<pre><code>release/hanamask-Setup-0.1.0.exe            約 118 MB
+release/hanamask-Setup-0.1.0.exe.blockmap
 release/win-unpacked/</code></pre>
 
 <p><code>better-sqlite3</code> のネイティブビルド、<code>@electron/rebuild</code> による Electron ABI へのリビルド、NSIS インストーラーの生成まで一通り通っている。</p>
@@ -187,7 +187,7 @@ git push origin v0.2.0</code></pre></li>
 <table>
 <thead><tr><th>ファイル</th><th>用途</th></tr></thead>
 <tbody>
-<tr><td><code>hanamask Setup &lt;version&gt;.exe</code></td><td>インストーラー本体</td></tr>
+<tr><td><code>hanamask-Setup-&lt;version&gt;.exe</code></td><td>インストーラー本体</td></tr>
 <tr><td><code>*.exe.blockmap</code></td><td>差分ダウンロード用</td></tr>
 <tr><td><code>latest.yml</code></td><td>自動更新のフィード（<code>electron-builder.yml</code> の <code>publish</code> 設定により生成される）</td></tr>
 </tbody>

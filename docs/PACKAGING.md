@@ -115,8 +115,8 @@ DB（`hanamask.sqlite3`）と画像ファイル（`images/`）は、インスト
 WSL から Windows 側のツールチェーンを使い、`npm ci && npm run package:win` が完走することを確認した。生成物:
 
 ```
-release/hanamask Setup 0.1.0.exe            約 118 MB
-release/hanamask Setup 0.1.0.exe.blockmap
+release/hanamask-Setup-0.1.0.exe            約 118 MB
+release/hanamask-Setup-0.1.0.exe.blockmap
 release/win-unpacked/
 ```
 
@@ -156,7 +156,7 @@ release/win-unpacked/
 
 | ファイル | 用途 |
 |---|---|
-| `hanamask Setup <version>.exe` | インストーラー本体 |
+| `hanamask-Setup-<version>.exe` | インストーラー本体 |
 | `*.exe.blockmap` | 差分ダウンロード用 |
 | `latest.yml` | 自動更新のフィード（`electron-builder.yml` の `publish` 設定により生成される） |
 

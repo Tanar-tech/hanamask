@@ -6,6 +6,11 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    # 公開直後のバージョンには、乗っ取られたパッケージが紛れることがある。
+    # 一定期間寝かせてから取り込む（supply chain対策）。
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
     # 依存の大幅な変更は管理者承認が必要（docs/GOVERNANCE.md §6）。
     # まとめて1本にすることでレビューの単位を粗くし、PRの氾濫を防ぐ。
     groups:
@@ -27,3 +32,5 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7
