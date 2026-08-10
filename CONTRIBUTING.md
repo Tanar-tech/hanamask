@@ -18,6 +18,8 @@ hanamask は個人が開発しているアプリです。Issue も Pull Request 
 
 DBスキーマに触れる変更では、[docs/MIGRATIONS.md](docs/MIGRATIONS.md) を**着手前に**読んでください。`schema.sql` だけを直すと、新規インストールでは正しく動き、**既存利用者のDBだけが取り残されます。しかもテストは新規DBを作って走るので全部緑のまま通ります。**
 
+参加にあたっては [行動規範](CODE_OF_CONDUCT.md) に従ってください。
+
 ## 開発環境
 
 ```bash
