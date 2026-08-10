@@ -35,6 +35,7 @@ const task: Task = {
   id: "task-1",
   title: "MCPサーバーを実装する",
   body: "",
+  tags: [],
   status: "todo",
   dueDate: "2026-08-10",
   createdAt: "2026-08-03T00:00:00.000Z",
@@ -159,6 +160,34 @@ describe("App のナビゲーション", () => {
 
     await screen.findByText("MCPサーバーの設計についてのメモ本文");
     expect(window.hanamask.getNote).toHaveBeenCalledWith("note-1");
+  });
+});
+
+/*
+ * AIチャットは動作しないため利用者から見えない状態にした（CHAT_ENABLED）。
+ * 画面から消えていることと、設定画面にも出ないことを対で確かめる。
+ * 実装は残してあるので、フラグを戻せば復活する。
+ */
+describe("AIチャットを出さない", () => {
+  it("ホームにチャットの枠を出さない", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await screen.findByRole("button", { name: "ホーム" });
+
+    expect(screen.queryByRole("complementary", { name: "AIチャット" })).toBeNull();
+    expect(screen.queryByText("ノートやタスクの操作を頼めます。")).toBeNull();
+  });
+
+  it("設定画面にチャットの設定を出さない", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await clickButton("設定");
+
+    // 設定画面自体は開く（書き出し・取り込みはここにある）。
+    expect(await screen.findByRole("heading", { name: "データの書き出しと取り込み" })).toBeTruthy();
+    expect(screen.queryByLabelText(/APIキー/)).toBeNull();
   });
 });
 

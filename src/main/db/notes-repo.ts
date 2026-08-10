@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
+import { parseTags } from "./tags.js";
 import type { DeletedNote, Note, NoteInput, NoteVersion } from "../../shared/preload-api.js";
 
 interface NoteRow {
@@ -22,9 +23,6 @@ interface NoteVersionRow {
 }
 
 const LIKE_ESCAPE_CHAR = "\\";
-
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === "string");
 
 const isNoteRow = (value: unknown): value is NoteRow => {
   if (typeof value !== "object" || value === null) return false;
@@ -51,14 +49,6 @@ const isNoteVersionRow = (value: unknown): value is NoteVersionRow => {
     typeof row.tags === "string" &&
     typeof row.created_at === "string"
   );
-};
-
-const parseTags = (rawTags: string): string[] => {
-  const parsed: unknown = JSON.parse(rawTags);
-  if (!isStringArray(parsed)) {
-    throw new Error(`Stored tags are not a JSON array of strings: ${rawTags}`);
-  }
-  return parsed;
 };
 
 const toNote = (row: NoteRow): Note => ({

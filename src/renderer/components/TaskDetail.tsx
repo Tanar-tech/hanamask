@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type JSX } 
 import type { Task, TaskStatus } from "../../shared/preload-api";
 import { EntityLinks } from "./EntityLinks";
 import { MarkdownDocument } from "./MarkdownDocument";
+import { TagList } from "./TagList";
 
 interface TaskDetailProps {
   taskId: string;
@@ -338,6 +339,8 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
               </p>
             )}
           </div>
+
+          <TagList tags={task.tags} />
 
           {task.body.trim() === "" ? (
             <p className={EMPTY_BODY}>{EMPTY_BODY_MESSAGE}</p>

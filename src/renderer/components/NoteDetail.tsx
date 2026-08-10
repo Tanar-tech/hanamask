@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type JSX } 
 import type { Image, Note } from "../../shared/preload-api";
 import { EntityLinks } from "./EntityLinks";
 import { MarkdownDocument } from "./MarkdownDocument";
+import { TagList } from "./TagList";
 import { NoteVersionHistory } from "./NoteVersionHistory";
 
 interface NoteDetailProps {
@@ -393,18 +394,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
               編集
             </button>
           </header>
-          {note.tags.length > 0 && (
-            <ul className={`${RESET_LIST} flex flex-wrap gap-2`}>
-              {note.tags.map((tag) => (
-                <li
-                  key={tag}
-                  className="rounded-full border border-line px-2 py-0.5 font-body text-xs text-text-soft"
-                >
-                  {tag}
-                </li>
-              ))}
-            </ul>
-          )}
+          <TagList tags={note.tags} />
           {note.body.trim() === "" ? (
             <p className={EMPTY_BODY}>{EMPTY_BODY_MESSAGE}</p>
           ) : (

@@ -214,7 +214,8 @@ describe("NoteList", () => {
     const { container } = render(<NoteList onSelectNote={vi.fn()} />);
     await screen.findByText("抜粋される本文");
 
-    const cards = container.querySelectorAll("li");
+    // タグも <li> なので、カードは一覧の直下だけを数える。
+    const cards = container.querySelectorAll('ul[aria-label="ノート一覧"] > li');
     expect(cards).toHaveLength(2);
     // 抜粋を出すカードだけが段落を持つ。
     expect(cards[0]?.querySelectorAll("p")).toHaveLength(0);
@@ -250,6 +251,142 @@ describe("NoteList", () => {
 
     expect(await screen.findByText("いま増えたノート")).toBeTruthy();
     expect(screen.getByText("元からあるノート")).toBeTruthy();
-    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    // タグも listitem なので、ノート一覧に属するものだけを数える。
+    expect(within(screen.getByRole("list", { name: "ノート一覧" })).getAllByRole("listitem").filter((item) => item.parentElement?.getAttribute("aria-label") === "ノート一覧")).toHaveLength(2);
+  });
+
+  /*
+   * タグは詳細画面にしか出ておらず、一覧を見てもどの記録がどの案件のものか
+   * 分からなかった。案件で見分けられることがこの機能の目的なので、一覧に出す。
+   */
+  it("一覧のカードにタグを表示する", async () => {
+    mockHanamask([[makeNote({ tags: ["プロジェクトA", "設計"] })]]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+
+    const card = (await screen.findAllByRole("listitem"))[0];
+    expect(within(card!).getByText("プロジェクトA")).toBeTruthy();
+    expect(within(card!).getByText("設計")).toBeTruthy();
+  });
+
+  it("タグが無いノートにはタグ欄を出さない", async () => {
+    mockHanamask([[makeNote({ title: "タグなし", tags: [] })]]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+
+    await screen.findByText("タグなし");
+    expect(screen.queryByRole("list", { name: "タグ" })).toBeNull();
+  });
+
+  /*
+   * この機能の目的そのもの。「あるノートがプロジェクトAに所属し、プロジェクトBには
+   * 所属していない」ことを、利用者が選ぶだけで判別できること。
+   */
+  it("タグを選ぶと、そのタグを持たないノートが消える", async () => {
+    mockHanamask([
+      [
+        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
+        makeNote({ id: "b", title: "Bのノート", tags: ["プロジェクトB"] }),
+      ],
+    ]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("Aのノート");
+
+    const filter = screen.getByRole("group", { name: "タグで絞り込む" });
+    await act(async () => {
+      within(filter).getByRole("button", { name: "プロジェクトA" }).click();
+    });
+
+    expect(screen.getByText("Aのノート")).toBeTruthy();
+    expect(screen.queryByText("Bのノート")).toBeNull();
+  });
+
+  it("複数のタグを選ぶと、どれかに一致するノートが残る", async () => {
+    mockHanamask([
+      [
+        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
+        makeNote({ id: "b", title: "Bのノート", tags: ["プロジェクトB"] }),
+        makeNote({ id: "c", title: "Cのノート", tags: ["その他"] }),
+      ],
+    ]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("Aのノート");
+    const filter = screen.getByRole("group", { name: "タグで絞り込む" });
+
+    await act(async () => {
+      within(filter).getByRole("button", { name: "プロジェクトA" }).click();
+    });
+    await act(async () => {
+      within(filter).getByRole("button", { name: "プロジェクトB" }).click();
+    });
+
+    expect(screen.getByText("Aのノート")).toBeTruthy();
+    expect(screen.getByText("Bのノート")).toBeTruthy();
+    expect(screen.queryByText("Cのノート")).toBeNull();
+  });
+
+  it("「すべて」で絞り込みを解除できる", async () => {
+    mockHanamask([
+      [
+        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
+        makeNote({ id: "b", title: "Bのノート", tags: ["プロジェクトB"] }),
+      ],
+    ]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("Aのノート");
+    const filter = screen.getByRole("group", { name: "タグで絞り込む" });
+
+    await act(async () => {
+      within(filter).getByRole("button", { name: "プロジェクトA" }).click();
+    });
+    await act(async () => {
+      within(filter).getByRole("button", { name: "すべて" }).click();
+    });
+
+    expect(screen.getByText("Bのノート")).toBeTruthy();
+  });
+
+  it("タグが1つも無いときは絞り込みを出さない", async () => {
+    mockHanamask([[makeNote({ tags: [] })]]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    expect(screen.queryByRole("group", { name: "タグで絞り込む" })).toBeNull();
+  });
+
+  /*
+   * 絞り込みは「1つの案件だけ見る」ための道具。案件をまたいで全体を眺めたいときは、
+   * 分けて並べた方が早い。同じノートが複数のタグを持つなら、両方の見出しの下に出る。
+   */
+  it("タグごとに分けて並べられる", async () => {
+    mockHanamask([
+      [
+        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
+        makeNote({ id: "ab", title: "AとBのノート", tags: ["プロジェクトA", "プロジェクトB"] }),
+        makeNote({ id: "none", title: "タグなしノート", tags: [] }),
+      ],
+    ]);
+
+    render(<NoteList onSelectNote={vi.fn()} />);
+    await screen.findByText("Aのノート");
+
+    await act(async () => {
+      screen.getByRole("button", { name: "タグごとに分ける" }).click();
+    });
+
+    const groupA = screen.getByRole("region", { name: "プロジェクトA" });
+    expect(within(groupA).getByText("Aのノート")).toBeTruthy();
+    expect(within(groupA).getByText("AとBのノート")).toBeTruthy();
+
+    const groupB = screen.getByRole("region", { name: "プロジェクトB" });
+    expect(within(groupB).getByText("AとBのノート")).toBeTruthy();
+    expect(within(groupB).queryByText("Aのノート")).toBeNull();
+
+    // タグが無いものも取りこぼさない。
+    expect(within(screen.getByRole("region", { name: "タグなし" })).getByText("タグなしノート")).toBeTruthy();
   });
 });
