@@ -719,6 +719,27 @@ flowchart LR
 <li>停止条件: E2EがCIで不安定になった場合、無効化せず原因を特定する。<strong>手元で再現しないなら環境起因、再現するならコードの問題</strong>であり、後者をタイムアウトの延長で隠さない（<code>docs/TESTING.md</code>）。</li>
 </ul>
 
+<h3 id="t42">T42: ノート・タスクのタグ付けとグルーピング</h3>
+<ul>
+<li>ステータス: 実装中</li>
+<li>優先度: <strong>高</strong>（管理者要望、2026-08-10）</li>
+<li>依存: 必須: T36（タスクの本文。タグも同じくタスク側に無かった）／推奨: なし</li>
+<li>目的: <strong>エージェントが記録を増やし続けると、案件Aの話と案件Bの話が同じ一覧に混ざる。</strong>タグで分けられるようにする。「あるノートがプロジェクトAに所属し、プロジェクトBには所属していない」ことを、利用者が一目で判別できる状態にする。</li>
+<li><strong>調査済みの現状（2026-08-10）</strong>: タグは<strong>ノートにしか無く、しかも <code>NoteDetail.tsx</code> にしか表示されていない</strong>。一覧・検索結果には出ない。<strong>タスクにはタグそのものが無い</strong>（<code>tasks</code> テーブルに列が無い）。したがって「一覧を見てどの記録がどの案件か分かる」状態には程遠い。</li>
+<li><strong>画面案</strong>: モックアップで確認済み（管理者提示済み）。決めた点は以下。</li>
+<ul>
+<li><strong>タグは複数持てる</strong>。「プロジェクトA」かつ「設計」は自然に起きるため、1つに絞ると片方を捨てることになる</li>
+<li><strong>複数選んだときは OR（どれかに一致）</strong>。「AとBのどちらかを見たい」が主な使い方で、AND は絞り込みすぎて空になりやすい</li>
+<li><strong>ノートとタスクを同じ一覧に混ぜる</strong>。案件を横断して探すのは稀なので、種別より案件を優先する</li>
+<li><strong>エージェントが付けたタグには印を出す</strong>。人が付けたものと区別が付かないと、誤りを見つけたときに「自分が付けたのか」と迷う</li>
+<li><strong>タグの一覧は使われているタグから自動で集める</strong>。先に定義させると、書く前に決めることが増える</li>
+</ul>
+<li>変更範囲: <code>src/main/db/</code>（<code>tasks</code> への <code>tags</code> 列とマイグレーション、<code>tasks-repo.ts</code>）、<code>src/shared/preload-api.ts</code>、<code>src/main/mcp/tools.ts</code>（<code>create_task</code>/<code>update_task</code> のタグ、タグでの絞り込み）、<code>src/main/index.ts</code>・<code>src/preload/index.ts</code>（IPC）、<code>src/renderer/components/</code>（一覧へのタグ表示、絞り込み、グループ表示）。</li>
+<li>禁止事項: タグの正規化・階層化・色の固定割り当てを作り込まないこと（要求に無い）。<strong>タグを先に定義させる画面を作らないこと</strong>（使われているものから集める）。既存のノートのタグの意味を変えないこと。カンバンのカードに絞り込みUIを足さないこと（ドラッグ対象と競合する）。</li>
+<li>テスト: <strong><code>tags</code> 列が無い状態のDBを実際に作ってから</strong> <code>openDb</code> し、列が追加され既存行が保持されることのテスト（<code>docs/MIGRATIONS.md</code> §5）。<code>create_task</code>/<code>update_task</code> でのタグの往復。一覧にタグが表示されること。<strong>選んだタグを持たない記録が消えること</strong>（「Aに属しBに属さない」の判別がこれ）。タグが無い記録の扱い。<strong>エージェントが付けた印の有無</strong>が区別できること。</li>
+<li>停止条件: <strong>エージェントが自動でタグを付ける基準</strong>（どのMCPツールが、何を根拠に付けるか）は画面が固まってから決める。要求定義に無い判断が要るため、着手前に管理者に確認する。既存ノートのタグを一括で書き換える処理は行わない（データの書き換えは不可逆）。</li>
+</ul>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
