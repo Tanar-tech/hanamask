@@ -7,6 +7,7 @@ import type { Task, TaskStatus } from "../../shared/preload-api";
 import { DeleteButton } from "./DeleteButton";
 import { TagList } from "./TagList";
 import { TagGroups, useTagFilter } from "./TagFilter";
+import { usePaging } from "./Paging";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "未着手",
@@ -60,6 +61,12 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
   const newlyArrived = useNewlyArrived(tasks.map((task) => task.id));
 
   const tagFilter = useTagFilter(tasks);
+
+  // フックは早期returnより前に呼ぶ。絞り込みを変えたら1ページ目に戻す（Paging.tsx 参照）。
+
+  const shown = tagFilter.visible(tasks);
+
+  const paged = usePaging(shown, [...tagFilter.selected].sort().join(" "));
 
   if (error !== null) {
     return (
@@ -128,8 +135,6 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
     </ul>
   );
 
-  const shown = tagFilter.visible(tasks);
-
   return (
     <div className="flex flex-col gap-3">
       {tagFilter.control}
@@ -140,7 +145,10 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
           このタグが付いたタスクはありません
         </p>
       ) : (
-        renderList(shown)
+        <>
+          {renderList(paged.items)}
+          {paged.control}
+        </>
       )}
     </div>
   );
