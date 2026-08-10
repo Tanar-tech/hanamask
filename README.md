@@ -14,38 +14,33 @@ AI開発（AIエージェントとの協働）に最適化された、ローカ�
 
 **タスクもノートと同じ本文を持つ。**タイトルだけでは残せない経緯・受け入れ条件・参考リンクを、エージェントがそのまま書き込める。
 
-## 技術スタック
+## 使いはじめる
 
-- **アプリ本体**: Electron（ネイティブデスクトップアプリ、ローカル動作）
-- **UI（レンダラープロセス）**: React + Vite / Tailwind CSS v4（スタイリング）/ `motion`（アニメーション、LazyMotionで遅延ロード）/ Mermaid（図のレンダリング）
-- **MCPサーバー**: `@modelcontextprotocol/sdk`（Node.js製）をmainプロセスに内蔵、localhost向けHTTPトランスポート（Streamable HTTP）で待ち受け
-- **データ保存**: SQLite（`better-sqlite3`、メタデータ）+ ローカルファイルシステム（画像）
-- **テスト**: Vitest（単体・レンダラー）+ Playwrightの `_electron` API（E2E）
+**必要なのは2つだけ。**Node.jsもソースコードも要らない（Electronアプリなので、実行に必要なものは同梱されている）。
 
-## セットアップ
+1. [Releases](../../releases) から `hanamask-Setup-*.exe` をダウンロードして実行する
+2. アプリを起動したまま、AIエージェントをつなぐ（[下記](#mcpサーバーへの接続)）
 
-Node.js 22以上が必要（`package.json` の `engines` 参照）。
+あとは普段どおりエージェントに話しかければ、書いた内容がアプリの画面に現れる。
 
-```bash
-npm install
-```
+### 入れ方
 
-`better-sqlite3` はネイティブモジュールのため、インストール時にビルドが走ることがある。Linuxではビルドツール（`build-essential`、`python3` 等）が必要になる場合がある。
+[Releases](../../releases) から `hanamask-Setup-*.exe` をダウンロードして実行する。
 
-## 開発コマンド
+> **このインストーラーには署名を付けていない。**実行すると「WindowsによってPCが保護されました」という青い画面が出るので、**「詳細情報」→「実行」**と進める。署名しない判断の経緯と、配布範囲を広げる場合の選択肢は [docs/SIGNING.md](docs/SIGNING.md) にまとめてある。
 
-| コマンド | 内容 |
-|---|---|
-| `npm run dev` | ビルドしてElectronアプリを起動する（`npm run build && electron .`） |
-| `npm run build` | レンダラー（Vite）とmain/preload（tsc）を `dist/` にビルドする |
-| `npm test` | Vitestで単体テストを実行する（`npm run test:watch` でウォッチ） |
-| `npm run test:e2e` | ビルド後、Electronアプリを実際に起動してE2Eテストを実行する |
-| `npm run lint` | ESLintを実行する |
-| `npm run typecheck` | `tsc --noEmit` で型チェックする |
+データは `%APPDATA%\hanamask\` に保存され、アンインストールしても消えない。別のPCへ移すときは設定画面から書き出す。
 
-E2Eテストはウィンドウ描画にディスプレイを必要とする。ヘッドレス環境（WSL・CI）では `xvfb-run npm run test:e2e` のようにXvfb配下で実行する。テスト方針の詳細は [docs/TESTING.md](docs/TESTING.md)、GUI検証手順は `.claude/skills/e2e-runner/SKILL.md` を参照。
+#### 新しい版が出ていないか
+
+**自動更新の仕組みはまだ無い。**[Releases](../../releases) を見て、いま入っているものより新しい版があれば、同じ手順で入れ直す。**上書きしてもデータは消えない。**
+
+いま入っている版は、Windowsの「設定 → アプリ」の一覧か、インストール先（`%LOCALAPPDATA%\Programs\hanamask\`）の `hanamask.exe` のプロパティで確認できる。
+
+不具合の修正が入っていることもあるので、[CHANGELOG.md](CHANGELOG.md) の「修正」に目を通してから判断するとよい。自動更新を入れられるかの調査は [docs/AUTO_UPDATE.md](docs/AUTO_UPDATE.md) にある。
 
 ## MCPサーバーへの接続
+
 
 MCPサーバーはElectronのmainプロセスに内蔵されており、アプリ起動と同時に待ち受けを開始する。
 
@@ -74,24 +69,8 @@ claude mcp add --transport http hanamask http://127.0.0.1:39217/mcp
 
 > **hanamask を起動していない間は繋がらない。**MCPサーバーはアプリの中で動いているため、アプリを閉じるとエージェントからも見えなくなる。
 
-
-## 入れ方
-
-[Releases](../../releases) から `hanamask-Setup-*.exe` をダウンロードして実行する。
-
-> **このインストーラーには署名を付けていない。**実行すると「WindowsによってPCが保護されました」という青い画面が出るので、**「詳細情報」→「実行」**と進める。署名しない判断の経緯と、配布範囲を広げる場合の選択肢は [docs/SIGNING.md](docs/SIGNING.md) にまとめてある。
-
-データは `%APPDATA%\hanamask\` に保存され、アンインストールしても消えない。別のPCへ移すときは設定画面から書き出す。
-
-### 新しい版が出ていないか
-
-**自動更新の仕組みはまだ無い。**[Releases](../../releases) を見て、いま入っているものより新しい版があれば、同じ手順で入れ直す。**上書きしてもデータは消えない。**
-
-いま入っている版は、Windowsの「設定 → アプリ」の一覧か、インストール先（`%LOCALAPPDATA%\Programs\hanamask\`）の `hanamask.exe` のプロパティで確認できる。
-
-不具合の修正が入っていることもあるので、[CHANGELOG.md](CHANGELOG.md) の「修正」に目を通してから判断するとよい。自動更新を入れられるかの調査は [docs/AUTO_UPDATE.md](docs/AUTO_UPDATE.md) にある。
-
 ## 画面構成
+
 
 左側に常設のレール（ホーム／ノート／タスク／ゴミ箱）、右側に内容という2カラム構成。
 
@@ -112,6 +91,7 @@ claude mcp add --transport http hanamask http://127.0.0.1:39217/mcp
 
 ## ノート・タスク本文の書き方
 
+
 ノートとタスクは**同じ本文**を持ち、同じ描画・同じサニタイズ方針で扱われる。本文は **Markdown** として描画される。見出し・箇条書き・コードブロック・引用に加え、GFMの記法（表・タスクリスト・取り消し線）も使える。
 
 **HTMLを直接書くこともできる。** `<div style="...">` のように装飾を細かく指定したい場合はそのまま埋め込める。ただし本文はAIエージェントが書くため、`<script>` / `<iframe>` / `javascript:` リンク / `onerror` 等のイベントハンドラ属性は描画時に取り除かれる。**`style` 属性は使えるが、`<style>` タグは描画されない**（タグ内のCSSはアプリ全体に効いてしまうため）。詳しくは [SECURITY.md](SECURITY.md) を参照。
@@ -120,6 +100,7 @@ Mermaid図は ```` ```mermaid ```` のコードフェンスとして書く。
 
 ## データの書き出しと取り込み
 
+
 設定画面から、ノート・タスク・リンク・編集履歴・画像を **zip1つ**に書き出せる。別のPCへ移す、OSを入れ直す、データが壊れたときの備え。
 
 - **APIキーは書庫に含まれない**
@@ -127,6 +108,7 @@ Mermaid図は ```` ```mermaid ```` のコードフェンスとして書く。
 - 画像はDBに絶対パスで記録されているため、取り込み時に新しい環境のパスへ貼り直される
 
 ## 実装済みのMCPツール
+
 
 ### ノート
 
@@ -179,11 +161,22 @@ Mermaid図は専用ツールを持たず、ノート本文へのインライン�
 
 ## 破壊的操作のガードレール
 
+
 - 削除はすべてソフトデリート（`deleted_at` を立てる）で、物理削除は行わない。`delete_note` / `delete_task` は `confirm: true` を必須とする。
 - ソフトデリートから30日を過ぎたレコードはアプリ起動時のパージで物理削除される。猶予日数は `TRASH_RETENTION_DAYS`（`src/shared/preload-api.ts`）が唯一の定義元で、パージ処理とゴミ箱の残り日数表示が同じ値を見る。
 - ノートの更新前スナップショットは自動で履歴に保存され、`restore_note_version` で戻せる。
 
+## 技術スタック
+
+
+- **アプリ本体**: Electron（ネイティブデスクトップアプリ、ローカル動作）
+- **UI（レンダラープロセス）**: React + Vite / Tailwind CSS v4（スタイリング）/ `motion`（アニメーション、LazyMotionで遅延ロード）/ Mermaid（図のレンダリング）
+- **MCPサーバー**: `@modelcontextprotocol/sdk`（Node.js製）をmainプロセスに内蔵、localhost向けHTTPトランスポート（Streamable HTTP）で待ち受け
+- **データ保存**: SQLite（`better-sqlite3`、メタデータ）+ ローカルファイルシステム（画像）
+- **テスト**: Vitest（単体・レンダラー）+ Playwrightの `_electron` API（E2E）
+
 ## ドキュメント
+
 
 - [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md): 機能要件・非機能要件・データモデル・MCPツール一覧
 - [docs/TASKS.md](docs/TASKS.md): 実装タスクの分解・依存関係・進捗
