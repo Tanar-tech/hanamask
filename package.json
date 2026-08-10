@@ -14,6 +14,7 @@
     "build:main": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && node scripts/copy-main-assets.mjs",
     "lint": "eslint .",
     "check:licenses": "node scripts/check-licenses.mjs",
+    "check:readme": "node scripts/check-readme-tools.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

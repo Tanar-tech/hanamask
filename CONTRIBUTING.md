@@ -41,6 +41,7 @@ npm ci
 | `npm run lint` | ESLintを実行する |
 | `npm run typecheck` | `tsc --noEmit` で型チェックする |
 | `npm run check:licenses` | 同梱される依存のライセンスを確認する |
+| `npm run check:readme` | READMEのMCPツール一覧が実装と一致しているか確認する |
 
 **E2Eはウィンドウ描画にディスプレイが要る。**ヘッドレス環境（WSL・CI）では `xvfb-run npm run test:e2e` のようにXvfb配下で実行する。
 
@@ -62,6 +63,7 @@ npm ci
 - **`eslint-disable` / `@ts-ignore` で黙らせない。**型か設計を直す
 - **スタイルは Tailwind ユーティリティのみ。**`<style>` ブロックやコンポーネント単位のCSSファイルを追加しないでください（フラグメントルートのコンポーネントでscoped CSSが黙って効かなくなる問題を避けるため）
 - **`dangerouslySetInnerHTML` を使わない**
+- **MCPツールを増やしたら README の一覧にも追記する**（`npm run check:readme` で確認できる。CIでも見ている）
 - コメントは「なぜ」を書くときだけ。「何をしているか」は名前と型で表現してください
 - 画面の文言は日本語です
 

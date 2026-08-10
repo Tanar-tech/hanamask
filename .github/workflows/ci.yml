@@ -53,6 +53,12 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: npm run check:licenses
 
+      # READMEのMCPツール一覧は利用者から見える唯一の一覧。実装とずれると
+      # 「載っていないから無い」と誤解される。OSに依らないので1つの環境で確認する。
+      - name: READMEのツール一覧を確認する
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run check:readme
+
       # E2EはMCP経由の書き込みが画面へ反映されることを検証する唯一の層。
       # CIで走らせていなかった間に update_note が本文を保存しない回帰が入り、
       # 単体テスト633件が緑のまま2日間気付かれなかった。
