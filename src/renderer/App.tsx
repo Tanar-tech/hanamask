@@ -40,6 +40,16 @@ export const App = (): JSX.Element => {
   // MCPのUI連携ツール（open_note等）はこのIPCイベント経由で画面を切り替える。
   useEffect(() => window.hanamask.onNavigate(setView), []);
 
+  // 詳細を開いている間は、レールの現在地もその種別に合わせる。合わせないと
+  // MCPの open_note / open_task で飛んだときに、直前に選んでいたセクションが
+  // 選択されたまま残る（ノート詳細なのに「タスク」が現在地に見える）。
+  const railSection = (): ShellSection => {
+    if (view.kind === "trash") return "trash";
+    if (view.kind === "note") return "notes";
+    if (view.kind === "task") return "tasks";
+    return section;
+  };
+
   // `NavigateTarget` に「ホーム」は無いため、kind:"list" の着地先はレールの選択で決まる。
   const selectSection = (next: ShellSection): void => {
     if (next === "trash") {
@@ -56,7 +66,7 @@ export const App = (): JSX.Element => {
     <LazyMotion features={loadMotionFeatures} strict>
       <MotionConfig reducedMotion={REDUCED_MOTION_POLICY}>
         <AppShell
-          current={view.kind === "trash" ? "trash" : section}
+          current={railSection()}
           onSelect={selectSection}
           aside={
             <ChatPanel
