@@ -53,7 +53,27 @@ MCPサーバーはElectronのmainプロセスに内蔵されており、アプ�
 - ポートの上書き: 環境変数 `HANAMASK_MCP_PORT`
 - DBファイルパスの上書き: 環境変数 `HANAMASK_DB_PATH`（既定はElectronの `userData` ディレクトリ配下の `hanamask.sqlite3`）
 
-AIエージェントからは、MCPクライアント（例: SDKの `Client` + `StreamableHTTPClientTransport`）でこのURLに接続する。
+### Claude Code からつなぐ
+
+hanamask を起動した状態で、次を実行する。
+
+```bash
+claude mcp add --transport http hanamask http://127.0.0.1:39217/mcp
+```
+
+`claude mcp list` に `✔ Connected` と出れば繋がっている。あとは普段どおり話しかければよい。
+
+```
+「今日調べたことをノートにまとめて」
+「さっきのバグ、タスクに積んでおいて」
+```
+
+**エージェントが書いた内容は、開いている画面へ手動リロードなしで現れる。**
+
+自前のMCPクライアントからつなぐ場合は、SDKの `Client` + `StreamableHTTPClientTransport` で上記URLに接続する。
+
+> **hanamask を起動していない間は繋がらない。**MCPサーバーはアプリの中で動いているため、アプリを閉じるとエージェントからも見えなくなる。
+
 
 ## 入れ方
 
