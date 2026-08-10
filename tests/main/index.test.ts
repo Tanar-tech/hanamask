@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { navigateUi, showUiWindow } from "../../src/main/ui/navigate";
 import type {
   EntityType,
@@ -549,7 +549,8 @@ describe("main process entry", () => {
     expect(attached).toEqual(sampleImage);
     expect(mkdirSync).toHaveBeenCalledWith(imagesDirPath, { recursive: true });
     const [writtenPath, writtenData] = writeFileSync.mock.calls[0] ?? [];
-    expect(String(writtenPath).startsWith(`${imagesDirPath}/`)).toBe(true);
+    // セパレータを直書きすると Windows（\）で落ちる。実装は path.join を使っている。
+    expect(dirname(String(writtenPath))).toBe(imagesDirPath);
     expect(String(writtenPath).endsWith(".png")).toBe(true);
     expect(writtenData).toEqual(Buffer.from(pngDataBase64, "base64"));
     expect(createImage).toHaveBeenCalledWith({
