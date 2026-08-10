@@ -687,6 +687,27 @@ flowchart LR
 <li>停止条件: E2EがCIで不安定（flaky）だと判明した場合、無効化せず原因を特定する。特定に3回失敗したら管理者に報告する。</li>
 </ul>
 
+<h3 id="t41">T41: E2Eの空白を埋める</h3>
+<ul>
+<li>ステータス: 完了（PR #123 / #124 / #125 / #126 / #127 / #129 / #130）</li>
+<li>優先度: <strong>高</strong>（T40でCIに載せた直後、対象の狭さが問題として残ったため）</li>
+<li>依存: 必須: T40（E2EをCIで走らせる仕組み）／推奨: なし</li>
+<li>目的: T40でE2EをCIに載せたが、<strong>対象はノートの一部と画像添付だけ</strong>だった。守られていない機能は、壊れても単体テストが緑のまま通り抜ける（T40で実証済み）。<strong>データを失う経路から順に</strong>埋める。</li>
+<li>埋めた順と理由:</li>
+<ul>
+<li><strong>書き出し・取り込み</strong>（#125）: データを失ったときの<strong>唯一の復旧経路</strong>。取り込みは既存のノート・タスク・画像を丸ごと置き換える</li>
+<li><strong>編集履歴の復元</strong>（#126）: 今の本文を古い内容で<strong>上書きする</strong>。復元そのものも履歴に残る（＝やり直せる）ことまで確認する</li>
+<li><strong>リンク</strong>（#127）: 関係そのもの。本文と違って「どこかに書いてある」形で残らないため、失われると復元の手掛かりが無い</li>
+<li><strong>タスクの本文・削除復元</strong>（#123）: T36/T39で追加した機能に守りが無かった</li>
+<li><strong>カンバン</strong>（#129）・<strong>検索</strong>（#130）: 状態変更と読み取り。内容自体は失われないため後回しにした</li>
+</ul>
+<li><strong>この過程で見つかった実バグ</strong>: 存在しないノート・タスクへのリンクが黙って作られていた（#127）。<strong>E2Eが利用者の実データのディレクトリへ書き込んでいた</strong>（#124。取り込みのE2Eを書く前に気づいたため、実データを消さずに済んだ）。</li>
+<li>変更範囲: <code>tests/e2e/</code>（新規specの追加）、<code>src/main/index.ts</code>（E2Eの隔離）、<code>src/main/db/links-repo.ts</code>（リンクの検証）、<code>.github/workflows/ci.yml</code>。</li>
+<li>禁止事項: 製品コードに試験用の抜け道（<code>NODE_ENV === &quot;test&quot;</code> 等の分岐）を作らないこと——<strong>本番で通らない経路をテストすることになる</strong>。テストの期待値を実装に合わせて緩めないこと（<strong>実装が正しい場合のみ</strong>テスト側を直す）。E2Eを <code>continue-on-error</code> にしないこと。</li>
+<li>テスト: 各specについて、<strong>対応する実装を壊すとそのテストが落ちる</strong>ことを実測してから採用した。ネイティブのファイルダイアログはPlaywrightからmainプロセスを評価して差し替え、HTML5のドラッグ&amp;ドロップは <code>dataTransfer</code> を持つイベントを組み立てて送っている（<code>dragTo</code> では発火しない）。</li>
+<li>停止条件: E2EがCIで不安定になった場合、無効化せず原因を特定する。<strong>手元で再現しないなら環境起因、再現するならコードの問題</strong>であり、後者をタイムアウトの延長で隠さない（<code>docs/TESTING.md</code>）。</li>
+</ul>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
