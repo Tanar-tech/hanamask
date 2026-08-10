@@ -6,6 +6,14 @@ AI開発（AIエージェントとの協働）に最適化された、ローカ�
 
 詳細なコンセプト・機能要件は [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) を参照。
 
+![ノート詳細。Markdownの表・埋め込みHTML・Mermaid図が描画されている](docs/images/note-detail.png)
+
+**本文はエージェントが書き、人間が読む。**Markdown・HTMLの直接埋め込み・Mermaid図に対応する。本文は信頼できない入力として扱い、`<script>` や `<style>` は描画時に取り除く（[SECURITY.md](SECURITY.md)）。
+
+![タスク詳細。本文にチェックリストと関連ノートへの言及がある](docs/images/task-detail.png)
+
+**タスクもノートと同じ本文を持つ。**タイトルだけでは残せない経緯・受け入れ条件・参考リンクを、エージェントがそのまま書き込める。
+
 ## 技術スタック
 
 - **アプリ本体**: Electron（ネイティブデスクトップアプリ、ローカル動作）
