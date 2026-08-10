@@ -533,6 +533,27 @@ app.on("before-quit", () => {
   });
 });
 
+/*
+ * 起動に失敗したとき、これまでは例外を投げ直すだけだった。利用者の画面には何も出ず、
+ * 「起動しない」ことしか分からない。DBが壊れている場合、取り込み前の退避が
+ * backups に残っていることも伝わらないので、そこまで案内する。
+ */
+const reportStartupFailure = (error: unknown): void => {
+  const dataDir = resolveDataDirPath();
+  dialog.showErrorBox(
+    "hanamask を起動できませんでした",
+    [
+      String(error),
+      "",
+      `データの場所: ${dataDir}`,
+      `取り込み前の退避: ${join(dataDir, BACKUPS_DIR_NAME)}`,
+      "",
+      "データが壊れている場合は、退避したzipを設定画面から取り込むと戻せます。",
+      "退避が無い場合は、上のフォルダを丸ごと控えてから再インストールしてください。",
+    ].join("\n"),
+  );
+};
+
 const launch = (): void => {
   app.on("second-instance", () => {
     showMainWindow();
@@ -541,7 +562,8 @@ const launch = (): void => {
     .whenReady()
     .then(start)
     .catch((error: unknown) => {
-      throw new Error(`Failed to start hanamask: ${String(error)}`);
+      reportStartupFailure(error);
+      app.quit();
     });
 };
 
