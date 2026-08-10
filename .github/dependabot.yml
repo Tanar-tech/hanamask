@@ -1,0 +1,36 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    # 公開直後のバージョンには、乗っ取られたパッケージが紛れることがある。
+    # 一定期間寝かせてから取り込む（supply chain対策）。
+    cooldown:
+      default-days: 7
+      semver-major-days: 30
+    # 依存の大幅な変更は管理者承認が必要（docs/GOVERNANCE.md §6）。
+    # まとめて1本にすることでレビューの単位を粗くし、PRの氾濫を防ぐ。
+    groups:
+      production:
+        dependency-type: production
+        update-types: ["minor", "patch"]
+      development:
+        dependency-type: development
+        update-types: ["minor", "patch"]
+    # Electronのメジャー更新はネイティブモジュール(better-sqlite3)の再ビルドと
+    # 動作確認を伴うため、自動PRにせず手元で計画的に上げる。
+    ignore:
+      - dependency-name: electron
+        update-types: ["version-update:semver-major"]
+
+  # ワークフローのアクションはSHAで固定しているため、更新はDependabot経由でしか来ない。
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    cooldown:
+      default-days: 7

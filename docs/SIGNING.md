@@ -115,7 +115,7 @@ win:
 # PEヘッダの証明書テーブルを直接見る（外部ツール不要）
 python3 -c "
 import struct
-d = open('release/hanamask Setup 0.1.0.exe','rb').read(4096)
+d = open('release/hanamask-Setup-0.1.0.exe','rb').read(4096)
 pe = struct.unpack_from('<I', d, 0x3C)[0]
 magic = struct.unpack_from('<H', d, pe+24)[0]
 base = pe + 24 + (112 if magic == 0x20B else 96)

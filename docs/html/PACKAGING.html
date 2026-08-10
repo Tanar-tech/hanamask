@@ -146,8 +146,8 @@ flowchart LR
 
 <p>WSL から Windows 側のツールチェーンを使い、<code>npm ci &amp;&amp; npm run package:win</code> が完走することを確認した。生成物:</p>
 
-<pre><code>release/hanamask Setup 0.1.0.exe            約 118 MB
-release/hanamask Setup 0.1.0.exe.blockmap
+<pre><code>release/hanamask-Setup-0.1.0.exe            約 118 MB
+release/hanamask-Setup-0.1.0.exe.blockmap
 release/win-unpacked/</code></pre>
 
 <p><code>better-sqlite3</code> のネイティブビルド、<code>@electron/rebuild</code> による Electron ABI へのリビルド、NSIS インストーラーの生成まで一通り通っている。</p>
@@ -165,7 +165,37 @@ release/win-unpacked/</code></pre>
 
 <p>確認手順は <code>.claude/skills/e2e-runner/SKILL.md</code> の方針に従い手動で行う（インストーラー検証の自動化は行わない）。</p>
 
-<h2 id="6">6. リリース時の注意</h2>
+<h2 id="6">6. リリース手順（GitHub Actions）</h2>
+
+<p><strong>配布物は手元のWindowsで作らず、タグを打ってCIに作らせる。</strong>手元で作ると、どのコミットから生成されたものかが残らない。</p>
+
+<ol>
+<li><code>package.json</code> の <code>version</code> を上げ、<code>CHANGELOG.md</code> の <code>Unreleased</code> を新しいバージョン見出しに変える。この2つは同じPRに含める</li>
+<li><code>main</code> にマージする</li>
+<li><p>タグを打って push する</p>
+<pre><code>git tag v0.2.0
+git push origin v0.2.0</code></pre></li>
+<li><code>.github/workflows/release.yml</code> が Windows ランナーで lint・typecheck・テストを通してからインストーラーをビルドし、GitHub Releases に添付する</li>
+</ol>
+
+<p><strong>タグと <code>package.json</code> の <code>version</code> が食い違っているとワークフローは失敗する。</strong>「タグは打ったがバージョンを上げ忘れた」リリースを防ぐため意図的にそうしている。</p>
+
+<p>タグを打ち直したい場合、または過去のタグでビルドし直したい場合は、Actions から <code>Release</code> ワークフローを手動実行してタグ名を渡す（<code>workflow_dispatch</code>）。</p>
+
+<h3>添付されるもの</h3>
+
+<table>
+<thead><tr><th>ファイル</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><code>hanamask-Setup-&lt;version&gt;.exe</code></td><td>インストーラー本体</td></tr>
+<tr><td><code>*.exe.blockmap</code></td><td>差分ダウンロード用</td></tr>
+<tr><td><code>latest.yml</code></td><td>自動更新のフィード（<code>electron-builder.yml</code> の <code>publish</code> 設定により生成される）</td></tr>
+</tbody>
+</table>
+
+<p><strong><code>latest.yml</code> は現時点では使われていない。</strong>アプリ側に自動更新の仕組み（<code>electron-updater</code> 等）はまだ入れていないため、生成しているだけ。</p>
+
+<h2 id="7">7. リリース時の注意</h2>
 
 <p><a href="GOVERNANCE.html#6">GOVERNANCE.md</a> §6 により、<strong>リリース・タグ付け・公開リポジトリへの push は管理者の承認が必要</strong>である。ビルド設定の整備やローカルでのインストーラー生成・動作確認はここまでの手順で進めてよいが、生成物を配布物として公開する行為は開発管理者の裁量では行わず、必ず事前に管理者の承認を得ること。</p>
 

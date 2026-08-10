@@ -47,6 +47,14 @@ MCPサーバーはElectronのmainプロセスに内蔵されており、アプ�
 
 AIエージェントからは、MCPクライアント（例: SDKの `Client` + `StreamableHTTPClientTransport`）でこのURLに接続する。
 
+## 入れ方
+
+[Releases](../../releases) から `hanamask-Setup-*.exe` をダウンロードして実行する。
+
+> **このインストーラーには署名を付けていない。**実行すると「WindowsによってPCが保護されました」という青い画面が出るので、**「詳細情報」→「実行」**と進める。署名しない判断の経緯と、配布範囲を広げる場合の選択肢は [docs/SIGNING.md](docs/SIGNING.md) にまとめてある。
+
+データは `%APPDATA%\hanamask\` に保存され、アンインストールしても消えない。別のPCへ移すときは設定画面から書き出す。
+
 ## 画面構成
 
 左側に常設のレール（ホーム／ノート／タスク／ゴミ箱）、右側に内容という2カラム構成。
