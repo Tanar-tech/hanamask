@@ -65,6 +65,18 @@ description: docs/直下のMarkdownファイルを編集した際、対応する
 - 共有スタイル: `docs/html/style.css`
 - 一覧ページ: `docs/html/index.html`（新規ファイル追加時のみ更新すればよい。既存ファイルの内容更新では触らない）
 
+## 機械的な確認（2026-08-10追加）
+
+このスキルの遵守は、これまで人の注意だけに頼っていた（実際に3回漏れた: PR #100・#104・#117）。**`scripts/check-docs-sync.sh` が、`docs/*.md` を変更したPRで対応する `docs/html/*.html` が更新されているかを確認する。**`.github/workflows/docs.yml` から自動で走るので、漏れたPRはCIで止まる。
+
+手元で確かめるには次を実行する。
+
+```bash
+bash scripts/check-docs-sync.sh origin/main
+```
+
+**この確認は「更新したかどうか」しか見ない。**内容が実際に一致しているかは判定できないので、本スキルの変換手順を省略してよいという意味ではない。
+
 ## 完了条件
 
 - 変更した全ての `docs/*.md` について、対応する `docs/html/*.html` の内容が最新のMarkdownと一致している。
