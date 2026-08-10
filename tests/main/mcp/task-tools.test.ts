@@ -50,10 +50,11 @@ describe("mcp task tools", () => {
     rmSync(dbFilePath, { force: true });
   });
 
-  it("5つのタスクツール定義を公開する", () => {
+  it("タスクとタグのツール定義を公開する", () => {
     expect(taskTools.map((tool) => tool.definition.name).sort()).toEqual([
       "create_task",
       "delete_task",
+      "list_tags",
       "list_tasks",
       "restore_task",
       "update_task",
@@ -283,5 +284,27 @@ describe("mcp task tools", () => {
     expect(result.isError).toBe(true);
     const [firstContent] = result.content;
     expect(firstContent?.type).toBe("text");
+  });
+
+  /*
+   * エージェントは過去に自分が何と名付けたかを覚えていない。既存のタグを引けないと、
+   * 同じ案件に別名が付いてグループとして機能しなくなる。
+   */
+  it("list_tagsは使われているタグと件数を返す", () => {
+    createTaskThroughTool({ title: "t1", tags: ["プロジェクトA"] });
+    createTaskThroughTool({ title: "t2", tags: ["プロジェクトA", "設計"] });
+
+    expect(readJsonPayload(callTool("list_tags", {}))).toEqual({
+      tags: [
+        { tag: "プロジェクトA", noteCount: 0, taskCount: 2 },
+        { tag: "設計", noteCount: 0, taskCount: 1 },
+      ],
+    });
+  });
+
+  it("タグが1つも無ければ空を返す", () => {
+    createTaskThroughTool({ title: "タグなし" });
+
+    expect(readJsonPayload(callTool("list_tags", {}))).toEqual({ tags: [] });
   });
 });
