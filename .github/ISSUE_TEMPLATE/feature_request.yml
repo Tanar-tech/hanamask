@@ -1,0 +1,31 @@
+name: 機能の提案
+description: あったらいい機能を提案する
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提案の前に [docs/REQUIREMENTS.md](../../blob/main/docs/REQUIREMENTS.md) の **§9 スコープ外** をご確認ください。クラウド同期・複数ユーザー・他ユーザーとの共有などは、意図的に対象外にしています。
+  - type: textarea
+    id: problem
+    attributes:
+      label: 困っていること
+      description: 欲しい機能ではなく、**今どう困っているか**を書いてください。解き方は他にあるかもしれません。
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: こうなるとよい
+    validations:
+      required: true
+  - type: dropdown
+    id: who
+    attributes:
+      label: 誰が使いますか
+      options:
+        - 画面を見る人（利用者）
+        - MCP経由で操作するAIエージェント
+        - 両方
+    validations:
+      required: true

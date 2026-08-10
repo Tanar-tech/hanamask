@@ -1,0 +1,51 @@
+name: 不具合の報告
+description: 動かない・想定と違う挙動を報告する
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **脆弱性はここに書かないでください。** [SECURITY.md](../../blob/main/SECURITY.md) の手順で非公開に報告してください。
+  - type: textarea
+    id: what
+    attributes:
+      label: 何が起きたか
+      description: 実際に起きたことと、期待していたことを書いてください。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      placeholder: |
+        1. …を開く
+        2. …をする
+        3. …が起きる
+    validations:
+      required: true
+  - type: dropdown
+    id: origin
+    attributes:
+      label: 操作の経路
+      description: どちらから操作したときに起きましたか。
+      options:
+        - デスクトップUIから操作した
+        - AIエージェントがMCP経由で操作した
+        - 両方 / 分からない
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: 環境
+      placeholder: |
+        OS: Windows 11 23H2
+        hanamask: 0.1.0
+        つないでいるAIエージェント: Claude Code
+    validations:
+      required: true
+  - type: textarea
+    id: data
+    attributes:
+      label: データに影響がありましたか
+      description: ノート・タスクが消えた、開けなくなった等があれば書いてください。**その場合はアプリを使うのを止めて、userDataフォルダのバックアップを先に取ってください。**
