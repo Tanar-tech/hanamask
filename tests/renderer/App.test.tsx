@@ -253,6 +253,23 @@ describe("App の左レール", () => {
     expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
   });
 
+  /*
+   * カンバンを先に見せる。タスク画面で最初に知りたいのは「いま何がどの段階にあるか」で、
+   * 一覧はその後で個別のタスクを開くためのもの。並び順が意味を持つので固定する。
+   */
+  it("タスク画面ではカンバンが一覧より上に出る", async () => {
+    mockHanamask();
+
+    render(<App />);
+    await clickButton("タスク");
+
+    const kanban = await screen.findByRole("heading", { name: "カンバン" });
+    const list = screen.getByRole("list", { name: "タスク一覧" });
+
+    // DOCUMENT_POSITION_FOLLOWING: kanban より後ろに list がある。
+    expect(kanban.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   // Home と NoteList/TaskList は空状態の文言が同一なので、同時に描画されると E2E の
   // getByText が多重ヒットして落ちる。排他描画がその唯一の防波堤なのでテストで固定する。
   it("ホーム表示中はノート一覧・タスク一覧を描画しない", async () => {

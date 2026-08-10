@@ -109,8 +109,10 @@ export const App = (): JSX.Element => {
               {view.kind === "list" && section === "notes" && <NoteList onSelectNote={openNote} />}
               {view.kind === "list" && section === "tasks" && (
                 <>
-                  <TaskList onSelectTask={openTask} />
+                  {/* カンバンが先。タスク画面で最初に知りたいのは「いま何がどの段階にあるか」で、
+                      一覧はその後で個別のタスクを開くためのもの。 */}
                   <KanbanView />
+                  <TaskList onSelectTask={openTask} />
                 </>
               )}
             </div>
