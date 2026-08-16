@@ -16,11 +16,33 @@ const STATUS_LINE = /^### (T\d+): (.+)\n\n- ステータス: (.+)$/gm;
 // 同時に進行しているタスクがこれを超えたら、たいてい更新漏れが混ざっている。
 const MAX_IN_PROGRESS = 3;
 
-const tasks = [...readFileSync("docs/TASKS.md", "utf8").matchAll(STATUS_LINE)].map(
-  ([, id, title, status]) => ({ id, title, status }),
-);
+const taskDocument = readFileSync("docs/TASKS.md", "utf8");
 
-// タスクが取れていないなら、探し方の側が壊れている。
+const tasks = [...taskDocument.matchAll(STATUS_LINE)].map(([, id, title, status]) => ({
+  id,
+  title,
+  status,
+}));
+
+/*
+ * 見出しの数と突き合わせる。件数の下限だけでは、書式が一部だけ変わったときに
+ * 取りこぼしたぶんが黙って消える（45件中24件が読めなくなっても下限20件は上回る）。
+ */
+const headings = [...taskDocument.matchAll(/^### (T\d+): /gm)];
+
+if (headings.length !== tasks.length) {
+  const unreadable = headings
+    .map(([, id]) => id)
+    .filter((id) => !tasks.some((task) => task.id === id));
+  console.error(
+    `見出しは ${headings.length} 件ありますが、ステータスを読めたのは ${tasks.length} 件です。`,
+  );
+  console.error(`読めなかったタスク: ${unreadable.join(", ")}`);
+  console.error("\n見出しの直後に空行を挟んで「- ステータス: 」を置く形になっているか確かめてください。");
+  process.exit(1);
+}
+
+// 見出しごと消えた場合は上の突き合わせでは気付けないので、下限も見る。
 const MINIMUM_EXPECTED_TASKS = 20;
 if (tasks.length < MINIMUM_EXPECTED_TASKS) {
   console.error(
