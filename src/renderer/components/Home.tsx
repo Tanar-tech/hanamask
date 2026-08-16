@@ -1,6 +1,7 @@
 import { li as MotionLi } from "motion/react-m";
 import { useCallback, useEffect, useState, type FormEvent, type JSX } from "react";
 import { useNewlyArrived } from "../hooks/useNewlyArrived";
+import { TagList } from "./TagList";
 import { ENTRY_MOTION } from "../styles/motion";
 import type { Note, Task, TaskStatus } from "../../shared/preload-api";
 
@@ -118,6 +119,9 @@ const NoteCard = ({
       <p className={`${RESET_TEXT} mt-1 font-body text-xs text-ink-pink`}>{AGENT_UPDATE_MARK}</p>
     )}
     <p className={`${RESET_TEXT} mt-1 font-body text-sm text-text-soft`}>{toPreview(note.body)}</p>
+    <div className="mt-2">
+      <TagList tags={note.tags} />
+    </div>
   </MotionLi>
 );
 
@@ -145,6 +149,7 @@ const TaskRow = ({
     <span className={`${RESET_TEXT} font-body text-xs text-text-faint`}>
       {task.dueDate === null ? "期限なし" : `期限 ${task.dueDate}`}
     </span>
+    <TagList tags={task.tags} />
   </MotionLi>
 );
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, type JSX } from "react";
 import type { Note } from "../../shared/preload-api";
+import { TagList } from "./TagList";
 
 const BODY_PREVIEW_LENGTH = 120;
 const BACK_LABEL = "戻る";
@@ -86,6 +87,7 @@ export const SearchResults = ({ query, onSelectNote, onBack }: SearchResultsProp
                 </button>
               </h3>
               <p className="m-0 text-sm leading-relaxed text-text-soft">{toPreview(note.body)}</p>
+              <TagList tags={note.tags} />
             </li>
           ))}
         </ul>

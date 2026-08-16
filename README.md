@@ -213,6 +213,7 @@ Mermaid図は専用ツールを持たず、ノート本文へのインライン�
 - [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md): 機能要件・非機能要件・データモデル・MCPツール一覧
 - [docs/TASKS.md](docs/TASKS.md): 実装タスクの分解・依存関係・進捗
 - [docs/TESTING.md](docs/TESTING.md): テストケース作成方針
+- [docs/MIGRATIONS.md](docs/MIGRATIONS.md): DBスキーマ変更の規約（既存利用者のDBを壊さないための手順）
 - [docs/PACKAGING.md](docs/PACKAGING.md): Windowsインストーラーのビルド手順
 - [docs/SIGNING.md](docs/SIGNING.md): インストーラーの署名に必要なものと手順
 - [docs/WSL.md](docs/WSL.md): WSLのAIエージェントからWindowsアプリのMCPへ接続する設定
