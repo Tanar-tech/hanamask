@@ -5,6 +5,10 @@
   "private": true,
   "description": "AI開発に最適化されたMCPネイティブ・ローカルノートアプリ（Electron、仕様: docs/REQUIREMENTS.md）",
   "author": "Tanar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tanar-tech/hanamask.git"
+  },
   "type": "module",
   "main": "dist/main/index.js",
   "scripts": {
