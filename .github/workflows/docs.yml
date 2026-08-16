@@ -7,6 +7,10 @@ on:
     branches: [main]
     paths:
       - "docs/**"
+      # 検査そのものを変えたPRでも動かす。さもないと壊れたまま入っても気付けない。
+      - "scripts/check-docs-sync.sh"
+      - "scripts/check-task-status.mjs"
+      - ".github/workflows/docs.yml"
 
 concurrency:
   group: docs-${{ github.workflow }}-${{ github.ref }}
