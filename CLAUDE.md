@@ -12,7 +12,8 @@
 - 複数タスクの並列実行は herdr（worktree単位の独立Codex/Claude Code CLIセッション、VSCode統合ターミナル内で動作）を主手段とする。セットアップ・使い方は docs/HERDR.md・docs/CODEX.md（docs/GOVERNANCE.md §7.1）を参照。herdr/Codex/Claude Code自体の設定変更（~/.codex, ~/.claude/settings.json等）は自動実行せず、必ず管理者に確認する。
 - 差分レビューは hunk（ターミナル差分ビューア、WSL側で動作）を主手段とする。herdrセッションの成果確認もこれで行う（docs/HUNK.md、docs/GOVERNANCE.md §5・§7.1）。エージェントとして hunk を操作する場合は `hunk skill path` を実行して同梱スキルを読み込み、`hunk diff` ではなく `hunk session` コマンドを使う。hunkのコメントはセッション終了で消えるため、確定した指摘はPRコメントに転記する。
 - 1機能内での並列化（調査・実装・検証をこのセッション内でサブエージェント並列実行する）は下記「Parallel Subagent Framework」に従う。herdrがタスク単位（複数の独立した機能・修正を並列に進める）の並列化であるのに対し、こちらは1つの機能実装をフェーズ単位で並列化するもの。両者は排他ではなく併用できる（docs/GOVERNANCE.md §7.2）。
-- コミットメッセージ規約・PRマージ方式（squash merge）・Git操作の自律実行は、いずれもグローバル規約（2026-07-29改訂）と一致している（差分のみdocs/GOVERNANCE.md §4、経緯は §11.1参照）。
+- コミットメッセージ規約・PRのマージ方式（squash merge）はグローバル規約（2026-07-29改訂）と一致している（差分のみdocs/GOVERNANCE.md §4、経緯は §11.1参照）。
+- **PRは必ずdraftで作成し、マージは管理者が実施する。**commit・pushは自律実行してよいが、マージボタンには触れない（docs/safety.md、loop-constraints.md）。グローバル規約は「PRのマージボタンは自律実行可」としているため、**ここだけリポジトリ側が優先する**。2026-08-16以前この行は「Git操作の自律実行はグローバル規約と一致している」とだけ書いており、それを根拠にPR #152/#153/#154 を非draftで作成し自律マージする逸脱が起きたため、例外を明示した。
 - アプリはローカル完結のElectronデスクトップアプリとして構築する（2026-08-03、要求定義確定によりWebアプリ(SaaS)方針から転換。docs/GOVERNANCE.md §8、docs/REQUIREMENTS.md参照）。技術スタック: Electron + Node.js製MCP SDK（mainプロセス内蔵MCPサーバー）+ SQLite。UI（レンダラープロセス）詳細は基盤実装時に確定する。
 - **DBスキーマを変更する作業では、着手前に docs/MIGRATIONS.md を読む。**`schema.sql` だけを直すと新規インストールでは正しく動き既存利用者のDBだけが取り残されるため、テストが全部緑のまま壊れる。
 - アプリの機能要件・未決定事項は docs/REQUIREMENTS.md を参照。
