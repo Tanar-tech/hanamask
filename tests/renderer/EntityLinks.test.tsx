@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { EntityLinks } from "../../src/renderer/components/EntityLinks";
-import type { EntityType, Link } from "../../src/shared/preload-api";
+import type { AppSettings, EntityType, Link } from "../../src/shared/preload-api";
 
 const makeLink = (overrides: Partial<Link> = {}): Link => ({
   id: "link-1",
@@ -70,6 +70,8 @@ const mockHanamask = (overrides: LinkApiOverrides = {}) => {
     sendChatMessage: vi.fn(async () => []),
     abortChat: vi.fn(async () => {}),
     onChatEvent: vi.fn(() => () => {}),
+    readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: false })),
+    saveAppSettings: vi.fn(async (settings: AppSettings) => settings),
     readChatSettings: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatApiKey: vi.fn(async () => ({ apiKeyMask: "4f2a", model: "claude-sonnet-4-5" })),
     clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),

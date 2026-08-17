@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { renderWithMotion as render } from "./motion-render";
 import { Home } from "../../src/renderer/components/Home";
-import type { Image, Note, Task } from "../../src/shared/preload-api";
+import type { AppSettings, Image, Note, Task } from "../../src/shared/preload-api";
 
 const MINUTE_MS = 60_000;
 const now = Date.now();
@@ -122,6 +122,8 @@ const mockHanamask = (notesByCall: Note[][], tasksByCall: Task[][] = [[]]) => {
     sendChatMessage: vi.fn(async () => []),
     abortChat: vi.fn(async () => {}),
     onChatEvent: vi.fn(() => () => {}),
+    readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: false })),
+    saveAppSettings: vi.fn(async (settings: AppSettings) => settings),
     readChatSettings: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatApiKey: vi.fn(async () => ({ apiKeyMask: "4f2a", model: "claude-sonnet-4-5" })),
     clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),

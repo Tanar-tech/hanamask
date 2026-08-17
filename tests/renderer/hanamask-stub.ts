@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { HanamaskPreloadApi } from "../../src/shared/preload-api";
+import type { AppSettings, HanamaskPreloadApi } from "../../src/shared/preload-api";
 
 const CHAT_SETTINGS = { apiKeyMask: null, model: "claude-sonnet-4-5" };
 
@@ -23,6 +23,8 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     restoreNoteVersion: vi.fn(async () => null),
     listDeletedNotes: vi.fn(async () => []),
     restoreNote: vi.fn(async () => null),
+    readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: false })),
+    saveAppSettings: vi.fn(async (settings: AppSettings) => settings),
     readChatSettings: vi.fn(async () => CHAT_SETTINGS),
     sendChatMessage: vi.fn(async () => []),
     abortChat: vi.fn(async () => {}),

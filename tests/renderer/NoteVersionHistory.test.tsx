@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { NoteVersionHistory } from "../../src/renderer/components/NoteVersionHistory";
-import type { Note, NoteVersion } from "../../src/shared/preload-api";
+import type { AppSettings, Note, NoteVersion } from "../../src/shared/preload-api";
 
 const makeNote = (overrides: Partial<Note> = {}): Note => ({
   id: "note-1",
@@ -63,6 +63,8 @@ const mockHanamask = (overrides: HistoryApiOverrides = {}) => {
     sendChatMessage: vi.fn(async () => []),
     abortChat: vi.fn(async () => {}),
     onChatEvent: vi.fn(() => () => {}),
+    readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: false })),
+    saveAppSettings: vi.fn(async (settings: AppSettings) => settings),
     readChatSettings: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatApiKey: vi.fn(async () => ({ apiKeyMask: "4f2a", model: "claude-sonnet-4-5" })),
     clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
