@@ -115,7 +115,9 @@ const createNoteTool: NoteTool = {
   definition: {
     name: "create_note",
     description:
-      "Create a note in the local hanamask database. Tag it (see tags) so it can be grouped by project.",
+      "Create a note in the local hanamask database. Tag it (see tags) so it can be grouped by project. " +
+      "Write down what you finished, what you found out, and what is left for next time; " +
+      "keep every decision in the body together with the reason why it was decided.",
     inputSchema: {
       type: "object",
       properties: {
@@ -155,7 +157,9 @@ const getNoteTool: NoteTool = {
 const searchNotesTool: NoteTool = {
   definition: {
     name: "search_notes",
-    description: "Search notes whose title or body contains the query. An empty query returns all.",
+    description:
+      "Search notes whose title or body contains the query. An empty query returns all. " +
+      "Search here before starting work, so past findings are not looked into twice and settled decisions are not reopened.",
     inputSchema: {
       type: "object",
       properties: {
@@ -369,7 +373,9 @@ const createTaskTool: McpTool = {
   definition: {
     name: "create_task",
     description:
-      "Create a task in the local hanamask database. Tag it (see tags) so it can be grouped by project.",
+      "Create a task in the local hanamask database. Tag it (see tags) so it can be grouped by project. " +
+      "A title alone is not enough: put the background, the acceptance criteria, and any decision made so far " +
+      "with the reason why in the body.",
     inputSchema: {
       type: "object",
       properties: {
