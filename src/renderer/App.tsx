@@ -3,6 +3,7 @@ import { useEffect, useState, type JSX } from "react";
 import { AppShell, type ShellSection } from "./components/AppShell";
 import { BackupSettings } from "./components/BackupSettings";
 import { StartupSettings } from "./components/StartupSettings";
+import { AgentSetup } from "./components/AgentSetup";
 import { CHAT_ENABLED } from "../shared/preload-api";
 import { ChatPanel } from "./components/ChatPanel";
 import { ChatSettings } from "./components/ChatSettings";
@@ -84,6 +85,7 @@ export const App = (): JSX.Element => {
           {view.kind === "list" && section === "settings" ? (
             <>
               {CHAT_ENABLED && <ChatSettings />}
+              <AgentSetup />
               <StartupSettings />
               <BackupSettings />
             </>
