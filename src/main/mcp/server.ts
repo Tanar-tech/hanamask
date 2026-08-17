@@ -12,9 +12,8 @@ import {
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import { linkTools, noteTools, taskTools, uiTools, type McpTool } from "./tools.js";
+import { DEFAULT_MCP_PORT, MAX_PORT } from "./endpoint.js";
 
-const DEFAULT_PORT = 39217;
-const MAX_PORT = 65535;
 const HOST = "127.0.0.1";
 const MCP_PATH = "/mcp";
 const NOT_FOUND_STATUS = 404;
@@ -27,7 +26,7 @@ export interface McpServerHandle {
 
 const resolvePort = (): number => {
   const configured = process.env.HANAMASK_MCP_PORT;
-  if (configured === undefined || configured === "") return DEFAULT_PORT;
+  if (configured === undefined || configured === "") return DEFAULT_MCP_PORT;
   const port = Number.parseInt(configured, 10);
   if (!Number.isInteger(port) || port < 0 || port > MAX_PORT) {
     throw new Error(`HANAMASK_MCP_PORT must be a port number, got "${configured}"`);

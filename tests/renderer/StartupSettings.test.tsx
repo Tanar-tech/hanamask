@@ -28,6 +28,7 @@ afterEach(() => {
 describe("StartupSettings", () => {
   it("保存済みの設定をスイッチに映す", async () => {
     stubHanamask({
+      readMcpEndpoint: vi.fn(async () => ({ port: 39217, url: "http://127.0.0.1:39217/mcp" })),
       readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: true })),
     });
 

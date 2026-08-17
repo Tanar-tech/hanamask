@@ -40,6 +40,7 @@ import { abortChat, sendChatMessage } from "./chat/session.js";
 import { CHAT_ENABLED } from "../shared/preload-api.js";
 import type { ChatMessage } from "../shared/preload-api.js";
 import { readAppSettings, saveAppSettings, setAppSettingsPath } from "./settings/app-settings.js";
+import { buildMcpUrl } from "./mcp/endpoint.js";
 import {
   createTray,
   decideOnWindowClose,
@@ -128,6 +129,7 @@ const BACKUP_EXPORT_DIALOG_TITLE = "ノートを書き出す";
 const BACKUP_IMPORT_DIALOG_TITLE = "ノートを取り込む";
 const CHAT_SETTINGS_FILE_NAME = "chat-settings.json";
 const APP_SETTINGS_FILE_NAME = "app-settings.json";
+const MCP_ENDPOINT_READ_CHANNEL = "mcp:read-endpoint";
 const APP_SETTINGS_READ_CHANNEL = "app:read-settings";
 const APP_SETTINGS_SAVE_CHANNEL = "app:save-settings";
 const OPEN_AT_LOGIN_ARG = "--hanamask-autostart";
@@ -403,6 +405,7 @@ const handleTasksChanged = (change?: EntityChange): void => {
 
 // Trayは参照を保持しないとGCされてアイコンが消える。
 let tray: Tray | null = null;
+let mcpPort: number | null = null;
 let stopMcpServer: (() => Promise<void>) | undefined;
 
 // E2E tests point this at a temp file to avoid touching the developer's real note database.
@@ -498,6 +501,7 @@ const start = async (): Promise<void> => {
   onTasksChanged(handleTasksChanged);
   onLinksChanged(broadcastLinksChanged);
   const mcpServer = await startMcpServer();
+  mcpPort = mcpServer.port;
   stopMcpServer = mcpServer.close;
 };
 
@@ -584,6 +588,10 @@ const applyAppSettings = (value: unknown): AppSettings => {
   return saved;
 };
 
+ipcMain.handle(MCP_ENDPOINT_READ_CHANNEL, () => {
+  if (mcpPort === null) throw new Error("MCPサーバーがまだ起動していません");
+  return { port: mcpPort, url: buildMcpUrl(mcpPort) };
+});
 ipcMain.handle(APP_SETTINGS_READ_CHANNEL, () => readAppSettings());
 ipcMain.handle(APP_SETTINGS_SAVE_CHANNEL, (_event, settings: unknown) => applyAppSettings(settings));
 
