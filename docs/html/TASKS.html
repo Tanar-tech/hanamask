@@ -57,7 +57,6 @@
 <tbody>
 <tr><td><a href="#t46">T46</a></td><td>エージェントが頼まれなくても書き・読む状態を作る</td><td>なし</td><td><strong>最も硬い段差。</strong>これが無いと T44・T45 を整えても書き込みは増えない</td></tr>
 <tr><td><a href="#t45">T45</a></td><td>エージェントへの登録を「一度きり」にする</td><td>なし（推奨 T44）</td><td></td></tr>
-<tr><td><a href="#t44">T44</a></td><td>常駐させる（自動起動とトレイ）</td><td>なし</td><td>実装が軽く効果も明確。費用対効果では最初に来る可能性がある</td></tr>
 <tr><td><a href="#t47">T47</a></td><td>使われていないことに気づける状態にする</td><td>なし（推奨 T46）</td><td></td></tr>
 <tr><td><a href="#t43">T43</a></td><td>リポジトリのpublic化と公開</td><td>T38</td><td><strong>public化の実行は管理者専任</strong>（不可逆のため）</td></tr>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル</td><td>T03, T05</td><td>凍結中。実装は残したまま画面から外している（2026-08-10、管理者判断）</td></tr>
@@ -125,7 +124,8 @@ flowchart LR
   class T29,T30,T31,T32,T33,T34,T35,T36,T37,T38,T39,T40,T41,T42 done;
   class T01,T02,T13,T14 done;
   class T12 frozen;
-  class T43,T44,T45,T46,T47 todo;
+  class T43,T45,T46,T47 todo;
+  class T44 done;
 </pre>
 <p class="source-note">緑=完了 / 黄=進行中 / 赤=未着手（2026-08-04時点）。</p>
 
@@ -827,7 +827,7 @@ flowchart TB
 
 <h3 id="t44">T44: 常駐させる（自動起動とトレイ）</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #163、<code>SPEC.md</code>）</li>
 <li>優先度: <strong>高</strong>（管理者要望、2026-08-17）</li>
 <li>依存: 必須: なし／推奨: なし</li>
 <li>目的: <strong>MCPサーバーはアプリのmainプロセス内に立っているため、アプリを閉じるとエージェントから見てhanamaskは存在しなくなる。</strong><code>src/main/index.ts</code> の <code>window-all-closed</code> は <code>app.quit()</code> を呼んでおり、ウィンドウを閉じた時点でプロセスごと終了する（2026-08-17 確認）。利用者が「今日はhanamaskを開く」と意識しないと使えない状態では、無意識の利用は成立しない。ログイン時の自動起動とトレイ常駐で、この前提条件を満たす。</li>

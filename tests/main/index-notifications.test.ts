@@ -54,6 +54,13 @@ const NotificationMock = vi.fn(function createFakeNotification(): FakeNotificati
 });
 
 vi.mock("electron", () => ({
+  Tray: class {
+    setToolTip = vi.fn();
+    setContextMenu = vi.fn();
+    on = vi.fn();
+    destroy = vi.fn();
+  },
+  Menu: { buildFromTemplate: vi.fn(() => ({})) },
   app: {
     whenReady: () => Promise.resolve(),
     on: vi.fn(),

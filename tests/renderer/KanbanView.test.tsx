@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanbanView } from "../../src/renderer/components/KanbanView";
-import type { Image, Task } from "../../src/shared/preload-api";
+import type { AppSettings, Image, Task } from "../../src/shared/preload-api";
 
 const stubImage: Image = {
   id: "image-1",
@@ -67,6 +67,8 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     sendChatMessage: vi.fn(async () => []),
     abortChat: vi.fn(async () => {}),
     onChatEvent: vi.fn(() => () => {}),
+    readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: false })),
+    saveAppSettings: vi.fn(async (settings: AppSettings) => settings),
     readChatSettings: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatApiKey: vi.fn(async () => ({ apiKeyMask: "4f2a", model: "claude-sonnet-4-5" })),
     clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),

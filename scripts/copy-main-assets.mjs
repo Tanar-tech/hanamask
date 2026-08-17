@@ -16,3 +16,8 @@ const preloadCompiledPath = join(repoRoot, ".preload-build/preload/index.js");
 const preloadCjsPath = join(repoRoot, "dist/preload/index.cjs");
 mkdirSync(dirname(preloadCjsPath), { recursive: true });
 copyFileSync(preloadCompiledPath, preloadCjsPath);
+
+// electron-builder の files は dist/** しか含めないため、トレイアイコンを dist に置く。
+const trayIconFrom = join(repoRoot, "build/icon.png");
+const trayIconTo = join(repoRoot, "dist/main/tray-icon.png");
+copyFileSync(trayIconFrom, trayIconTo);
