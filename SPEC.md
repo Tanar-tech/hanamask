@@ -1,122 +1,126 @@
-# SPEC: タスクに本文を持たせる（T36）
+# SPEC: 常駐させる（自動起動とトレイ）（T44）
 
 ## Part 1: 利用者向け
 
 ### 何を・なぜ
 
-**今のタスクはタイトルしか持てない。**「T36: タスクに本文を持たせる」のように、伝えたいことを全部タイトルに詰め込むしかなく、経緯・受け入れ条件・参考リンクを書く場所がない。
+**いま hanamask のウィンドウを閉じると、アプリごと終了します。**MCPサーバーはアプリの中で動いているので、閉じた瞬間にAIエージェントから見て hanamask は存在しなくなります。エージェントに「ノートに書いておいて」と頼んでも、アプリを開いていなければ届きません。
 
-タスクにも**ノートと同じ本文**を持たせる。書き方もノートと揃える。
+利用者が「今日はhanamaskを開いておこう」と意識しないと使えない状態では、日常的に使われることはありません。そこで次の2つを入れます。
 
-- **Markdown**（見出し・箇条書き・表・コードブロック・引用、GFMの表/タスクリスト/取り消し線）
-- **HTMLの直接埋め込み**（`<div style="...">` 等。`<script>` / `<iframe>` / `onerror` 等は描画時に除去される）
-- **Mermaid図**（```` ```mermaid ```` のコードフェンス）
+1. **ウィンドウを閉じてもアプリは動き続ける**（通知領域に居残る）
+2. **パソコンにログインしたら自動で立ち上がる**（利用者がオンにした場合のみ）
 
-エージェントがMCP経由でタスクを作るときに本文を書け、利用者はデスクトップUIで読んで編集できる。
+これで「開いているかどうか」を気にせずエージェントに頼めるようになります。
+
+なお現在、`open_app`（UIを開く）というツールをエージェント向けに用意していますが、**アプリが落ちているとそのツール自体が呼べません**。常駐させることで、この機能がようやく本来の意味を持ちます。
 
 ### 操作フロー
 
-| 場面 | 変わること |
-|---|---|
-| **タスク詳細を開く** | ステータス・期限・リンクの下に**本文**が表示される。ノート詳細と同じ見た目で描画される 📸 |
-| **本文を書き換える** | 「編集」ボタン →本文を書き換え→「保存」。**現在タスクはステータスしか変更できないが、本文とタイトルも編集できるようになる** 📸 |
-| **編集中に外から更新が来た** | 編集内容は消えない。「別の場所で更新されました」と出て、破棄して読み込み直すかを選べる（ノートと同じ挙動） |
-| **タスク一覧** | カードのステータス行の下に**本文の抜粋が1〜2行**出る 📸 |
-| **エージェントがタスクを作る/更新する** | `create_task` / `update_task` に本文を渡せるようになる |
+**ウィンドウを閉じたとき**
 
-**カンバンのカードには抜粋を出さない。**幅が狭くドラッグ対象でもあるため、情報を増やすと扱いづらくなる。
+- ウィンドウは消えますが、アプリは通知領域（タスクバー右下のアイコン置き場）に残ります
+- 初めて閉じたときだけ、「通知領域に入りました」という案内を1回だけ出します。毎回は出しません（消えたと誤解されるのは最初の一度きりのため）
+
+**通知領域のアイコン**
+
+- クリックするとウィンドウが開きます
+- 右クリックのメニューは2つだけです
+  - **hanamask を開く**
+  - **終了**
+
+**終了したいとき**
+
+- 通知領域のメニューから「終了」を選びます。これを選んだときだけ、アプリは完全に終了します
+- 常駐をやめたい人のために、**設定画面から「ウィンドウを閉じたら終了する」に切り替えられます**
+
+**自動起動**
+
+- 設定画面に「パソコンの起動時に hanamask を開始する」というスイッチを置きます
+- **初期状態はオフです。**利用者が自分でオンにしたときだけ、ログイン時に立ち上がります
+- 自動起動で立ち上がったときは、**ウィンドウを出さず通知領域だけに入ります**（ログインのたびに窓が出てくると邪魔になるため）
+
+📸 設定画面（自動起動のスイッチと、閉じたときの動作の切り替え）
+📸 通知領域のアイコンと右クリックメニュー
 
 ### 受け入れ条件
 
-- [ ] `create_task` で本文つきのタスクを作ると、タスク詳細にその本文が描画される
-- [ ] 本文のMarkdownが描画される（見出し・箇条書き・表・コードブロック）
-- [ ] 本文に書いたHTMLが描画され、`style` 属性が効く
-- [ ] 本文に `<script>` や `onerror` を書いても**実行されず、除去される**
-- [ ] 本文の ```` ```mermaid ```` フェンスが図として描画される
-- [ ] タスク詳細の「編集」から本文とタイトルを書き換えて保存でき、再度開いても保持されている
-- [ ] 編集中に外からそのタスクが更新されても、**入力中の内容が消えない**
-- [ ] タスク一覧のカードに本文の抜粋が出る。本文が空のタスクでは何も出ない
-- [ ] **既にhanamaskを使っている状態でアプリを更新しても、既存のタスクが消えず開ける**（本文は空として扱われる）
-- [ ] **本文を持たない古いバックアップzipを取り込んでも、アプリが壊れない**
-- [ ] **管理者のWindows環境の実インストールを更新し、更新前から存在するノート15件・タスク7件・リンク2件が変わらず開けること**（2026-08-08時点の実データ。退避先はローカルの作業用ディレクトリdocs/GOVERNANCE.md` §6 のアーキテクチャ判断に該当）
-2. `docs/REQUIREMENTS.md` §4.3（タスク管理）には本文の記載が無い。**要求定義に「タスクの本文」を追記する**形で進めてよいか
+- [ ] ウィンドウを閉じてもアプリが終了しない
+- [ ] **ウィンドウを閉じた状態で、AIエージェントから `create_note` が成功する**（これが本来の目的。単に終了しないだけでは足りない）
+- [ ] 通知領域のアイコンをクリックすると、ウィンドウが再び開く
+- [ ] 通知領域のメニューから「終了」を選ぶと、アプリが完全に終了する
+- [ ] 初めてウィンドウを閉じたときだけ案内が出る。2回目以降は出ない
+- [ ] 設定画面で「ウィンドウを閉じたら終了する」に切り替えると、閉じたときに終了する
+- [ ] 自動起動のスイッチは**初期状態がオフ**で、オフのままならログイン項目に何も書かれない
+- [ ] 自動起動をオンにすると、ログイン時に**ウィンドウを出さずに**起動する
+- [ ] 設定は再起動しても保たれる
+- [ ] 既にアプリが動いているときに再度起動しても、二重に立ち上がらない（現在の挙動を壊さない）
+
+### 未決定・要確認事項
+
+1. **自動起動の初期値をオフにしてよいか。**利用者の同意なくログイン項目を書き換えるべきではないと考え、オフを提案します（T44の禁止事項にも明記済み）。ただし「意識せず使い続ける」という目的からは、オンの方が効果的です。**インストール直後に一度だけ「自動起動をオンにしますか」と尋ねる**折衷案もあります。
+2. **この挙動は `docs/REQUIREMENTS.md` に書かれていません。**常駐・自動起動は要求定義に記載が無く、スコープ外（§9）にも該当しません。実装後に要求定義へ追記すべきかを確認させてください。
+3. **配布はWindows向けのみ**のため、macOS/Linux固有の作法（Dockに残す等）には対応しません。
 
 ---
 
 ## Part 2: AI用（実装セット定義）
 
-### 前提となる調査結果
+### 前提となる既存実装（読み取りのみ、勝手に変えない）
 
-- `tasks` テーブルは `id/title/status/due_date/deleted_at/created_at/updated_at`。**`body` 列は無い**（`src/main/db/schema.sql:22-30`）
-- **マイグレーション機構は存在しない。**`openDb` が毎回 `schema.sql` を `db.exec` するだけで、全テーブルが `CREATE TABLE IF NOT EXISTS`（`src/main/db/db.ts:12-18`）。既存DBには新列が入らない
-- import は**DBファイルごと差し替える**（`src/main/backup/import-backup.ts`）。検証はテーブル名の存在のみで列は見ない。**旧バージョンのzipを取り込むと `body` 無しのDBになるため、取り込み後の再オープン経路にもマイグレーションが乗る必要がある**
-- export はDBファイルをバイト列ごとzipに入れるだけなので、列追加で壊れない（`src/main/backup/export-backup.ts:69`）
-- MCPツールは手書きJSON Schema（`src/main/mcp/tools.ts`）。`create_task` 352-375 / `update_task` 377-405
-- タスクの更新IPCは `tasks:update-status` のみで、**汎用の更新IPCが無い**（`src/main/index.ts:81`, `src/preload/index.ts:22-25`）
-- `MarkdownBody`（`src/renderer/components/MarkdownBody.tsx`）は props が `{ content: string }` のみで再利用可能。ただし**Mermaidフェンス分割は `NoteDetail.tsx:77-98` のローカル関数**（`splitByMermaidFence` / `renderSegment`）で未エクスポート
-- 「編集中に外部更新が来ても失わない」仕組みは `NoteDetail.tsx` にベタ書き（`liveStateRef` 216-220 / `reloadNote` 235-246 / `ExternalUpdateNotice` 113-123）
+| 場所 | 現状 |
+|---|---|
+| `src/main/index.ts:536` | `app.on("window-all-closed", () => { app.quit(); })` |
+| `src/main/index.ts:540` | `before-quit` で `stopMcpServer?.()` を呼ぶ |
+| `src/main/index.ts:334` | `showMainWindow()` が**閉じられたウィンドウを作り直す**。トレイからの復帰はこれを呼ぶだけでよい |
+| `src/main/index.ts:586` | `requestSingleInstanceLock()` による二重起動防止。`second-instance` で `showMainWindow()` |
+| `src/main/settings/chat-settings.ts` | 設定ファイルの読み書きパターン（`setChatSettingsPath` で場所を注入し、mainプロセスだけが触る） |
+| `build/icon.ico` / `build/icon.png` | 既存アイコン。トレイ用に流用する |
+| `tests/e2e/helpers.ts:48` | `launchApp` が `electron.launch`。各specの後片付けは `app.close()` |
 
 ### 実装セット
 
-#### セットA: DB層（本文列とマイグレーション）
+**セット A: 常駐設定の保存**
 
-- **目的**: 受け入れ条件の「既存タスクが消えない」「古いバックアップで壊れない」
-- **触ってよいファイル**:
-  - `src/main/db/schema.sql`（`tasks` に `body TEXT NOT NULL DEFAULT ''`）
-  - `src/main/db/migrations.ts`（**新規**。`PRAGMA table_info(tasks)` で列の有無を判定し、無ければ `ALTER TABLE tasks ADD COLUMN body TEXT NOT NULL DEFAULT ''`）
-  - `src/main/db/db.ts`（`schema.sql` 適用の直後にマイグレーションを呼ぶ。**取り込み後の再オープンでも必ず通る位置に置くこと**）
-  - `src/main/db/tasks-repo.ts`（`TaskRow` / `isTaskRow` / `toTask` / `createTask` のINSERT / `TaskUpdateInput` / `updateTask` のUPDATE の6か所）
-- **読み取りのみ**: `src/main/db/notes-repo.ts`（bodyの扱い方の参考）、`src/main/backup/import-backup.ts`
-- **テスト**: `tests/main/db/migrations.test.ts`（新規）, `tests/main/db/tasks-repo.test.ts`
-  - **列が無い状態のDBを実際に作ってから** `openDb` し、列が追加され既存行が保持されることを検証する（マイグレーションを外すと落ちるテストであること）
-  - 冪等性: 2回開いても失敗しない
+- 目的: 受け入れ条件「設定は再起動しても保たれる」「自動起動の初期状態がオフ」
+- 触ってよいファイル: `src/main/settings/app-settings.ts`（新規）、`tests/main/settings/app-settings.test.ts`（新規）
+- 依存する既存ファイル（読み取りのみ）: `src/main/settings/chat-settings.ts`（パターンを踏襲）、`src/shared/preload-api.ts`
+- 内容: `{ closeToTray: boolean, openAtLogin: boolean }` の読み書き。**既定値は `closeToTray: true` / `openAtLogin: false`**。ファイルが無い・壊れている場合も既定値で動く。`chat-settings.ts` と同様にパスを注入できる形にする（E2Eで実データを触らないため）
 
-#### セットB: 共有型・MCP・IPC
+**セット B: トレイと終了経路**
 
-- **目的**: `create_task`/`update_task` での本文の受け渡し、UIからの本文保存経路
-- **触ってよいファイル**:
-  - `src/shared/preload-api.ts`（`Task` に `body`、`updateTask` の公開API型を追加）
-  - `src/main/mcp/tools.ts`（`create_task`/`update_task` の inputSchema に任意の `body`）
-  - `src/main/index.ts`（`tasks:update` チャネル定数とハンドラ）
-  - `src/preload/index.ts`（同チャネルの公開）
-- **読み取りのみ**: `src/main/db/tasks-repo.ts`（セットAの成果に依存）
-- **テスト**: `tests/main/mcp/tools.test.ts`, `tests/main/ipc/`（既存の配置に合わせる）
-- **依存**: セットAの完了後に着手する
+- 目的: 受け入れ条件のうち、閉じても終了しない・トレイから開ける・メニューから終了できる・初回だけ案内
+- 触ってよいファイル: `src/main/tray.ts`（新規）、`tests/main/tray.test.ts`（新規）
+- 依存する既存ファイル（読み取りのみ）: `src/main/index.ts`（`showMainWindow` の呼び出し方を参照するだけ。**編集しない**）
+- 内容: `createTray({ onOpen, onQuit, iconPath })` を提供する。Electron の `Tray`/`Menu` に直接依存する部分をこのファイルに閉じ込め、判断（初回案内を出すか等）は純粋関数として切り出してテスト可能にする
 
-#### セットC: 描画の共通化
+**セット C: 設定画面のスイッチ**
 
-- **目的**: タスクとノートで同じ描画を使う（重複実装を作らない）
-- **触ってよいファイル**:
-  - `src/renderer/components/MarkdownDocument.tsx`（**新規**。`NoteDetail.tsx` の `splitByMermaidFence` / `renderSegment` をここへ移し、`{ content: string }` を受けてMermaidとMarkdownを描き分ける）
-  - `src/renderer/components/NoteDetail.tsx`（ローカル関数を削除し `MarkdownDocument` を使う。**挙動は変えない**）
-- **読み取りのみ**: `src/renderer/components/MarkdownBody.tsx`
-- **テスト**: `tests/renderer/MarkdownDocument.test.tsx`（新規）。既存の `tests/renderer/NoteDetail.test.tsx` が**変更なしで緑のままであること**が移設成功の判定
-- **セットA・Bと並列実行可**（ファイルが重ならない）
+- 目的: 受け入れ条件「設定画面で切り替えられる」「初期状態がオフ」
+- 触ってよいファイル: `src/renderer/components/StartupSettings.tsx`（新規）、`tests/renderer/StartupSettings.test.tsx`（新規）
+- 依存する既存ファイル（読み取りのみ）: `src/renderer/components/BackupSettings.tsx`（設定画面の書き方を踏襲）、`src/shared/preload-api.ts`
+- 内容: 2つのスイッチ（自動起動 / 閉じたときの動作）と、`window.hanamask` 経由の読み書き。Tailwindユーティリティのみで書く（`<style>` を書かない）
 
-#### セットD: タスクUI
+### Phase 4 統合ゲートでのみ編集するファイル（並列グループに含めない）
 
-- **目的**: 本文の表示・編集・抜粋
-- **触ってよいファイル**:
-  - `src/renderer/components/TaskDetail.tsx`（本文表示、編集モード、外部更新ガード。`NoteDetail.tsx` の構成に倣う）
-  - `src/renderer/components/TaskList.tsx`（抜粋1〜2行）
-- **読み取りのみ**: `src/renderer/components/NoteDetail.tsx`, `MarkdownDocument.tsx`, `src/renderer/components/KanbanView.tsx`（**編集しない**＝抜粋を出さない）
-- **テスト**: `tests/renderer/TaskDetail.test.tsx`, `tests/renderer/TaskList.test.tsx`
-  - 本文の描画、**サニタイズが効くこと（`<script>` が実行されないこと）**、編集して保存、編集中の外部更新で入力が消えないこと、本文が空なら抜粋を出さないこと
-- **依存**: セットB・Cの完了後に着手する
+複数セットが必要とする共有ファイルのため、統合時に単一エージェントが編集する。
+
+- `src/main/index.ts` — `window-all-closed` の分岐、トレイの生成、`app.setLoginItemSettings` の呼び出し、IPCハンドラ登録、自動起動時にウィンドウを出さない分岐
+- `src/preload/index.ts` — IPC の橋渡し
+- `src/shared/preload-api.ts` — `AppSettings` 型と API 定義
+- `src/renderer/components/AppShell.tsx` ほか設定画面の組み込み先
+- `tests/e2e/tray-flow.spec.ts`（新規）— **ウィンドウを閉じた状態で `create_note` が通ること**を確認する。既存specの `app.close()` による後片付けが常駐で止まらないことも併せて確認する
 
 ### 並列グループ宣言
 
-| グループ | セット | 備考 |
+| グループ | セット | 同時実行 |
 |---|---|---|
-| **1** | **A** / **C** | 同時実行可。ファイル重複なし |
-| **2** | **B** | Aの後 |
-| **3** | **D** | B・Cの後 |
-
-**Phase 4（統合ゲート）でのみ触るファイル**: `README.md`, `docs/REQUIREMENTS.md`（§4.3にタスク本文を追記）, `docs/TASKS.md`（T36を追加）, `docs/html/` 配下（skill「docs-html-sync」で同期）。
+| 1 | A, B, C | **可**（触るファイルが重複しない） |
 
 ### 完了条件
 
-- `npm test` が全て緑
-- `npm run lint` が通る
-- 上記の受け入れ条件を検証するテストが存在し、**該当実装を壊すと落ちる**ことを確認済み
-- `tests/renderer/NoteDetail.test.tsx` が無修正で緑（セットCの移設が挙動を変えていない証拠）
+- `npm test` が緑（新規テストを含む）
+- `npm run test:e2e` が緑。**新規の `tray-flow.spec.ts` を含む**
+- `npm run lint` / `npm run typecheck` / `npm run build` が緑
+- 受け入れ条件のうちUIに関わるものは `e2e-runner` スキルでスクリーンショットを撮って確認（📸 の2箇所）
+- **壊して確認する**: 常駐の分岐を戻す（`window-all-closed` で常に `app.quit()`）と `tray-flow.spec.ts` が落ちること、自動起動の既定値を `true` にすると該当テストが落ちることを実測する
