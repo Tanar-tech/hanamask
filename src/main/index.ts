@@ -6,6 +6,7 @@ import {
   Notification,
   session,
   type IpcMainInvokeEvent,
+  type Tray,
 } from "electron";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -38,6 +39,13 @@ import { attachImage, setImagesDirPath } from "./images/attach-image.js";
 import { abortChat, sendChatMessage } from "./chat/session.js";
 import { CHAT_ENABLED } from "../shared/preload-api.js";
 import type { ChatMessage } from "../shared/preload-api.js";
+import { readAppSettings, saveAppSettings, setAppSettingsPath } from "./settings/app-settings.js";
+import {
+  createTray,
+  decideOnWindowClose,
+  shouldAnnounceTray,
+  TRAY_ANNOUNCEMENT,
+} from "./tray.js";
 import {
   clearApiKey,
   readChatSettings,
@@ -46,6 +54,7 @@ import {
   setChatSettingsPath,
 } from "./settings/chat-settings.js";
 import type {
+  AppSettings,
   BackupExportResult,
   BackupImportResult,
   EntityType,
@@ -118,10 +127,16 @@ const BACKUP_FILE_FILTER = { name: "hanamask バックアップ", extensions: [B
 const BACKUP_EXPORT_DIALOG_TITLE = "ノートを書き出す";
 const BACKUP_IMPORT_DIALOG_TITLE = "ノートを取り込む";
 const CHAT_SETTINGS_FILE_NAME = "chat-settings.json";
+const APP_SETTINGS_FILE_NAME = "app-settings.json";
+const APP_SETTINGS_READ_CHANNEL = "app:read-settings";
+const APP_SETTINGS_SAVE_CHANNEL = "app:save-settings";
+const OPEN_AT_LOGIN_ARG = "--hanamask-autostart";
 const UI_NAVIGATE_CHANNEL = "ui:navigate";
 const RENDERER_READY_EVENT = "did-finish-load";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
+// electron-builder の files は dist/** しか含めないため、ビルド時に dist へ複製したものを使う（scripts/copy-main-assets.mjs）。
+const TRAY_ICON_PATH = join(moduleDir, "tray-icon.png");
 // .cjs, not .js: Electron's sandboxed preload loader only executes CommonJS, and
 // package.json's "type": "module" would make a plain .js file ambiguous (see
 // scripts/copy-main-assets.mjs).
@@ -386,6 +401,8 @@ const handleTasksChanged = (change?: EntityChange): void => {
   if (change !== undefined) changeNotifier.recordChange(change);
 };
 
+// Trayは参照を保持しないとGCされてアイコンが消える。
+let tray: Tray | null = null;
 let stopMcpServer: (() => Promise<void>) | undefined;
 
 // E2E tests point this at a temp file to avoid touching the developer's real note database.
@@ -456,9 +473,21 @@ const start = async (): Promise<void> => {
   removeImportLeftovers(resolveImagesDirPath());
   setImagesDirPath(resolveImagesDirPath());
   setChatSettingsPath(join(resolveDataDirPath(), CHAT_SETTINGS_FILE_NAME));
+  setAppSettingsPath(join(resolveDataDirPath(), APP_SETTINGS_FILE_NAME));
   purgeSoftDeletedRecords(new Date());
   applyContentSecurityPolicy();
-  createMainWindow();
+  tray = createTray({
+    iconPath: TRAY_ICON_PATH,
+    onOpen: () => {
+      showMainWindow();
+    },
+    onQuit: () => {
+      isQuitting = true;
+      app.quit();
+    },
+  });
+  // ログインのたびに窓が出てくると邪魔なので、自動起動で立ち上がったときは通知領域だけに入る。
+  if (!process.argv.includes(OPEN_AT_LOGIN_ARG)) createMainWindow();
   setUiNavigator({
     showWindow: () => {
       showMainWindow();
@@ -532,12 +561,55 @@ ipcMain.handle(LINKS_CREATE_CHANNEL, addLink);
 ipcMain.handle(LINKS_DELETE_CHANNEL, removeLink);
 ipcMain.handle(BACKUP_EXPORT_CHANNEL, exportBackupToFile);
 ipcMain.handle(BACKUP_IMPORT_CHANNEL, importBackupFromFile);
+/*
+ * レンダラーから来る値は信用せず、booleanだけを受け付ける。ログイン項目の書き換えは
+ * OSに副作用が残るため、保存が通ったときだけ反映する。
+ */
+const isAppSettings = (value: unknown): value is AppSettings =>
+  typeof value === "object" &&
+  value !== null &&
+  typeof (value as Record<string, unknown>).closeToTray === "boolean" &&
+  typeof (value as Record<string, unknown>).openAtLogin === "boolean";
+
+const applyOpenAtLogin = (openAtLogin: boolean): void => {
+  app.setLoginItemSettings({ openAtLogin, args: [OPEN_AT_LOGIN_ARG] });
+};
+
+const applyAppSettings = (value: unknown): AppSettings => {
+  if (!isAppSettings(value)) {
+    throw new Error("設定の形式が正しくありません");
+  }
+  const saved = saveAppSettings(value);
+  applyOpenAtLogin(saved.openAtLogin);
+  return saved;
+};
+
+ipcMain.handle(APP_SETTINGS_READ_CHANNEL, () => readAppSettings());
+ipcMain.handle(APP_SETTINGS_SAVE_CHANNEL, (_event, settings: unknown) => applyAppSettings(settings));
+
+/*
+ * ウィンドウを閉じてもMCPサーバーを生かしておく。閉じた瞬間にプロセスごと終われば、
+ * エージェントから見てhanamaskは存在しなくなる（それが常駐を入れた理由）。
+ */
+let isQuitting = false;
+let trayAnnounced = false;
 
 app.on("window-all-closed", () => {
-  app.quit();
+  const { closeToTray } = readAppSettings();
+  if (decideOnWindowClose({ closeToTray, isQuitting }) === "quit") {
+    app.quit();
+    return;
+  }
+  if (shouldAnnounceTray({ closeToTray, alreadyAnnounced: trayAnnounced })) {
+    trayAnnounced = true;
+    showOsNotification({ ...TRAY_ANNOUNCEMENT, onClick: () => { showMainWindow(); } });
+  }
 });
 
 app.on("before-quit", () => {
+  isQuitting = true;
+  tray?.destroy();
+  tray = null;
   stopMcpServer?.().catch((error: unknown) => {
     throw new Error(`Failed to stop MCP server: ${String(error)}`);
   });

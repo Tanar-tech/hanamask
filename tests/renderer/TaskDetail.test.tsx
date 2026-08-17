@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import mermaid from "mermaid";
 import { TaskDetail } from "../../src/renderer/components/TaskDetail";
-import type { Image, Task } from "../../src/shared/preload-api";
+import type { AppSettings, Image, Task } from "../../src/shared/preload-api";
 
 vi.mock("mermaid", () => ({
   default: { initialize: vi.fn(), render: vi.fn() },
@@ -81,6 +81,8 @@ const mockHanamask = (
     sendChatMessage: vi.fn(async () => []),
     abortChat: vi.fn(async () => {}),
     onChatEvent: vi.fn(() => () => {}),
+    readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: false })),
+    saveAppSettings: vi.fn(async (settings: AppSettings) => settings),
     readChatSettings: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatApiKey: vi.fn(async () => ({ apiKeyMask: "4f2a", model: "claude-sonnet-4-5" })),
     clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),

@@ -9,6 +9,13 @@ const encryptString = vi.fn((plain: string) => Buffer.from(`enc:${plain}`, "utf-
 const decryptString = vi.fn((buffer: Buffer) => buffer.toString("utf-8").replace(/^enc:/, ""));
 
 vi.mock("electron", () => ({
+  Tray: class {
+    setToolTip = vi.fn();
+    setContextMenu = vi.fn();
+    on = vi.fn();
+    destroy = vi.fn();
+  },
+  Menu: { buildFromTemplate: vi.fn(() => ({})) },
   safeStorage: { isEncryptionAvailable, encryptString, decryptString },
 }));
 

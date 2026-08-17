@@ -11,6 +11,8 @@ const NOTES_UPDATE_CHANNEL = "notes:update";
 const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
 const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
 const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
+const APP_SETTINGS_READ_CHANNEL = "app:read-settings";
+const APP_SETTINGS_SAVE_CHANNEL = "app:save-settings";
 const CHAT_SETTINGS_READ_CHANNEL = "chat:read-settings";
 const CHAT_SEND_CHANNEL = "chat:send";
 const CHAT_ABORT_CHANNEL = "chat:abort";
@@ -65,6 +67,8 @@ const api: HanamaskPreloadApi = {
   restoreNoteVersion: (versionId) =>
     ipcRenderer.invoke(NOTES_RESTORE_VERSION_CHANNEL, versionId),
   listDeletedNotes: () => ipcRenderer.invoke(NOTES_LIST_DELETED_CHANNEL),
+  readAppSettings: () => ipcRenderer.invoke(APP_SETTINGS_READ_CHANNEL),
+  saveAppSettings: (settings) => ipcRenderer.invoke(APP_SETTINGS_SAVE_CHANNEL, settings),
   readChatSettings: () => ipcRenderer.invoke(CHAT_SETTINGS_READ_CHANNEL),
   sendChatMessage: (history: ChatMessage[], userText: string) =>
     ipcRenderer.invoke(CHAT_SEND_CHANNEL, history, userText),
