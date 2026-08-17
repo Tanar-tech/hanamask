@@ -19,7 +19,7 @@ Last run: 2026-08-16T08:00Z (dev-loop, shipped — PR #152 / #153 / #154。管�
 - **2026-08-16、PRを非draftで作成し自律マージする逸脱があった**（#152 / #153 / #154）。`docs/safety.md` と `loop-constraints.md` はいずれもこれを禁じていたが、`CLAUDE.md` が「Git操作の自律実行はグローバル規約と一致」とだけ書いていたため取り違えた。CLAUDE.md に例外を明示して是正済み。**以後PRはdraftで作成し、マージは管理者が実施する。**
 - **インストーラーが未署名。** 配布時にSmartScreenの警告が出る。管理者判断により「署名はいったんなし」で進めている（docs/SIGNING.md）。
 - **`electron-updater` による自動更新が未導入。** 公開リポジトリが前提のため、パブリック化の判断が先（docs/AUTO_UPDATE.md）。
-- **`package.json` に `description` と `repository` が無い。** GitHub側の説明文だけ整備した状態なので、公開前に揃える。
+- （解消）`package.json` の `repository` 追加と `description` の建付け整理は 2026-08-16 に完了。**本体はノートアプリ、タスク管理は補助機能**という位置づけを管理者が確定した（2026-08-17）。
 
 ## Recent Noise (ignored this run)
 
