@@ -50,13 +50,16 @@
 </tbody>
 </table>
 
-<h3 id="remaining">残作業（2026-08-04時点）</h3>
-<p>要求定義由来の機能タスクはT12を除きすべてマージ済み。実装済み機能の穴（T16〜T21）もT21を除き解消した。残っているのは以下のみで、いずれも相互に独立して並列着手できる。</p>
+<h3 id="remaining">残作業（2026-08-17時点）</h3>
+<p>要求定義由来の機能タスク・実装済み機能の穴・技術的負債はすべて解消済み。残っているのは公開に関するもののみ。</p>
 <table>
-<thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th></tr></thead>
+<thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th><th>実行者</th></tr></thead>
 <tbody>
+<tr><td><a href="#t43">T43</a></td><td>リポジトリのpublic化と公開</td><td>T38</td><td><strong>public化の実行は管理者専任</strong>（不可逆のため）</td></tr>
+<tr><td><a href="#t12">T12</a></td><td>AIチャットパネル</td><td>T03, T05</td><td>凍結中。実装は残したまま画面から外している（2026-08-10、管理者判断）</td></tr>
 </tbody>
 </table>
+<p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は T43 の完了が前提。公開リポジトリでないとトークンの埋め込みが必要になり現実的でないため。</p>
 
 <pre class="mermaid">
 flowchart LR
@@ -646,7 +649,7 @@ flowchart LR
 
 <h3 id="t38">T38: OSS化の準備（公開そのものは行わない）</h3>
 <ul>
-<li>ステータス: 実装中（メタファイル整備まで完了。パブリック化は管理者判断待ち）</li>
+<li>ステータス: 完了（PR #113 ほか。メタファイル整備・ライセンス整合・個人情報除去・依存ライセンス監査・<code>docs/</code>の公開可否棚卸し・説明文とトピックの設定まで完了。<strong>本タスクはもともと公開そのものを含まない</strong>ため、public化の実行は <a href="#t43">T43</a> が引き継ぐ）</li>
 <li>優先度: <strong>中</strong>（管理者要望、2026-08-08）</li>
 <li>依存: 必須: なし／推奨: T37（敵対的検証。公開前にセキュリティ指摘を解消しておきたい）</li>
 <li>目的: hanamaskをオープンソースとして公開できる状態にする。<strong>リポジトリのパブリック化と公開告知は本タスクに含めない</strong>（管理者の明示的な指示。公開は不可逆で、一度公開したものはgit履歴ごと残る）。副次的に、T36で調査した署名の選択肢C（Certum Open Source Code Signing、年$50〜70）が使えるようになる。</li>
@@ -738,6 +741,36 @@ flowchart LR
 <li>禁止事項: タグの正規化・階層化・色の固定割り当てを作り込まないこと（要求に無い）。<strong>タグを先に定義させる画面を作らないこと</strong>（使われているものから集める）。既存のノートのタグの意味を変えないこと。カンバンのカードに絞り込みUIを足さないこと（ドラッグ対象と競合する）。</li>
 <li>テスト: <strong><code>tags</code> 列が無い状態のDBを実際に作ってから</strong> <code>openDb</code> し、列が追加され既存行が保持されることのテスト（<code>docs/MIGRATIONS.md</code> §5）。<code>create_task</code>/<code>update_task</code> でのタグの往復。一覧にタグが表示されること。<strong>選んだタグを持たない記録が消えること</strong>（「Aに属しBに属さない」の判別がこれ）。タグが無い記録の扱い。<strong>エージェントが付けた印の有無</strong>が区別できること。</li>
 <li>停止条件: <strong>エージェントが自動でタグを付ける基準</strong>（どのMCPツールが、何を根拠に付けるか）は画面が固まってから決める。要求定義に無い判断が要るため、着手前に管理者に確認する。既存ノートのタグを一括で書き換える処理は行わない（データの書き換えは不可逆）。</li>
+</ul>
+
+<h3 id="t43">T43: リポジトリのパブリック化と公開</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>優先度: <strong>高</strong>（管理者要望、2026-08-17。T38の準備が完了したため実行段階に入る）</li>
+<li>依存: 必須: <a href="#t38">T38</a>（公開準備。メタファイル・ライセンス整合・個人情報除去・依存ライセンス監査）／推奨: なし</li>
+<li>目的: T38で「公開できる状態」までは整えたが、<strong>公開そのものは行っていない</strong>ため、hanamaskは依然としてprivateリポジトリのままである。<a href="GOVERNANCE.html#3-ブランチ戦略">GOVERNANCE.html</a> §3.1のとおり配布はインストーラーの再配布によっており、<strong>公開しない限り <code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）も導入できない</strong>。本タスクでpublic化を実行し、OSSとして公開された状態にする。</li>
+<li><strong>前提の確認結果（2026-08-16〜17 時点。着手時に再確認する）</strong>:
+<ul>
+<li>秘密情報なし（作業ツリー・git履歴とも。該当はテスト用固定値のみ）</li>
+<li>個人情報なし（実ユーザー名・ホームディレクトリ・メールアドレスの混入ゼロ。<code>C:\Users\&lt;ユーザー名&gt;</code> は一般化済み）</li>
+<li>依存ライセンスはすべて許容的。本番依存の <code>npm audit</code> は0件（PR #156）</li>
+<li>メタファイル一式（LICENSE / SECURITY.md / CONTRIBUTING.md / CODE_OF_CONDUCT.md / Issue・PRテンプレート）整備済み</li>
+<li>リポジトリの説明文・トピック設定済み。<code>package.json</code> の <code>repository</code> 追加済み（PR #157）</li>
+</ul>
+</li>
+<li><strong>手順（上から順に実施する）</strong>:
+<ol>
+<li><strong>公開直前の再棚卸し</strong>（読み取りのみ）。秘密情報・個人情報の再スキャンと、前回の棚卸し以降に追加された <code>docs/</code> の公開可否確認。</li>
+<li><strong>ブランチ保護の適用</strong>（<code>main</code> への直接pushの禁止、PR必須）。publicにすると誰でもforkとPR作成ができるため、<strong>公開前</strong>に入れる。</li>
+<li><strong>管理者がpublic化を実行する。</strong>GitHubの設定変更であり不可逆（一度公開したものはgit履歴ごと残り、cloneされたものは取り消せない）。<strong>開発管理者・開発要員は実行しない。</strong></li>
+<li>public化後の疎通確認。匿名（未ログイン）状態でリポジトリ・README・Releasesのインストーラーが参照できること。</li>
+<li>公開告知（任意。実施するかは管理者判断）。</li>
+</ol>
+</li>
+<li>変更範囲: GitHubリポジトリの設定（可視性・ブランチ保護）。<strong>アプリケーションコードは変更しない。</strong>必要になった場合でも <code>docs/</code> と <code>.github/</code> に留める。</li>
+<li>禁止事項: <strong>開発管理者・開発要員がpublic化を実行しないこと</strong>（手順3は管理者専任）。git履歴の書き換え（<code>filter-branch</code> 等）を管理者の承認なく行わないこと。ライセンスをApache-2.0から変更しないこと。公開告知を管理者の指示なく行わないこと。<code>private: true</code>（<code>package.json</code>）を外さないこと — これはnpm公開への誤爆防止フラグで、リポジトリの可視性とは独立しており、hanamaskはnpmパッケージではない。</li>
+<li>テスト: 自動テストの対象外（リポジトリ設定の変更のため）。代わりに手順1の再スキャン結果と手順4の匿名アクセス確認をもって検証とする。<strong>「確認した」で済ませず、実行したコマンドと結果を残す</strong>こと。既存のCI（build-and-test / html-sync / semgrep / check:tasks）が公開後も緑であることも確認する。</li>
+<li>停止条件: <strong>手順3（public化の実行）は必ず管理者が行う。</strong>手順1で実在の秘密情報が見つかった場合、または公開すべきでない記述が <code>docs/</code> に見つかった場合は、その場で止めて報告する。手順2のブランチ保護の設定内容が既存の運用（PRのdraft作成・管理者マージ）と衝突する場合は、設定を決める前に管理者に確認する。</li>
 </ul>
 
 </main>
