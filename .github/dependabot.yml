@@ -17,8 +17,15 @@ updates:
       production:
         dependency-type: production
         update-types: ["minor", "patch"]
+      # electron は devDependencies にあるが、electron-builder が配布物へ同梱する
+      # ランタイムそのもの。development に混ぜると「開発だけだから安全」と読まれ、
+      # 利用者が実行するランタイムが黙って変わる。本番と同じ扱いにするため分ける。
+      production-runtime:
+        patterns: ["electron"]
+        update-types: ["minor", "patch"]
       development:
         dependency-type: development
+        exclude-patterns: ["electron"]
         update-types: ["minor", "patch"]
     # Electronのメジャー更新はネイティブモジュール(better-sqlite3)の再ビルドと
     # 動作確認を伴うため、自動PRにせず手元で計画的に上げる。
