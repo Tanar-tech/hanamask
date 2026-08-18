@@ -787,11 +787,17 @@ flowchart LR
 <li><strong>手順（上から順に実施する）</strong>:
 <ol>
 <li><strong>公開直前の再棚卸し</strong>（読み取りのみ）。秘密情報・個人情報の再スキャンと、前回の棚卸し以降に追加された <code>docs/</code> の公開可否確認。</li>
-<li><strong>ブランチ保護の適用</strong>（<code>main</code> への直接pushの禁止、PR必須）。publicにすると誰でもforkとPR作成ができるため、<strong>公開前</strong>に入れる。</li>
 <li><strong>管理者がpublic化を実行する。</strong>GitHubの設定変更であり不可逆（一度公開したものはgit履歴ごと残り、cloneされたものは取り消せない）。<strong>開発管理者・開発要員は実行しない。</strong></li>
+<li><strong>ブランチ保護の適用</strong>（<code>./scripts/apply-branch-protection.sh</code> を実行するだけ）。<strong>public化の直後に行う。</strong></li>
 <li>public化後の疎通確認。匿名（未ログイン）状態でリポジトリ・README・Releasesのインストーラーが参照できること。</li>
 <li>公開告知（任意。実施するかは管理者判断）。</li>
 </ol>
+</li>
+<li><strong>順序の訂正（2026-08-18）</strong>: 当初この手順は「<strong>公開前</strong>にブランチ保護を入れる」と書いていたが、<strong>それは実行不可能だった。</strong>privateかつ無料プランではブランチ保護APIもrulesets APIも <code>403 Upgrade to GitHub Pro or make this repository public</code> を返す（実測）。したがって<strong>保護は公開の「あと」にしか当てられない。</strong>
+<ul>
+<li><strong>public化から保護が効くまでが唯一の無防備な窓</strong>になる。これを短くするため、設定内容を確定して <code>scripts/apply-branch-protection.sh</code> に固めてある。公開直後に1コマンド実行するだけで閉じられる</li>
+<li>保護の内容（2026-08-18 管理者判断）: 必須チェックは <code>build-and-test (ubuntu-latest)</code> / <code>build-and-test (windows-latest)</code> / <code>semgrep</code>、<strong>管理者は除外</strong>（他に管理者がおらず、CI自体が壊れたとき修復PRを入れられなくなる方が危険）、<strong>必要な承認数は0</strong>（単独開発では自分のPRを自分で承認できず、1以上にすると詰む）、force push とブランチ削除は禁止</li>
+</ul>
 </li>
 <li>変更範囲: GitHubリポジトリの設定（可視性・ブランチ保護）。<strong>アプリケーションコードは変更しない。</strong>必要になった場合でも <code>docs/</code> と <code>.github/</code> に留める。</li>
 <li>禁止事項: <strong>開発管理者・開発要員がpublic化を実行しないこと</strong>（手順3は管理者専任）。git履歴の書き換え（<code>filter-branch</code> 等）を管理者の承認なく行わないこと。ライセンスをApache-2.0から変更しないこと。公開告知を管理者の指示なく行わないこと。<code>private: true</code>（<code>package.json</code>）を外さないこと — これはnpm公開への誤爆防止フラグで、リポジトリの可視性とは独立しており、hanamaskはnpmパッケージではない。</li>
