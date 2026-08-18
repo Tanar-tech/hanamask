@@ -38,6 +38,11 @@ export const CHAT_ENABLED = false;
  * 常駐まわりの設定。closeToTray はウィンドウを閉じたときにトレイへ残すか、
  * openAtLogin はログイン時に自動起動するか。openAtLogin の既定は false。
  */
+export interface Activity {
+  lastRecordedAt: string | null;
+  recentCount: number;
+}
+
 export interface McpEndpoint {
   port: number;
   url: string;
@@ -177,6 +182,7 @@ export interface HanamaskPreloadApi {
   restoreNoteVersion(versionId: string): Promise<Note | null>;
   listDeletedNotes(): Promise<DeletedNote[]>;
   restoreNote(id: string): Promise<Note | null>;
+  readActivity(): Promise<Activity>;
   readMcpEndpoint(): Promise<McpEndpoint>;
   readAppSettings(): Promise<AppSettings>;
   saveAppSettings(settings: AppSettings): Promise<AppSettings>;
