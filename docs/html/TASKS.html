@@ -56,6 +56,7 @@
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th><th>実行者</th></tr></thead>
 <tbody>
 <tr><td><a href="#t47">T47</a></td><td>使われていないことに気づける状態にする</td><td>なし（推奨 T46）</td><td></td></tr>
+<tr><td><a href="#t48">T48</a></td><td>ブランチ保護と、開発依存だけのDependabot自動マージ</td><td>なし（推奨 T43）</td><td>ブランチ保護は T43 手順2 と同じ作業</td></tr>
 <tr><td><a href="#t43">T43</a></td><td>リポジトリのpublic化と公開</td><td>T38</td><td><strong>public化の実行は管理者専任</strong>（不可逆のため）</td></tr>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル</td><td>T03, T05</td><td>凍結中。実装は残したまま画面から外している（2026-08-10、管理者判断）</td></tr>
 </tbody>
@@ -122,7 +123,8 @@ flowchart LR
   class T29,T30,T31,T32,T33,T34,T35,T36,T37,T38,T39,T40,T41,T42 done;
   class T01,T02,T13,T14 done;
   class T12 frozen;
-  class T43,T47 todo;
+  class T43,T47,T48 todo;
+  T43 -.-> T48["T48 ブランチ保護と自動マージ"]
   class T46 done;
   class T45 done;
   class T44 done;
@@ -871,6 +873,31 @@ flowchart TB
 <li>禁止事項: 利用状況を外部へ送信しないこと（<a href="REQUIREMENTS.html">REQUIREMENTS.html</a> §9。ローカル完結の前提を崩さない）。個々のエージェントを識別・追跡する仕組みを作らないこと。指標を増やしすぎてホーム画面を計器盤にしないこと（<strong>気付ければよい</strong>）。連続日数・達成バッジのようなゲーミフィケーションを足さないこと（要求に無い）。</li>
 <li>テスト: 書き込みが無い状態・ある状態それぞれで表示が正しいことのテスト（<strong>空のDBで落ちないこと</strong>を含む）。集計が削除済みの記録を数えないこと。日付の境界（今週の始まり、タイムゾーン）での挙動。</li>
 <li>停止条件: 「途絶えている」と判断する期間の閾値は要求定義に無いため、画面案を管理者に確認してから決める。指標の種類を増やす判断も同様。</li>
+</ul>
+
+<h3 id="t48">T48: ブランチ保護と、開発依存だけのDependabot自動マージ</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>優先度: <strong>中</strong>（管理者要望、2026-08-18）</li>
+<li>依存: 必須: なし／推奨: <a href="#t43">T43</a>（同じブランチ保護の作業を含むため、まとめて実施すると重複しない）</li>
+<li>目的: 依存更新のPRが溜まると、<strong>中身を見ずにまとめてマージする</strong>という一番危ない扱い方に流れる。配布物に入らない開発依存だけを自動で取り込み、<strong>人の判断を本番依存に集中させる</strong>。あわせて、公開前に必要なブランチ保護（T43 手順2）をここで入れる。</li>
+<li><strong>前提として先にブランチ保護が要る（最大の落とし穴）</strong>: <strong>必須ステータスチェックを設定していないと <code>gh pr merge --auto</code> は待たずに即マージする。</strong>「CIが緑になったら入る」ではなく「無条件で入る」になる。順序を逆にしてはいけない。
+<ul>
+<li>必須にするチェック: <code>build-and-test (ubuntu-latest)</code> / <code>build-and-test (windows-latest)</code> / <code>semgrep</code></li>
+<li>リポジトリ設定で <strong>Allow auto-merge</strong> を有効にする必要がある（Settings → General）</li>
+</ul>
+</li>
+<li><strong>自動マージの対象は <code>development</code> グループだけ</strong>。<a href="GOVERNANCE.html#6-1">GOVERNANCE.html §6.1</a> が「本番グループのPRは変更内容を一言添えてから管理者がマージする」と定めており、対象を広げると規約と正面から矛盾する。
+<ul>
+<li><code>development</code> → 自動マージ対象（配布物に入らない）</li>
+<li><code>production</code> → 対象外（利用者のデータ・描画に効く）</li>
+<li><code>production-runtime</code>（<code>electron</code>） → <strong>対象外。マイナーでも本番と同じ扱いにすると決めた箇所</strong>（§6.1）</li>
+</ul>
+</li>
+<li>変更範囲: <code>.github/workflows/</code>（自動マージ用ワークフローの新設）、リポジトリ設定（ブランチ保護・Allow auto-merge）。<strong>アプリケーションコードは変更しない。</strong></li>
+<li>禁止事項: <strong>自動マージを <code>production</code> / <code>production-runtime</code> に広げないこと。</strong>メジャー更新を対象に含めないこと。既存の <code>cooldown</code>（通常7日・メジャー30日、供給網対策）を緩めないこと。<code>electron</code> のメジャーを <code>ignore</code> から外さないこと。<strong>アクションのバージョンをタグで指定しないこと</strong>（このリポジトリはSHA固定。タグ指定は固定の意味を失わせる）。<code>${{ }}</code> を <code>run:</code> に直接展開しないこと（semgrepのrun-shell-injectionで過去2回指摘された）。</li>
+<li>テスト: 自動テストの対象外（CI設定とリポジトリ設定のため）。代わりに次を実測する。<strong>(1) ブランチ保護を入れた状態で、CIが緑になるまで自動マージが実行されないこと</strong>（保護が効いていなければ即マージされてしまうため、ここが本体）。(2) <code>production</code> グループのPRが自動マージされないこと。(3) メジャー更新が対象外であること。<strong>「設定した」で済ませず、実際のPRで挙動を確認する。</strong></li>
+<li>停止条件: <strong>ブランチ保護の設定内容は、決める前に管理者に確認する</strong>（現行運用＝PRのdraft作成・管理者マージと衝突しうる。特に「管理者自身のマージを妨げないか」）。ワークフローの追加は <a href="safety.html">safety.html</a> の denylist（<code>.github/workflows/</code>）と <a href="GOVERNANCE.html#6-管理者の承認が必要な操作">GOVERNANCE.html §6</a>（CI/CD設定変更）に該当するため、着手前に承認を得る。<code>dependabot/fetch-metadata</code> の出力名（<code>dependency-group</code> 等）は<strong>公式の出力一覧と突き合わせて確認する</strong>。記憶で断定しない。</li>
 </ul>
 
 </main>
