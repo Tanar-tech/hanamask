@@ -11,6 +11,7 @@ const NOTES_UPDATE_CHANNEL = "notes:update";
 const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
 const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
 const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
+const ACTIVITY_READ_CHANNEL = "activity:read";
 const MCP_ENDPOINT_READ_CHANNEL = "mcp:read-endpoint";
 const APP_SETTINGS_READ_CHANNEL = "app:read-settings";
 const APP_SETTINGS_SAVE_CHANNEL = "app:save-settings";
@@ -68,6 +69,7 @@ const api: HanamaskPreloadApi = {
   restoreNoteVersion: (versionId) =>
     ipcRenderer.invoke(NOTES_RESTORE_VERSION_CHANNEL, versionId),
   listDeletedNotes: () => ipcRenderer.invoke(NOTES_LIST_DELETED_CHANNEL),
+  readActivity: () => ipcRenderer.invoke(ACTIVITY_READ_CHANNEL),
   readMcpEndpoint: () => ipcRenderer.invoke(MCP_ENDPOINT_READ_CHANNEL),
   readAppSettings: () => ipcRenderer.invoke(APP_SETTINGS_READ_CHANNEL),
   saveAppSettings: (settings) => ipcRenderer.invoke(APP_SETTINGS_SAVE_CHANNEL, settings),

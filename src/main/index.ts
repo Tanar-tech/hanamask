@@ -41,6 +41,7 @@ import { CHAT_ENABLED } from "../shared/preload-api.js";
 import type { ChatMessage } from "../shared/preload-api.js";
 import { readAppSettings, saveAppSettings, setAppSettingsPath } from "./settings/app-settings.js";
 import { buildMcpUrl } from "./mcp/endpoint.js";
+import { readActivity } from "./db/activity-repo.js";
 import {
   createTray,
   decideOnWindowClose,
@@ -129,6 +130,7 @@ const BACKUP_EXPORT_DIALOG_TITLE = "ノートを書き出す";
 const BACKUP_IMPORT_DIALOG_TITLE = "ノートを取り込む";
 const CHAT_SETTINGS_FILE_NAME = "chat-settings.json";
 const APP_SETTINGS_FILE_NAME = "app-settings.json";
+const ACTIVITY_READ_CHANNEL = "activity:read";
 const MCP_ENDPOINT_READ_CHANNEL = "mcp:read-endpoint";
 const APP_SETTINGS_READ_CHANNEL = "app:read-settings";
 const APP_SETTINGS_SAVE_CHANNEL = "app:save-settings";
@@ -588,6 +590,7 @@ const applyAppSettings = (value: unknown): AppSettings => {
   return saved;
 };
 
+ipcMain.handle(ACTIVITY_READ_CHANNEL, () => readActivity(new Date()));
 ipcMain.handle(MCP_ENDPOINT_READ_CHANNEL, () => {
   if (mcpPort === null) throw new Error("MCPサーバーがまだ起動していません");
   return { port: mcpPort, url: buildMcpUrl(mcpPort) };
