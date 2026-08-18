@@ -1,5 +1,7 @@
 import { li as MotionLi } from "motion/react-m";
 import { useCallback, useEffect, useState, type FormEvent, type JSX } from "react";
+import { summarizeActivity } from "./activity-summary";
+import type { Activity } from "../../shared/preload-api";
 import { useNewlyArrived } from "../hooks/useNewlyArrived";
 import { TagList } from "./TagList";
 import { ENTRY_MOTION } from "../styles/motion";
@@ -32,6 +34,9 @@ const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
 const TITLE_BUTTON = `${RESET_TEXT} appearance-none border-0 bg-transparent p-0 text-left font-body text-base font-bold text-ink-aqua-text underline-offset-2 hover:underline cursor-pointer ${FOCUS_RING}`;
 const CARD = "rounded-lg border border-line bg-paper-raised p-3";
+const ACTIVITY_LINE = "m-0 font-body text-sm text-text-faint";
+// 途絶えは目立たせるが、警告色（crit）は使わない。書かない日があるのは普通のことなので叱責に見せない。
+const ACTIVITY_LINE_STALE = "m-0 font-body text-sm font-bold text-text";
 const SECTION_HEADING = `${RESET_TEXT} font-display text-sm tracking-wide text-text-faint`;
 
 const byUpdatedAtDesc = (a: Note | Task, b: Note | Task): number =>
@@ -153,6 +158,11 @@ const TaskRow = ({
   </MotionLi>
 );
 
+const ActivityLine = ({ activity, nowMs }: { activity: Activity; nowMs: number }): JSX.Element => {
+  const { text, highlight } = summarizeActivity(activity, nowMs);
+  return <p className={highlight ? ACTIVITY_LINE_STALE : ACTIVITY_LINE}>{text}</p>;
+};
+
 export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.Element => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -160,6 +170,7 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
   const [taskError, setTaskError] = useState<string | null>(null);
 
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [activity, setActivity] = useState<Activity | null>(null);
 
   const reloadNotes = useCallback(async () => {
     try {
@@ -170,6 +181,16 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
       setNoteError(null);
     } catch (cause) {
       setNoteError(`ノートの読み込みに失敗しました: ${String(cause)}`);
+    }
+  }, []);
+
+  // 記録が途絶えていないかは、ノート・タスクどちらが増えても変わる。両方の通知で読み直す。
+  const reloadActivity = useCallback(async () => {
+    try {
+      setActivity(await window.hanamask.readActivity());
+      setNowMs(Date.now());
+    } catch {
+      setActivity(null);
     }
   }, []);
 
@@ -184,17 +205,20 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
 
   useEffect(() => {
     void reloadNotes();
+    void reloadActivity();
     return window.hanamask.onNotesChanged(() => {
       void reloadNotes();
+      void reloadActivity();
     });
-  }, [reloadNotes]);
+  }, [reloadNotes, reloadActivity]);
 
   useEffect(() => {
     void reloadTasks();
     return window.hanamask.onTasksChanged(() => {
       void reloadTasks();
+      void reloadActivity();
     });
-  }, [reloadTasks]);
+  }, [reloadTasks, reloadActivity]);
 
   const visibleNotes = recentNotesOf(notes);
   const visibleTasks = activeTasksOf(tasks);
@@ -216,6 +240,8 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
   return (
     <div className="flex flex-col gap-6 p-6 font-body text-text">
       <SearchBar onSearch={onSearch} />
+
+      {activity !== null && <ActivityLine activity={activity} nowMs={nowMs} />}
 
       <section aria-labelledby="home-notes-heading" className="flex flex-col gap-3">
         <h2 id="home-notes-heading" className={SECTION_HEADING}>
