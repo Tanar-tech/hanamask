@@ -56,7 +56,7 @@
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th><th>実行者</th></tr></thead>
 <tbody>
 <tr><td><a href="#t47">T47</a></td><td>使われていないことに気づける状態にする</td><td>なし（推奨 T46）</td><td></td></tr>
-<tr><td><a href="#t48">T48</a></td><td>ブランチ保護と、開発依存だけのDependabot自動マージ</td><td>なし（推奨 T43）</td><td>ブランチ保護は T43 手順2 と同じ作業</td></tr>
+<tr><td><a href="#t48">T48</a></td><td>ブランチ保護と、開発依存だけのDependabot自動マージ</td><td><strong>T43</strong></td><td><strong>public化しないとブランチ保護が使えない</strong>（無料プランの制約。2026-08-18実測）</td></tr>
 <tr><td><a href="#t43">T43</a></td><td>リポジトリのpublic化と公開</td><td>T38</td><td><strong>public化の実行は管理者専任</strong>（不可逆のため）</td></tr>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル</td><td>T03, T05</td><td>凍結中。実装は残したまま画面から外している（2026-08-10、管理者判断）</td></tr>
 </tbody>
@@ -124,7 +124,7 @@ flowchart LR
   class T01,T02,T13,T14 done;
   class T12 frozen;
   class T43,T47,T48 todo;
-  T43 -.-> T48["T48 ブランチ保護と自動マージ"]
+  T43 --> T48["T48 ブランチ保護と自動マージ"]
   class T46 done;
   class T45 done;
   class T44 done;
@@ -879,7 +879,14 @@ flowchart TB
 <ul>
 <li>ステータス: 未着手</li>
 <li>優先度: <strong>中</strong>（管理者要望、2026-08-18）</li>
-<li>依存: 必須: なし／推奨: <a href="#t43">T43</a>（同じブランチ保護の作業を含むため、まとめて実施すると重複しない）</li>
+<li>依存: <strong>必須: <a href="#t43">T43</a></strong>（下記の通り、public化しないとブランチ保護そのものが使えない）／推奨: なし</li>
+<li><strong>着手前に判明した制約（2026-08-18、実測）</strong>: <strong>このリポジトリではブランチ保護もrulesetも使えない。</strong><code>gh api repos/.../branches/main/protection</code> と <code>.../rulesets</code> のいずれも <code>403 Upgrade to GitHub Pro or make this repository public to enable this feature.</code> を返す（privateかつ無料プランのため）。
+<ul>
+<li><strong>したがって自動マージだけを先に入れてはいけない。</strong>必須ステータスチェックが設定できない状態で <code>gh pr merge --auto</code> を使うと、<strong>CIを待たずに即マージされる</strong>。「便利にする」つもりが「無条件で取り込む」になり、依存更新のPRを人が見ない状態が完成してしまう</li>
+<li>解ける道は2つ。<strong>(a) T43でpublic化する</strong>（公開リポジトリなら無料プランでもブランチ保護が使える）、<strong>(b) GitHub Proにする</strong>（管理者の判断・費用が伴う）</li>
+<li><strong>本タスクはT43の完了を待つ</strong>のが素直。順序が逆になると危険側に倒れるため、依存を「推奨」から<strong>「必須」に格上げした</strong></li>
+</ul>
+</li>
 <li>目的: 依存更新のPRが溜まると、<strong>中身を見ずにまとめてマージする</strong>という一番危ない扱い方に流れる。配布物に入らない開発依存だけを自動で取り込み、<strong>人の判断を本番依存に集中させる</strong>。あわせて、公開前に必要なブランチ保護（T43 手順2）をここで入れる。</li>
 <li><strong>前提として先にブランチ保護が要る（最大の落とし穴）</strong>: <strong>必須ステータスチェックを設定していないと <code>gh pr merge --auto</code> は待たずに即マージする。</strong>「CIが緑になったら入る」ではなく「無条件で入る」になる。順序を逆にしてはいけない。
 <ul>
