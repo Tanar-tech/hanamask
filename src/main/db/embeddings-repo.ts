@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { asRecord } from "../records.js";
 import { getDb } from "./db.js";
 
 export type EmbeddedEntityType = "note" | "task";
@@ -42,8 +43,8 @@ const isEmbeddedEntityType = (value: unknown): value is EmbeddedEntityType =>
   typeof value === "string" && ENTITY_TYPES.includes(value);
 
 const isEmbeddingRow = (value: unknown): value is EmbeddingRow => {
-  if (typeof value !== "object" || value === null) return false;
-  const row: Record<string, unknown> = { ...value };
+  const row = asRecord(value);
+  if (row === null) return false;
   return (
     isEmbeddedEntityType(row.entity_type) &&
     typeof row.entity_id === "string" &&
@@ -55,8 +56,8 @@ const isEmbeddingRow = (value: unknown): value is EmbeddingRow => {
 };
 
 const isIndexedStateRow = (value: unknown): value is IndexedStateRow => {
-  if (typeof value !== "object" || value === null) return false;
-  const row: Record<string, unknown> = { ...value };
+  const row = asRecord(value);
+  if (row === null) return false;
   return (
     isEmbeddedEntityType(row.entity_type) &&
     typeof row.entity_id === "string" &&

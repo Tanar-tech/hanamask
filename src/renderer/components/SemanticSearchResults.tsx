@@ -1,15 +1,12 @@
 import { useCallback, type JSX } from "react";
 import {
-  LOADING_MESSAGE,
-  SECTION,
-  SECTION_HEADING,
   SECTION_LIST,
-  SECTION_NOTE_MESSAGE,
   SECTION_ROW,
+  SemanticSection,
   TITLE_BUTTON,
   TYPE_BADGE,
   useSemanticSection,
-} from "./RelatedNotes";
+} from "./SemanticSection";
 import type { SemanticSearchResult } from "../../shared/preload-api";
 
 const HEADING = "意味が近い記録";
@@ -28,30 +25,35 @@ interface ResultRow {
   key: string;
   id: string;
   title: string;
+  score: number;
   typeLabel: string;
   onSelect: ((id: string) => void) | undefined;
 }
 
+// ノートとタスクを分けずスコアの降順で1本に並べる（近い順に読めることを優先する）。
 const toRows = (
   result: SemanticSearchResult,
   onSelectNote: (id: string) => void,
   onSelectTask: ((id: string) => void) | undefined,
-): ResultRow[] => [
-  ...result.notes.map((note) => ({
-    key: `note-${note.id}`,
-    id: note.id,
-    title: note.title,
-    typeLabel: NOTE_LABEL,
-    onSelect: onSelectNote,
-  })),
-  ...result.tasks.map((task) => ({
-    key: `task-${task.id}`,
-    id: task.id,
-    title: task.title,
-    typeLabel: TASK_LABEL,
-    onSelect: onSelectTask,
-  })),
-];
+): ResultRow[] =>
+  [
+    ...result.notes.map((note) => ({
+      key: `note-${note.id}`,
+      id: note.id,
+      title: note.title,
+      score: note.score,
+      typeLabel: NOTE_LABEL,
+      onSelect: onSelectNote,
+    })),
+    ...result.tasks.map((task) => ({
+      key: `task-${task.id}`,
+      id: task.id,
+      title: task.title,
+      score: task.score,
+      typeLabel: TASK_LABEL,
+      onSelect: onSelectTask,
+    })),
+  ].sort((left, right) => right.score - left.score);
 
 const ResultTitle = ({ row }: { row: ResultRow }): JSX.Element => {
   const { onSelect } = row;
@@ -79,24 +81,15 @@ export const SemanticSearchResults = ({
   const load = useCallback(() => window.hanamask.semanticSearch(query, SEMANTIC_LIMIT), [query]);
   const { status, result } = useSemanticSection(load, EMPTY_RESULT);
 
-  if (status === null || status.state === "unavailable") return null;
-  if (result.unavailable !== undefined) return null;
-
-  if (status.state === "loading") {
-    return (
-      <section className={SECTION}>
-        <h3 className={SECTION_HEADING}>{HEADING}</h3>
-        <p className={SECTION_NOTE_MESSAGE}>{LOADING_MESSAGE}</p>
-      </section>
-    );
-  }
-
   const rows = toRows(result, onSelectNote, onSelectTask);
-  if (rows.length === 0) return null;
+  if (status?.state === "ready" && rows.length === 0) return null;
 
   return (
-    <section className={SECTION}>
-      <h3 className={SECTION_HEADING}>{HEADING}</h3>
+    <SemanticSection
+      heading={HEADING}
+      status={status}
+      unavailable={result.unavailable !== undefined}
+    >
       <ul aria-label={HEADING} className={SECTION_LIST}>
         {rows.map((row) => (
           <li key={row.key} className={SECTION_ROW}>
@@ -105,6 +98,6 @@ export const SemanticSearchResults = ({
           </li>
         ))}
       </ul>
-    </section>
+    </SemanticSection>
   );
 };

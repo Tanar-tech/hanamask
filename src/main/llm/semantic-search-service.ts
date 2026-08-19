@@ -12,6 +12,24 @@ import type {
 
 export const EMBEDDING_LOADING_REASON = "埋め込みモデルの準備中です";
 
+export const DEFAULT_SEMANTIC_LIMIT = 10;
+export const MAX_SEMANTIC_LIMIT = 100;
+
+/*
+ * 件数の受け取り方を画面（IPC）とMCPツールで1つにする。壊れた値は呼び出し元に返すが、
+ * 大きすぎる値は上限に丸める（エージェントが上限を知らずに大きな数を送っても失敗させない）。
+ */
+export const normalizeSemanticLimit = (
+  value: unknown,
+  fallback: number = DEFAULT_SEMANTIC_LIMIT,
+): number => {
+  if (value === undefined) return fallback;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    throw new Error("limit must be a positive integer");
+  }
+  return Math.min(value, MAX_SEMANTIC_LIMIT);
+};
+
 // 実体が消えている・ゴミ箱に入ったものは索引に残っていても結果から落とす。
 const attachEntities = (ranked: readonly Ranked[]): SemanticSearchResult => {
   const notes: ScoredNote[] = [];

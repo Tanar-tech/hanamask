@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS embeddings (
 
 **検索**（`src/main/llm/semantic-search.ts`、Set B）— `rankBySimilarity(query: Float32Array, candidates: StoredEmbedding[], limit): Ranked[]` は**純粋関数**（コサイン=正規化済みなので内積）。上位 `limit`（既定 10、詳細画面は 5）。自分自身の除外は呼び出し側。
 
-**索引更新**（`src/main/llm/embedding-indexer.ts`、Set C）— `createEmbeddingIndexer(deps)` DI。`onNotesChanged`/`onTasksChanged` を購読、`change.action === "deleted"` は行削除（ソフトデリートでも消して良い: 復元時は updated で再計算される）、それ以外はキューに積んで 2 秒デバウンス後に直列で埋め込み。`change === undefined` と起動時は `listStaleEntities` で差分埋め。文書テキストは `${title}\n${body}` を contextSize に収まる長さ（**文字数で保守的に切る**: contextSize×1.5 文字を上限。トークン超過で throw したら半分に切って1回だけ再試行）。状態 `ready|loading|unavailable` と「未処理件数」を `getStatus()` で返し、変化時に `onStatusChanged` を発火する（UI の「準備中」表示用）。
+**索引更新**（`src/main/llm/embedding-indexer.ts`、Set C）— `createEmbeddingIndexer(deps)` DI。`onNotesChanged`/`onTasksChanged` を購読、`change.action === "deleted"` は**何もしない**（ソフトデリートなので検索は `deleted_at IS NULL` の JOIN で除外され、復元時は content_hash 一致で再計算も起きない。物理削除で残った行は purge の孤児掃除が落とす）、それ以外はキューに積んで 2 秒デバウンス後に直列で埋め込み。`change === undefined` と起動時は `listStaleEntities` で差分埋め。文書テキストは `${title}\n${body}` を contextSize に収まる長さ（**文字数で保守的に切る**: contextSize×1.5 文字を上限。確実な打ち切りは確定事項③のとおりプロバイダ側がトークン数で行うため、索引側での再試行はしない）。状態 `ready|loading|unavailable` と「未処理件数」を `getStatus()` で返し、変化時に `onStatusChanged` を発火する（UI の「準備中」表示用）。
 
 **MCPツール**（Set D）— `McpTool.handler` の戻り値を `CallToolResult | Promise<CallToolResult>` に広げ、`server.ts` と `agent-loop.ts` の呼び出しを `await` にする（既存の同期ハンドラは無変更で通る）。`semantic_search_notes { query: string, limit?: number }` → `{ notes: [{...Note, score}], tasks: [{...Task, score}] }`。unavailable/loading のときは `{ notes: [], tasks: [], unavailable: reason }`（`isError` は立てない）。
 

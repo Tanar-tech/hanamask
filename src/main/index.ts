@@ -92,10 +92,13 @@ import { createEmbeddingRuntimeHolder } from "./llm/embedding-runtime-holder.js"
 import { setEmbeddingRuntime } from "./llm/index.js";
 import { loadEmbeddingProvider } from "./llm/llama-embedding-provider.js";
 import { readEmbeddingModelManifest } from "./llm/model-manifest.js";
-import { findRelatedNotes, searchSemanticEntities } from "./llm/semantic-search-service.js";
+import {
+  findRelatedNotes,
+  normalizeSemanticLimit,
+  searchSemanticEntities,
+} from "./llm/semantic-search-service.js";
 import {
   contentHashOf,
-  deleteEmbedding,
   listStaleEntities,
   upsertEmbedding,
   type EmbeddedEntityType,
@@ -158,9 +161,7 @@ const EMBEDDING_STATUS_READ_CHANNEL = "embedding:read-status";
 const EMBEDDING_STATUS_CHANGED_CHANNEL = "embedding:status-changed";
 const MODELS_DIR_NAME = "models";
 const DEV_MODELS_DIR_PATH = "../../resources/models";
-const DEFAULT_SEMANTIC_SEARCH_LIMIT = 10;
 const DEFAULT_RELATED_NOTES_LIMIT = 5;
-const MAX_SEMANTIC_LIMIT = 100;
 const RENDERER_READY_EVENT = "did-finish-load";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -506,11 +507,11 @@ let embeddingIndexer: EmbeddingIndexer | undefined;
  * レンダラーもMCPツールも任意のパスを読ませられない（SPEC セキュリティ要件 S6）。
  */
 const resolveModelsDirPath = (): string => {
+  // 配布ビルドでモデルの置き場を外から差し替えられないようにする。
+  if (app.isPackaged) return join(process.resourcesPath, MODELS_DIR_NAME);
   const override = process.env.HANAMASK_MODELS_DIR;
   if (override !== undefined && override !== "") return override;
-  return app.isPackaged
-    ? join(process.resourcesPath, MODELS_DIR_NAME)
-    : join(moduleDir, DEV_MODELS_DIR_PATH);
+  return join(moduleDir, DEV_MODELS_DIR_PATH);
 };
 
 const currentEmbeddingStatus = (): EmbeddingStatus => {
@@ -546,7 +547,7 @@ const readContextSize = (modelsDir: string): number | undefined => {
 
 const startEmbeddingIndexer = (contextSize: number): void => {
   const indexer = createEmbeddingIndexer({
-    repo: { upsertEmbedding, deleteEmbedding, listStaleEntities, contentHashOf },
+    repo: { upsertEmbedding, listStaleEntities, contentHashOf },
     getAvailability: embeddingRuntime.availability,
     onAvailabilityChanged: embeddingRuntime.onAvailabilityChanged,
     subscribeNotes: onNotesChanged,
@@ -586,15 +587,6 @@ const readNonEmptyString = (value: unknown, name: string): string => {
   return value;
 };
 
-const readLimit = (value: unknown, fallback: number): number => {
-  if (value === undefined) return fallback;
-  if (typeof value !== "number" || !Number.isInteger(value)) {
-    throw new Error("limit must be an integer");
-  }
-  if (value <= 0 || value > MAX_SEMANTIC_LIMIT) throw new Error("limit is out of range");
-  return value;
-};
-
 // レンダラーから来た値は信用しない。型が合わないときは reject にする（SPEC S6）。
 const searchSemantic = (
   _event: IpcMainInvokeEvent,
@@ -603,7 +595,7 @@ const searchSemantic = (
 ): Promise<SemanticSearchResult> =>
   searchSemanticEntities(
     readNonEmptyString(query, "query"),
-    readLimit(limit, DEFAULT_SEMANTIC_SEARCH_LIMIT),
+    normalizeSemanticLimit(limit),
   );
 
 const findRelated = (
@@ -613,7 +605,7 @@ const findRelated = (
 ): RelatedNotesResult =>
   findRelatedNotes(
     readNonEmptyString(noteId, "noteId"),
-    readLimit(limit, DEFAULT_RELATED_NOTES_LIMIT),
+    normalizeSemanticLimit(limit, DEFAULT_RELATED_NOTES_LIMIT),
   );
 
 const start = async (): Promise<void> => {

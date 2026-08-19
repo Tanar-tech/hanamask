@@ -1,13 +1,13 @@
-export type EmbeddingEntityType = "note" | "task";
+import type { EmbeddedEntityType } from "../db/embeddings-repo.js";
 
 export interface EmbeddingCandidate {
-  entityType: EmbeddingEntityType;
+  entityType: EmbeddedEntityType;
   entityId: string;
   vector: Float32Array;
 }
 
 export interface Ranked {
-  entityType: EmbeddingEntityType;
+  entityType: EmbeddedEntityType;
   entityId: string;
   score: number;
 }
