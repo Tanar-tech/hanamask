@@ -59,6 +59,8 @@
 <tr><td><a href="TASKS-local-llm.html#t48">T48</a></td><td>ローカルLLM(1) 意味検索（埋め込み）（詳細は <a href="TASKS-local-llm.html">TASKS-local-llm.html</a>）</td><td>なし</td><td>開発管理者＋開発要員（2026-08-19起票。統合ブランチ <code>feature/local-llm</code>）</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル（同上）</td><td>T48, T12</td><td>T48でランタイム同梱を固めてから</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t50">T50</a></td><td>ローカルLLM(3) 提案系補助（同上）</td><td>T48</td><td>T49の後を推奨</td></tr>
+<tr><td><a href="#t52">T52</a></td><td>GitHub Actionsの更新PRの扱いを決める</td><td>なし（推奨 T51）</td><td><strong>アクションの更新だけグループ未定義で、自動マージから一律に外れる</strong></td></tr>
+<tr><td><a href="#t53">T53</a></td><td>未マージのアクション更新（#172）を判断する</td><td>なし（推奨 T52）</td><td>調査済み・CI緑。用途はE2Eのスクショ保存のみ</td></tr>
 </tbody>
 </table>
 <p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は <strong>T43 の完了により導入可能になった</strong>（公開リポジトリが前提だった）。依存追加は <a href="GOVERNANCE.html#6">GOVERNANCE.html §6</a> の承認事項のため、まだタスク化していない。</p>
@@ -130,6 +132,7 @@ flowchart LR
   class T43 done;
   class T48,T49,T50 todo;
   class T51 done;
+  class T52,T53 todo;
   class T47 done;
   class T46 done;
   class T45 done;
@@ -915,6 +918,39 @@ flowchart TB
 <li><strong>本タスクはT43の完了を待つ</strong>のが素直。順序が逆になると危険側に倒れるため、依存を「推奨」から<strong>「必須」に格上げした</strong></li>
 <li><strong>2026-08-18に解消。</strong>public化と同時にブランチ保護を適用し、必須チェック（<code>build-and-test (ubuntu-latest)</code> / <code>(windows-latest)</code> / <code>semgrep</code>）が効いていることを実測した。<strong>したがって本タスクは着手可能。</strong>残る前提はリポジトリ設定の <strong>Allow auto-merge</strong> の有効化と、ワークフロー追加の承認</li>
 <li><strong>公開後に判明した注意点</strong>: 必須チェックを指定すると、<strong>それらが起動しないPRは永久にマージできなくなる</strong>。実際に <code>ci.yml</code> / <code>sast.yml</code> の <code>paths-ignore</code> によりドキュメントのみのPRがブロックされ、除外を外して解消した（PR #180）。自動マージを入れる際も「<strong>対象のPRで必須チェックが本当に起動するか</strong>」を先に確かめること</li>
+</ul>
+
+<h3 id="t52">T52: GitHub Actionsの更新PRの扱いを決める</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>優先度: <strong>低</strong>（管理者要望、2026-08-19）</li>
+<li>依存: 必須: なし／推奨: <a href="#t51">T51</a>（自動マージの仕組みを流用するため）</li>
+<li>目的: <strong><code>github-actions</code> エコシステムのPRだけ、扱いが決まっていない。</strong>T51 で npm の依存は <code>development</code> / <code>production</code> / <code>production-runtime</code> に区分し、開発依存のみ自動マージするようにしたが、<strong>アクションの更新はどのグループにも属さない</strong>（<code>.github/dependabot.yml</code> の <code>groups</code> は npm 側にしか定義していない）。結果として <code>dependency-group</code> が空になり、<strong>自動マージの条件を一律に外れて手動マージ待ちで溜まる</strong>。</li>
+<li><strong>実測した現状（2026-08-19、PR #172 で確認）</strong>: <code>actions/upload-artifact</code> 4.6.2 → 7.0.1 のPRで <code>fetch-metadata</code> の出力は <code>dependency-type: direct:production</code> / <code>update-type: version-update:semver-major</code> / <strong><code>dependency-group:</code>（空）</strong>。除外された理由は「メジャー更新」と「グループ未定義」が重なっており、<strong>マイナー更新でも同じく除外される</strong>。</li>
+<li><strong>決めるべきこと</strong>:
+<ul>
+<li>アクションの更新を自動マージの対象に含めるか。含めるなら <code>github-actions</code> 側にもグループを定義し、ワークフローの条件を広げる</li>
+<li><strong>含める場合の危険</strong>: アクションは<strong>CIとリリースの実行環境そのもの</strong>で、<code>release.yml</code> も含む。壊れると配布物が作れなくなる。一方で<strong>アクションはSHA固定しており</strong>（<a href="GOVERNANCE.html">GOVERNANCE.html</a>）、更新PRはSHAの差し替えなので差分は読みやすい</li>
+<li><strong>メジャー更新は対象外を維持する</strong>（T51と同じ方針）。#172 のようにメジャー3つ分飛ぶことがある</li>
+</ul>
+</li>
+<li>変更範囲: <code>.github/dependabot.yml</code>（グループ定義）、<code>.github/workflows/dependabot-auto-merge.yml</code>（条件）、<a href="GOVERNANCE.html#6-1">GOVERNANCE.html §6.1</a>（区分の追記）。<strong>アプリケーションコードは変更しない。</strong></li>
+<li>禁止事項: <strong>メジャー更新を自動マージの対象に含めないこと。</strong>SHA固定をやめてタグ指定に変えないこと（固定の意味が失われる）。<code>release.yml</code> が使うアクションだけを特別扱いする複雑な分岐を作らないこと（判定が読めなくなる）。既存の <code>cooldown</code>（7日）を緩めないこと。</li>
+<li>テスト: 自動テストの対象外。<strong>実際のDependabot PRで挙動を確認する</strong>（T51で確立した方法）。具体的には <code>fetch-metadata</code> の出力（<code>dependency-group</code> / <code>update-type</code>）をログで確認し、<strong>意図した分岐に入ったことと、CIが緑になるまでマージされないことの両方</strong>を見る。「設定した」で済ませない。</li>
+<li>停止条件: <strong>自動マージの対象を広げる判断は管理者に確認する</strong>（CI・リリースの実行環境が対象になるため）。ワークフローと <code>dependabot.yml</code> の変更は <a href="safety.html">safety.html</a> の denylist と <a href="GOVERNANCE.html#6">GOVERNANCE.html §6</a> に該当する。</li>
+</ul>
+
+<h3 id="t53">T53: 未マージのアクション更新（#172）を判断する</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>優先度: <strong>低</strong>（管理者要望、2026-08-19）</li>
+<li>依存: 必須: なし／推奨: <a href="#t52">T52</a>（恒久的な方針が決まれば、本タスクはその適用で済む）</li>
+<li>目的: <strong>PR #172（<code>actions/upload-artifact</code> 4.6.2 → 7.0.1）が宙に浮いている。</strong>自動マージの対象外で、手動マージの判断も保留したままになっている。</li>
+<li><strong>調査済み（2026-08-19）</strong>: <strong>破壊的変更の記載が無い</strong>（上流のv7.0リリースノートに breaking changes の記述はなく、主な変更はESM化）。用途は <code>ci.yml</code> の<strong>E2Eスクリーンショット保存のみ</strong>で、<code>release.yml</code> では使っていないため<strong>リリース経路に影響しない</strong>。CIは全チェック緑。</li>
+<li>変更範囲: <code>.github/workflows/ci.yml</code>（SHAとバージョンコメントの更新）のみ。</li>
+<li>禁止事項: 他のアクションの更新をこのPRに混ぜないこと。用途を広げないこと（スクリーンショット保存以外に使わない）。</li>
+<li>テスト: マージ後、<strong>E2Eのスクリーンショットが実際にアーティファクトとして保存されること</strong>をCIの成果物で確認する。<code>if-no-files-found: ignore</code> を指定しているため、<strong>壊れても失敗せず静かに何も上がらなくなる</strong>。緑であることだけでは確認にならない。</li>
+<li>停止条件: 特になし（メジャー更新だが、影響範囲が限定的で調査済みのため）。ただしマージ後にスクリーンショットが上がらなくなっていた場合は、<strong>戻すか原因を追うかを管理者に確認する</strong>。</li>
 </ul>
 
 </main>
