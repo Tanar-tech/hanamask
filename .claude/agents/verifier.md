@@ -1,7 +1,7 @@
 ---
 name: verifier
 description: Validates that completed work actually functions by running it — builds, tests, or driving the feature end-to-end. Use after an implementer subagent claims a task is done, before it is reported as complete. Parallel Subagent Framework（CLAUDE.md）のPhase 1〜5フロー外で、単発タスクや大きめの変更を採用前にもう一段厳しく検証したいときに使う補助エージェント（フロー内ではPhase 4統合ゲートのテスト/Lint実行とskill「e2e-runner」がこの役割を分担する）。
-model: inherit
+model: opus
 readonly: true
 is_background: false
 ---

@@ -1,0 +1,39 @@
+name: Dependabot auto-merge
+
+# 依存更新のPRが溜まると「中身を見ずにまとめてマージする」という一番危ない扱い方に流れる。
+# 配布物に入らない開発依存だけを自動で取り込み、人の判断を本番依存に集中させる。
+#
+# 対象は docs/GOVERNANCE.md §6.1 の区分に従い development と actions の2グループ。
+# production（利用者のデータ・描画に効く）と production-runtime（electron。devDependencies に
+# あるが electron-builder が配布物へ同梱する）は、変更内容を確認して管理者がマージする。
+# actions はCI・リリースの実行環境そのものだが、SHA固定で差分が読みやすく、必須チェックが
+# 揃わなければマージされないため含める。いずれもメジャー更新は対象外。
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      # gh pr merge --auto は必須ステータスチェックが揃うまで待つ。ブランチ保護で
+      # build-and-test (ubuntu/windows) と semgrep を必須にしてあるので、CIが緑に
+      # なるまでマージされない。保護が外れると「無条件で即マージ」に化けるため、
+      # 保護を緩めるときはこのワークフローも合わせて見直すこと。
+      #
+      # ${{ }} は run: に直接展開せず env 経由で渡す（semgrepのrun-shell-injection対策）。
+      - name: パッチ・マイナーの開発依存だけ自動マージする
+        if: |
+          steps.meta.outputs.update-type != 'version-update:semver-major' &&
+          (steps.meta.outputs.dependency-group == 'development' ||
+           steps.meta.outputs.dependency-group == 'actions')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
