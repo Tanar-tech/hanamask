@@ -20,14 +20,17 @@ import {
 } from "../db/tasks-repo.js";
 import { listTagsInUse } from "../db/tags-repo.js";
 import { createLink, deleteLink, listLinks, toEntityType } from "../db/links-repo.js";
+import { listEmbeddings } from "../db/embeddings-repo.js";
+import { getEmbeddingRuntime } from "../llm/index.js";
+import { rankBySimilarity, type Ranked } from "../llm/semantic-search.js";
 import { attachImage } from "../images/attach-image.js";
 import { navigateUi, showUiWindow } from "../ui/navigate.js";
 import { emitLinksChanged, emitNotesChanged, emitTasksChanged } from "./change-emitter.js";
-import type { EntityType, TaskStatus } from "../../shared/preload-api.js";
+import type { EntityType, Note, Task, TaskStatus } from "../../shared/preload-api.js";
 
 export interface McpTool {
   definition: Tool;
-  handler: (args: unknown) => CallToolResult;
+  handler: (args: unknown) => CallToolResult | Promise<CallToolResult>;
 }
 
 export type NoteTool = McpTool;
@@ -47,18 +50,23 @@ const errorResult = (message: string): CallToolResult => ({
   isError: true,
 });
 
+const toErrorResult = (error: unknown): CallToolResult =>
+  errorResult(error instanceof Error ? error.message : String(error));
+
 // Any failure (invalid arguments, database not open) must reach the MCP client as an
-// error result rather than rejecting and tearing down the transport.
+// error result rather than rejecting and tearing down the transport. 非同期ハンドラだけを
+// Promise のまま返し、同期のハンドラは同期のまま返す（結果をそのまま読む呼び出し側が壊れない）。
 const toToolHandler =
-  (run: (args: Record<string, unknown>) => CallToolResult) =>
-  (args: unknown): CallToolResult => {
+  (run: (args: Record<string, unknown>) => CallToolResult | Promise<CallToolResult>) =>
+  (args: unknown): CallToolResult | Promise<CallToolResult> => {
     try {
       if (!isRecord(args)) {
         throw new Error("Tool arguments must be an object");
       }
-      return run(args);
+      const result = run(args);
+      return result instanceof Promise ? result.catch(toErrorResult) : result;
     } catch (error) {
-      return errorResult(error instanceof Error ? error.message : String(error));
+      return toErrorResult(error);
     }
   };
 
@@ -95,6 +103,20 @@ const readOptionalTags = (args: Record<string, unknown>): string[] | undefined =
     throw new Error('"tags" must be an array of strings');
   }
   return value;
+};
+
+const readOptionalCount = (
+  args: Record<string, unknown>,
+  key: string,
+  fallback: number,
+  max: number,
+): number => {
+  const value = args[key];
+  if (value === undefined) return fallback;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    throw new Error(`"${key}" must be a positive integer`);
+  }
+  return Math.min(value, max);
 };
 
 /*
@@ -330,10 +352,81 @@ const attachImageTool: NoteTool = {
   }),
 };
 
+const DEFAULT_SEMANTIC_SEARCH_LIMIT = 10;
+const MAX_SEMANTIC_SEARCH_LIMIT = 100;
+const LOADING_REASON = "埋め込みモデルの準備中です";
+
+interface Scored {
+  score: number;
+}
+
+interface SemanticSearchHits {
+  notes: (Note & Scored)[];
+  tasks: (Task & Scored)[];
+}
+
+// 実体が消えている・ゴミ箱に入ったものは索引に残っていても結果から落とす。
+const attachEntities = (ranked: readonly Ranked[]): SemanticSearchHits => {
+  const notes: (Note & Scored)[] = [];
+  const tasks: (Task & Scored)[] = [];
+  ranked.forEach(({ entityType, entityId, score }) => {
+    if (entityType === "note") {
+      const note = getNote(entityId);
+      if (note !== null) notes.push({ ...note, score });
+      return;
+    }
+    const task = getTask(entityId);
+    if (task !== null) tasks.push({ ...task, score });
+  });
+  return { notes, tasks };
+};
+
+const searchSemantically = async (query: string, limit: number): Promise<CallToolResult> => {
+  const availability = getEmbeddingRuntime().availability();
+  if (availability.state !== "ready") {
+    const unavailable = availability.state === "loading" ? LOADING_REASON : availability.reason;
+    return jsonResult({ notes: [], tasks: [], unavailable });
+  }
+  const { provider } = availability;
+  const vector = await provider.embedQuery(query);
+  const ranked = rankBySimilarity(vector, listEmbeddings(provider.modelId), limit);
+  return jsonResult(attachEntities(ranked));
+};
+
+const semanticSearchNotesTool: NoteTool = {
+  definition: {
+    name: "semantic_search_notes",
+    description:
+      "自然文で書いた問いに意味が近いノートとタスクを、近い順に返す。" +
+      "search_notes が言葉の一致で探すのに対し、こちらは言い回しが違っても内容が近ければ見つかる" +
+      "（例: 「WSLからの接続でハマった話」で「MCPサーバーへ繋ぐときの詰まりどころ」のノートが出る）。" +
+      "埋め込みモデルの準備ができていない場合は空の結果と理由（unavailable）を返すので、" +
+      "そのときは search_notes を使うこと。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "探したい内容を表す自然文" },
+        limit: {
+          type: "integer",
+          description: `返す件数の上限（既定 ${DEFAULT_SEMANTIC_SEARCH_LIMIT}）`,
+        },
+      },
+      required: ["query"],
+    },
+  },
+  handler: toToolHandler((args) =>
+    searchSemantically(
+      readString(args, "query"),
+      readOptionalCount(args, "limit", DEFAULT_SEMANTIC_SEARCH_LIMIT, MAX_SEMANTIC_SEARCH_LIMIT),
+    ),
+  ),
+};
+
 export const noteTools: readonly NoteTool[] = [
   createNoteTool,
   getNoteTool,
   searchNotesTool,
+  semanticSearchNotesTool,
   updateNoteTool,
   deleteNoteTool,
   restoreNoteTool,

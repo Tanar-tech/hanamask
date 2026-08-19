@@ -36,7 +36,7 @@ const resolvePort = (): number => {
 
 const allTools: readonly McpTool[] = [...noteTools, ...taskTools, ...linkTools, ...uiTools];
 
-const callTool = (name: string, args: unknown): CallToolResult => {
+const callTool = async (name: string, args: unknown): Promise<CallToolResult> => {
   const tool = allTools.find((candidate) => candidate.definition.name === name);
   if (tool === undefined) {
     return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
