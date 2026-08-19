@@ -41,3 +41,11 @@ updates:
     open-pull-requests-limit: 3
     cooldown:
       default-days: 7
+    # グループを定義しないと dependency-group が空になり、自動マージの条件から
+    # 一律に外れて手動待ちで溜まる（2026-08-19、PR #172 で実測）。
+    # アクションはCIとリリースの実行環境そのものだが、SHA固定で差分が読みやすく、
+    # 必須チェックが揃わなければマージされないため、マイナー以下は自動で取り込む。
+    groups:
+      actions:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

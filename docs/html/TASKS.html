@@ -59,7 +59,6 @@
 <tr><td><a href="TASKS-local-llm.html#t48">T48</a></td><td>ローカルLLM(1) 意味検索（埋め込み）（詳細は <a href="TASKS-local-llm.html">TASKS-local-llm.html</a>）</td><td>なし</td><td>開発管理者＋開発要員（2026-08-19起票。統合ブランチ <code>feature/local-llm</code>）</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル（同上）</td><td>T48, T12</td><td>T48でランタイム同梱を固めてから</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t50">T50</a></td><td>ローカルLLM(3) 提案系補助（同上）</td><td>T48</td><td>T49の後を推奨</td></tr>
-<tr><td><a href="#t52">T52</a></td><td>GitHub Actionsの更新PRの扱いを決める</td><td>なし（推奨 T51）</td><td><strong>アクションの更新だけグループ未定義で、自動マージから一律に外れる</strong></td></tr>
 <tr><td><a href="#t53">T53</a></td><td>未マージのアクション更新（#172）を判断する</td><td>なし（推奨 T52）</td><td>調査済み・CI緑。用途はE2Eのスクショ保存のみ</td></tr>
 </tbody>
 </table>
@@ -132,7 +131,8 @@ flowchart LR
   class T43 done;
   class T48,T49,T50 todo;
   class T51 done;
-  class T52,T53 todo;
+  class T52 done;
+  class T53 todo;
   class T47 done;
   class T46 done;
   class T45 done;
@@ -922,7 +922,7 @@ flowchart TB
 
 <h3 id="t52">T52: GitHub Actionsの更新PRの扱いを決める</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #189。管理者判断により<strong>マイナー以下は自動マージの対象に含める</strong>）</li>
 <li>優先度: <strong>低</strong>（管理者要望、2026-08-19）</li>
 <li>依存: 必須: なし／推奨: <a href="#t51">T51</a>（自動マージの仕組みを流用するため）</li>
 <li>目的: <strong><code>github-actions</code> エコシステムのPRだけ、扱いが決まっていない。</strong>T51 で npm の依存は <code>development</code> / <code>production</code> / <code>production-runtime</code> に区分し、開発依存のみ自動マージするようにしたが、<strong>アクションの更新はどのグループにも属さない</strong>（<code>.github/dependabot.yml</code> の <code>groups</code> は npm 側にしか定義していない）。結果として <code>dependency-group</code> が空になり、<strong>自動マージの条件を一律に外れて手動マージ待ちで溜まる</strong>。</li>
