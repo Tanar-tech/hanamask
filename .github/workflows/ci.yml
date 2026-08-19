@@ -79,3 +79,7 @@ jobs:
           name: e2e-screenshots
           path: tests/e2e/.artifacts/
           if-no-files-found: ignore
+          # .artifacts は先頭がドットの隠しディレクトリ。upload-artifact は v4.4.0 以降
+          # 隠しファイルを既定で除外するため、これが無いと「No files were found」で
+          # 静かに何も上がらない（if-no-files-found: ignore と相まって失敗もしない）。
+          include-hidden-files: true
