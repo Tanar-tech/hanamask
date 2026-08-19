@@ -59,7 +59,6 @@
 <tr><td><a href="TASKS-local-llm.html#t48">T48</a></td><td>ローカルLLM(1) 意味検索（埋め込み）（詳細は <a href="TASKS-local-llm.html">TASKS-local-llm.html</a>）</td><td>なし</td><td>開発管理者＋開発要員（2026-08-19起票。統合ブランチ <code>feature/local-llm</code>）</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル（同上）</td><td>T48, T12</td><td>T48でランタイム同梱を固めてから</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t50">T50</a></td><td>ローカルLLM(3) 提案系補助（同上）</td><td>T48</td><td>T49の後を推奨</td></tr>
-<tr><td><a href="#t51">T51</a></td><td>ブランチ保護と、開発依存だけのDependabot自動マージ</td><td>T43（完了）</td><td><strong>着手可能。</strong>ワークフロー追加は承認事項</td></tr>
 </tbody>
 </table>
 <p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は <strong>T43 の完了により導入可能になった</strong>（公開リポジトリが前提だった）。依存追加は <a href="GOVERNANCE.html#6">GOVERNANCE.html §6</a> の承認事項のため、まだタスク化していない。</p>
@@ -130,7 +129,7 @@ flowchart LR
   class T12 frozen;
   class T43 done;
   class T48,T49,T50 todo;
-  class T51 todo;
+  class T51 done;
   class T47 done;
   class T46 done;
   class T45 done;
@@ -905,7 +904,7 @@ flowchart TB
 
 <h3 id="t51">T51: ブランチ保護と、開発依存だけのDependabot自動マージ</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（PR #187。ブランチ保護はT43で適用済み、自動マージのワークフローを本タスクで追加）</li>
 <li>優先度: <strong>中</strong>（管理者要望、2026-08-18）</li>
 <li>依存: <strong>必須: <a href="#t43">T43</a>（2026-08-18 完了）</strong>／推奨: なし</li>
 <li><strong>採番の経緯（2026-08-19）</strong>: 当初 T48 として起票したが、<strong>同じIDがローカルLLM(1)に採番された</strong>（別セッションが並行して起票し、先に main へ入った）。ID衝突を避けるため T51 に改番した。<code>docs/TASKS.md</code> に同じIDが2つ並んでも <code>check:tasks</code> は検出しない（見出し数と抽出数しか突き合わせていない）ため、<strong>採番前に main の最新を確認すること</strong>。</li>
