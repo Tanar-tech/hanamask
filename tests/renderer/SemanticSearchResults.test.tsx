@@ -7,7 +7,7 @@ import type {
   ScoredNote,
   ScoredTask,
   SemanticSearchResult,
-} from "../../src/renderer/components/RelatedNotes";
+} from "../../src/shared/preload-api";
 import { stubHanamask } from "./hanamask-stub";
 
 const NOTE_TITLE = "ポート固定をやめる";

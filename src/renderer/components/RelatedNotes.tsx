@@ -1,56 +1,5 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
-import type { Note, Task } from "../../shared/preload-api";
-
-/*
- * 意味検索のpreload APIはPhase 4で `preload-api.ts` に入る。それまでの間、
- * レンダラー側だけで契約を持ち、実体があるかどうかを実行時に確かめてから使う。
- */
-export interface ScoredNote extends Note {
-  score: number;
-}
-
-export interface ScoredTask extends Task {
-  score: number;
-}
-
-export interface SemanticSearchResult {
-  notes: ScoredNote[];
-  tasks: ScoredTask[];
-  unavailable?: string;
-}
-
-export interface RelatedNotesResult {
-  notes: ScoredNote[];
-  unavailable?: string;
-}
-
-export interface EmbeddingStatus {
-  state: "ready" | "loading" | "unavailable";
-  pending: number;
-  reason?: string;
-}
-
-export interface EmbeddingApi {
-  semanticSearch(query: string, limit?: number): Promise<SemanticSearchResult>;
-  relatedNotes(noteId: string, limit?: number): Promise<RelatedNotesResult>;
-  readEmbeddingStatus(): Promise<EmbeddingStatus>;
-  onEmbeddingStatusChanged(callback: (status: EmbeddingStatus) => void): () => void;
-}
-
-const EMBEDDING_API_KEYS: readonly string[] = [
-  "semanticSearch",
-  "relatedNotes",
-  "readEmbeddingStatus",
-  "onEmbeddingStatusChanged",
-];
-
-const isEmbeddingApi = (api: object): api is EmbeddingApi =>
-  EMBEDDING_API_KEYS.every((key) => typeof Reflect.get(api, key) === "function");
-
-export const readEmbeddingApi = (): EmbeddingApi | null => {
-  const api: object = window.hanamask;
-  return isEmbeddingApi(api) ? api : null;
-};
+import type { EmbeddingStatus, RelatedNotesResult } from "../../shared/preload-api";
 
 const UNAVAILABLE_STATUS: EmbeddingStatus = {
   state: "unavailable",
@@ -59,19 +8,20 @@ const UNAVAILABLE_STATUS: EmbeddingStatus = {
 
 /** 意味検索の欄で共通する「状態と結果を読み、状態変化で読み直す」部分。 */
 export const useSemanticSection = <T,>(
-  load: (api: EmbeddingApi) => Promise<T>,
+  load: () => Promise<T>,
   emptyResult: T,
 ): { status: EmbeddingStatus | null; result: T } => {
   const [status, setStatus] = useState<EmbeddingStatus | null>(null);
   const [result, setResult] = useState<T>(emptyResult);
 
   useEffect(() => {
-    const api = readEmbeddingApi();
-    if (api === null) return;
     let abandoned = false;
     const refresh = async (): Promise<void> => {
       try {
-        const [nextStatus, nextResult] = await Promise.all([api.readEmbeddingStatus(), load(api)]);
+        const [nextStatus, nextResult] = await Promise.all([
+          window.hanamask.readEmbeddingStatus(),
+          load(),
+        ]);
         if (abandoned) return;
         setStatus(nextStatus);
         setResult(nextResult);
@@ -81,7 +31,7 @@ export const useSemanticSection = <T,>(
       }
     };
     void refresh();
-    const unsubscribe = api.onEmbeddingStatusChanged(() => {
+    const unsubscribe = window.hanamask.onEmbeddingStatusChanged(() => {
       void refresh();
     });
     return () => {
@@ -118,10 +68,7 @@ interface RelatedNotesProps {
 }
 
 export const RelatedNotes = ({ noteId, onSelectNote }: RelatedNotesProps): JSX.Element | null => {
-  const load = useCallback(
-    (api: EmbeddingApi) => api.relatedNotes(noteId, RELATED_LIMIT),
-    [noteId],
-  );
+  const load = useCallback(() => window.hanamask.relatedNotes(noteId, RELATED_LIMIT), [noteId]);
   const { status, result } = useSemanticSection(load, EMPTY_RESULT);
 
   if (status === null || status.state === "unavailable") return null;

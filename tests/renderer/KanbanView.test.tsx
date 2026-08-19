@@ -75,6 +75,10 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     saveChatApiKey: vi.fn(async () => ({ apiKeyMask: "4f2a", model: "claude-sonnet-4-5" })),
     clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatModel: vi.fn(async (model: string) => ({ apiKeyMask: null, model })),
+    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [] })),
+    relatedNotes: vi.fn(async () => ({ notes: [] })),
+    readEmbeddingStatus: vi.fn(async () => ({ state: "unavailable" as const, pending: 0 })),
+    onEmbeddingStatusChanged: vi.fn(() => () => {}),
   };
   return { listTasks, onTasksChanged, updateTaskStatus, listeners, unsubscribe };
 };

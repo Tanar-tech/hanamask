@@ -20,13 +20,11 @@ import {
 } from "../db/tasks-repo.js";
 import { listTagsInUse } from "../db/tags-repo.js";
 import { createLink, deleteLink, listLinks, toEntityType } from "../db/links-repo.js";
-import { listEmbeddings } from "../db/embeddings-repo.js";
-import { getEmbeddingRuntime } from "../llm/index.js";
-import { rankBySimilarity, type Ranked } from "../llm/semantic-search.js";
+import { searchSemanticEntities } from "../llm/semantic-search-service.js";
 import { attachImage } from "../images/attach-image.js";
 import { navigateUi, showUiWindow } from "../ui/navigate.js";
 import { emitLinksChanged, emitNotesChanged, emitTasksChanged } from "./change-emitter.js";
-import type { EntityType, Note, Task, TaskStatus } from "../../shared/preload-api.js";
+import type { EntityType, TaskStatus } from "../../shared/preload-api.js";
 
 export interface McpTool {
   definition: Tool;
@@ -354,44 +352,10 @@ const attachImageTool: NoteTool = {
 
 const DEFAULT_SEMANTIC_SEARCH_LIMIT = 10;
 const MAX_SEMANTIC_SEARCH_LIMIT = 100;
-const LOADING_REASON = "埋め込みモデルの準備中です";
 
-interface Scored {
-  score: number;
-}
-
-interface SemanticSearchHits {
-  notes: (Note & Scored)[];
-  tasks: (Task & Scored)[];
-}
-
-// 実体が消えている・ゴミ箱に入ったものは索引に残っていても結果から落とす。
-const attachEntities = (ranked: readonly Ranked[]): SemanticSearchHits => {
-  const notes: (Note & Scored)[] = [];
-  const tasks: (Task & Scored)[] = [];
-  ranked.forEach(({ entityType, entityId, score }) => {
-    if (entityType === "note") {
-      const note = getNote(entityId);
-      if (note !== null) notes.push({ ...note, score });
-      return;
-    }
-    const task = getTask(entityId);
-    if (task !== null) tasks.push({ ...task, score });
-  });
-  return { notes, tasks };
-};
-
-const searchSemantically = async (query: string, limit: number): Promise<CallToolResult> => {
-  const availability = getEmbeddingRuntime().availability();
-  if (availability.state !== "ready") {
-    const unavailable = availability.state === "loading" ? LOADING_REASON : availability.reason;
-    return jsonResult({ notes: [], tasks: [], unavailable });
-  }
-  const { provider } = availability;
-  const vector = await provider.embedQuery(query);
-  const ranked = rankBySimilarity(vector, listEmbeddings(provider.modelId), limit);
-  return jsonResult(attachEntities(ranked));
-};
+// 検索そのものは semantic-search-service にある。画面（IPC）と同じ結果を返すため共有する。
+const searchSemantically = async (query: string, limit: number): Promise<CallToolResult> =>
+  jsonResult(await searchSemanticEntities(query, limit));
 
 const semanticSearchNotesTool: NoteTool = {
   definition: {
