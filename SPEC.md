@@ -171,6 +171,21 @@ CREATE TABLE IF NOT EXISTS embeddings (
 
 **同梱**（Set F）— `node-llama-cpp@^3.20.0` を dependencies に追加。`scripts/fetch-embedding-model.mjs` が Hugging Face から GGUF＋LICENSE を `resources/models/` に取得（URL・sha256 は `resources/models/embedding.json` の隣の `sources.json` に固定。`resources/models/*.gguf` は .gitignore）。`electron-builder.yml`: `extraResources: [{from: resources/models, to: models}]`、`asarUnpack` に `**/node_modules/@node-llama-cpp/**` と `**/node_modules/node-llama-cpp/bins/**`、`files` に `!node_modules/@node-llama-cpp/win-x64-cuda*/**`・`!node_modules/@node-llama-cpp/win-x64-vulkan/**`・`!node_modules/node-llama-cpp/llama/gitRelease.bundle`。実行時のモデルディレクトリは `app.isPackaged ? join(process.resourcesPath, "models") : join(repoRoot, "resources/models")`（`HANAMASK_MODELS_DIR` で上書き可、E2E 用）。CI に `NODE_LLAMA_CPP_SKIP_DOWNLOAD=true`。`docs/PACKAGING.md` にモデル取得手順とサイズ実績を追記。
 
+### セキュリティ要件（管理者指示 2026-08-19。該当セット／Phase 4 で必ず満たす）
+
+| # | 要件 | 担当 |
+|---|---|---|
+| S1 | モデル取得は **HTTPS の固定URL**（`sources.json`）に限定し、**sha256 検証必須**。不一致は破棄し部分ファイルを残さない。利用者が任意URL・任意パスを入れる口を作らない | F |
+| S2 | `node-llama-cpp` と `@node-llama-cpp/*` は **lockfile で同一バージョン固定**（GGUF パーサ脆弱性への追随は Dependabot 本番グループで行う）。ハッシュ検証済みの GGUF 以外を読まない | F |
+| S3 | **外部通信が発生しない**（モデル取得はビルド時のみ）。実行時コード（`src/main/llm/`）に fetch/http を置かない。テストで `llama-embedding-provider.ts` 等が `node:http(s)`/`fetch` を import・呼び出ししないことを固定する | B（済: 通信なし）/ Phase 4 でテスト追加 |
+| S4 | ログ・エラーメッセージ・`unavailable.reason` に**ノート本文・埋め込み対象テキストを載せない**（ファイルパスやモデルIDまで） | B/C/D（レビューで確認） |
+| S5 | モデルロード失敗・推論例外は必ず `unavailable` に畳み、アプリ本体・MCPサーバーを道連れにしない。`contextSize` はマニフェスト固定（`auto` 禁止）。長文は文字数で切る | B/C（済） |
+| S6 | node-llama-cpp は **main プロセス専用**。レンダラーは IPC 経由のみ。IPC 引数（`query`, `limit`, `noteId`）は型ガードで検証する。モデルパスは `process.resourcesPath` / userData 配下に固定し、レンダラー・MCP からパスを指定できる API を作らない | Phase 4 / D |
+| S7 | ベクトルは本文と同等に扱う（バックアップ・書き出しに乗る。別扱いの緩和はしない） | A（済） |
+| S8 | CPU版のみ同梱（CUDA/Vulkan を入れない）— 攻撃面を増やさない | F |
+
+T49 以降（プロンプトインジェクション、利用者持ち込み GGUF の可否、ローカルモデルへの書き込み系ツール制限）は `docs/TASKS-local-llm.md` の T49/T50 に記載。
+
 ### 実装セット
 
 **セット 0: モデル検証スパイク（Phase 3 の前に単独で実施、成果はドキュメントのみ）**
