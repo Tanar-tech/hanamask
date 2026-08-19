@@ -7,6 +7,7 @@ import { closeDb, getDb, openDb } from "../../../src/main/db/db";
 import { createNote, getNote, softDeleteNote } from "../../../src/main/db/notes-repo";
 import { createTask, getTask, softDeleteTask } from "../../../src/main/db/tasks-repo";
 import { purgeSoftDeletedRecords } from "../../../src/main/db/purge";
+import { upsertEmbedding } from "../../../src/main/db/embeddings-repo";
 
 const NOW = new Date("2026-08-04T00:00:00.000Z");
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -20,6 +21,27 @@ const setNoteDeletedAt = (id: string, deletedAt: string): void => {
 
 const setTaskDeletedAt = (id: string, deletedAt: string): void => {
   getDb().prepare("UPDATE tasks SET deleted_at = ? WHERE id = ?").run(deletedAt, id);
+};
+
+const MODEL_ID = "test-model";
+
+const storeEmbedding = (entityType: "note" | "task", entityId: string): void => {
+  upsertEmbedding({
+    entityType,
+    entityId,
+    modelId: MODEL_ID,
+    contentHash: "hash",
+    vector: new Float32Array([1]),
+    updatedAt: NOW.toISOString(),
+  });
+};
+
+const countEmbeddings = (): number => {
+  const row: unknown = getDb().prepare("SELECT COUNT(*) AS total FROM embeddings").get();
+  if (typeof row !== "object" || row === null || !("total" in row)) {
+    throw new Error("Unexpected count row shape");
+  }
+  return Number(row.total);
 };
 
 const createSoftDeletedNote = (daysAgo: number): string => {
@@ -116,5 +138,27 @@ describe("purgeSoftDeletedRecords", () => {
       tasksPurged: 0,
     });
     expect(getNote(id)?.id).toBe(id);
+  });
+
+  it("物理削除したノート・タスクの埋め込み行も消す", () => {
+    const noteId = createSoftDeletedNote(31);
+    const taskId = createSoftDeletedTask(31);
+    storeEmbedding("note", noteId);
+    storeEmbedding("task", taskId);
+
+    purgeSoftDeletedRecords(NOW);
+
+    expect(countEmbeddings()).toBe(0);
+  });
+
+  it("残った記録の埋め込み行は消さない", () => {
+    const note = createNote({ title: "生きてる", body: "本文", tags: [] });
+    const deletedId = createSoftDeletedNote(31);
+    storeEmbedding("note", note.id);
+    storeEmbedding("note", deletedId);
+
+    purgeSoftDeletedRecords(NOW);
+
+    expect(countEmbeddings()).toBe(1);
   });
 });
