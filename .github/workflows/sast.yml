@@ -4,7 +4,7 @@ name: SAST
 # 必須チェックに入っているため、除外されたPRは永久に条件が揃わずマージできなくなる。
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "feature/**"]
   push:
     branches: [main]
 
