@@ -1,5 +1,6 @@
 import { useEffect, useState, type JSX } from "react";
 import type { Note } from "../../shared/preload-api";
+import { SemanticSearchResults } from "./SemanticSearchResults";
 import { TagList } from "./TagList";
 
 const BODY_PREVIEW_LENGTH = 120;
@@ -19,10 +20,16 @@ const TITLE_BUTTON = `${FOCUS_RING} m-0 cursor-pointer appearance-none border-0 
 interface SearchResultsProps {
   query: string;
   onSelectNote: (id: string) => void;
+  onSelectTask?: (id: string) => void;
   onBack: () => void;
 }
 
-export const SearchResults = ({ query, onSelectNote, onBack }: SearchResultsProps): JSX.Element => {
+export const SearchResults = ({
+  query,
+  onSelectNote,
+  onSelectTask,
+  onBack,
+}: SearchResultsProps): JSX.Element => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,6 +99,11 @@ export const SearchResults = ({ query, onSelectNote, onBack }: SearchResultsProp
           ))}
         </ul>
       )}
+      <SemanticSearchResults
+        query={query}
+        onSelectNote={onSelectNote}
+        onSelectTask={onSelectTask}
+      />
     </section>
   );
 };

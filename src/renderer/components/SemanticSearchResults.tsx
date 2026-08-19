@@ -9,9 +9,8 @@ import {
   TITLE_BUTTON,
   TYPE_BADGE,
   useSemanticSection,
-  type EmbeddingApi,
-  type SemanticSearchResult,
 } from "./RelatedNotes";
+import type { SemanticSearchResult } from "../../shared/preload-api";
 
 const HEADING = "意味が近い記録";
 const NOTE_LABEL = "ノート";
@@ -77,10 +76,7 @@ export const SemanticSearchResults = ({
   onSelectNote,
   onSelectTask,
 }: SemanticSearchResultsProps): JSX.Element | null => {
-  const load = useCallback(
-    (api: EmbeddingApi) => api.semanticSearch(query, SEMANTIC_LIMIT),
-    [query],
-  );
+  const load = useCallback(() => window.hanamask.semanticSearch(query, SEMANTIC_LIMIT), [query]);
   const { status, result } = useSemanticSection(load, EMPTY_RESULT);
 
   if (status === null || status.state === "unavailable") return null;

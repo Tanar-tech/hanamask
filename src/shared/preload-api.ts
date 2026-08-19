@@ -123,6 +123,33 @@ export interface TaskInput {
   dueDate: string | null;
 }
 
+/* 意味検索の結果。score は正規化済みベクトルのコサイン類似度（大きいほど近い）。 */
+export interface ScoredNote extends Note {
+  score: number;
+}
+
+export interface ScoredTask extends Task {
+  score: number;
+}
+
+/* unavailable が入っているときは中身が空。理由をUIとエージェントに同じ形で伝える。 */
+export interface SemanticSearchResult {
+  notes: ScoredNote[];
+  tasks: ScoredTask[];
+  unavailable?: string;
+}
+
+export interface RelatedNotesResult {
+  notes: ScoredNote[];
+  unavailable?: string;
+}
+
+export interface EmbeddingStatus {
+  state: "ready" | "loading" | "unavailable";
+  pending: number;
+  reason?: string;
+}
+
 export type EntityType = "note" | "task";
 
 export interface Link {
@@ -226,4 +253,8 @@ export interface HanamaskPreloadApi {
   // 保存先・読み込み元の選択はmain側のOSダイアログで行う。レンダラーはパスを組み立てない。
   exportBackup(): Promise<BackupExportResult>;
   importBackup(): Promise<BackupImportResult>;
+  semanticSearch(query: string, limit?: number): Promise<SemanticSearchResult>;
+  relatedNotes(noteId: string, limit?: number): Promise<RelatedNotesResult>;
+  readEmbeddingStatus(): Promise<EmbeddingStatus>;
+  onEmbeddingStatusChanged(callback: (status: EmbeddingStatus) => void): () => void;
 }

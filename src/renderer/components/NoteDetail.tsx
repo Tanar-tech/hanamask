@@ -4,10 +4,12 @@ import { EntityLinks } from "./EntityLinks";
 import { MarkdownDocument } from "./MarkdownDocument";
 import { TagList } from "./TagList";
 import { NoteVersionHistory } from "./NoteVersionHistory";
+import { RelatedNotes } from "./RelatedNotes";
 
 interface NoteDetailProps {
   noteId: string;
   onBack: () => void;
+  onSelectNote: (id: string) => void;
 }
 
 interface NoteDraft {
@@ -170,7 +172,7 @@ const NoteEditForm = ({
   </div>
 );
 
-export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => {
+export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): JSX.Element => {
   const [note, setNote] = useState<Note | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<Image[]>([]);
@@ -431,6 +433,7 @@ export const NoteDetail = ({ noteId, onBack }: NoteDetailProps): JSX.Element => 
             )}
           </section>
           <EntityLinks entityType="note" entityId={noteId} />
+          <RelatedNotes noteId={noteId} onSelectNote={onSelectNote} />
           <NoteVersionHistory
             noteId={noteId}
             onRestored={setNote}

@@ -6,7 +6,7 @@ import type {
   EmbeddingStatus,
   RelatedNotesResult,
   ScoredNote,
-} from "../../src/renderer/components/RelatedNotes";
+} from "../../src/shared/preload-api";
 import { stubHanamask } from "./hanamask-stub";
 
 const RELATED_TITLE = "WSLからWindowsのMCPサーバーへ接続する";
