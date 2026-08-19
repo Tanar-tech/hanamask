@@ -172,11 +172,19 @@ release/win-unpacked/
 - MCPサーバーがパッケージ後も起動し、外部AIエージェントから接続できること
 - コード署名が無いため、初回起動時に SmartScreen の警告が出る想定。その挙動の確認
 
-埋め込みモデルの同梱（T48）について、Windows 実機で追加確認すること。
+### 検証済み（2026-08-19、T48 意味検索）
 
-- `npm run fetch:model` が Windows でも完走し、sha256 が一致すること
-- インストーラーのサイズ実測（増分が上記の見込み約90MBと合っているか）。実測値をこの節に追記する
-- パッケージ後の状態で `resources/models/` に GGUF・`embedding.json`・`.LICENSE` が置かれ、意味検索の欄が出ること（`asarUnpack` と `extraResources` が効いているかの確認）
+WSL から Windows 側ツールチェーン（Node v24.15.0）で `impl/t48`（`fa293c9`）をビルド・実行して確認した。
+
+- `npm run fetch:model`: 取得済み GGUF の sha256 一致でスキップすることを確認（ダウンロード経路はリリースアセット公開後に確認）
+- `npm test` 951件、`npm run test:e2e` 29件（意味検索1本含む）が Windows でも緑。`@node-llama-cpp/win-x64` のプリビルドで実モデルが動く
+- `npm run package:win`: 約16分。生成物 `release/hanamask-Setup-1.0.0.exe` = **205,510,811 bytes（約196 MiB）**。0.3.0（126 MB）比 **+79 MB**（モデル 73 MiB ＋ エンジン）
+- パッケージ後: `resources/models/` に GGUF・`embedding.json`・`.LICENSE` が置かれ、`app.asar.unpacked/node_modules/@node-llama-cpp/` は `win-x64` のみ（cuda/vulkan/arm64 なし）。`win-unpacked/hanamask.exe` を一時DBで起動し、MCP の `semantic_search_notes` が `unavailable` なしで近いノートを返すことを確認
+
+埋め込みモデルの同梱（T48）について、Windows 実機で未確認のもの。
+
+- リリースアセット公開後、GGUF が無い状態から `npm run fetch:model` のダウンロード経路が完走すること
+- インストーラーでの実インストール（署名なしの SmartScreen 挙動含む）
 
 確認手順は `.claude/skills/e2e-runner/SKILL.md` の方針に従い手動で行う（インストーラー検証の自動化は行わない）。
 
