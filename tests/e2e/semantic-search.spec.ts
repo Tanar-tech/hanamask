@@ -7,7 +7,10 @@ import {
   callMcpTool,
   createNoteViaMcp,
   launchApp,
+  openNoteDetail,
+  openNoteList,
   reserveMcpPort,
+  SCREENSHOT_DIR,
   type CallToolResult,
 } from "./helpers.js";
 
@@ -22,6 +25,10 @@ const POLL_INTERVAL_MS = 1000;
 const NEAR_TITLE = "WSLからWindowsのMCPサーバーへ接続する手順";
 const FAR_TITLE = "今日の昼食はカレー";
 const QUERY = "Windows側への接続でハマった話";
+const SEARCH_FIELD_LABEL = "ノートとタスクを検索";
+const SEMANTIC_LIST_LABEL = "意味が近い記録";
+const RELATED_LIST_LABEL = "関連するノート";
+const LOADING_MESSAGE = "準備中です";
 
 const modelsDirPath = (): string =>
   process.env.HANAMASK_MODELS_DIR ?? join(import.meta.dirname, "../../resources/models");
@@ -109,9 +116,35 @@ describe.skipIf(!hasEmbeddingModel())("semantic search (find notes by meaning)",
       tags: [],
     });
 
+    // モデルの読み込み中（起動直後の数秒）に詳細を開くと「準備中です」が出る。
+    // 間に合うかは環境次第なので、見えたときだけ撮る（受け入れ条件の確認は下の2枚）。
+    await openNoteList(window);
+    await openNoteDetail(window, NEAR_TITLE);
+    if (await window.getByText(LOADING_MESSAGE).isVisible()) {
+      await window.screenshot({ path: join(SCREENSHOT_DIR, "semantic-03-loading.png") });
+    }
+
     const titles = await waitForIndexedTitles(2);
 
     expect(titles).toContain(NEAR_TITLE);
     expect(titles[0]).toBe(NEAR_TITLE);
+
+    // 画面側: 検索結果の「意味が近い記録」欄に近いノートが出る
+    await window.getByRole("button", { name: "戻る" }).click();
+    await window.getByRole("button", { name: "ホーム", exact: true }).click();
+    await window.getByLabel(SEARCH_FIELD_LABEL).fill(QUERY);
+    await window.getByRole("button", { name: "検索", exact: true }).click();
+    const semanticList = window.getByRole("list", { name: SEMANTIC_LIST_LABEL });
+    await semanticList.getByText(NEAR_TITLE).waitFor();
+    await window.screenshot({ path: join(SCREENSHOT_DIR, "semantic-01-search-results.png") });
+
+    // 画面側: ノート詳細の「関連するノート」欄に、自分以外の近いノートが出る
+    await window.getByRole("button", { name: "戻る" }).click();
+    await openNoteList(window);
+    await openNoteDetail(window, NEAR_TITLE);
+    const relatedList = window.getByRole("list", { name: RELATED_LIST_LABEL });
+    await relatedList.getByText(FAR_TITLE).waitFor();
+    await expect.poll(() => relatedList.getByText(NEAR_TITLE).count()).toBe(0);
+    await window.screenshot({ path: join(SCREENSHOT_DIR, "semantic-02-note-detail-related.png") });
   });
 });
