@@ -18,6 +18,8 @@ files:
   # 配布物へ持ち込むと攻撃面が広がるだけになる（SPEC セキュリティ要件 S8）。
   - "!node_modules/@node-llama-cpp/win-x64-cuda*/**"
   - "!node_modules/@node-llama-cpp/win-x64-vulkan/**"
+  # 対象は x64 のみ。arm64 のプリビルド（約22MB）は使われない。
+  - "!node_modules/@node-llama-cpp/win-arm64/**"
   # llama.cpp のソースを丸ごと含む git bundle。実行には使わない。
   - "!node_modules/node-llama-cpp/llama/gitRelease.bundle"
 
