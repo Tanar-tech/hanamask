@@ -50,12 +50,11 @@
 </tbody>
 </table>
 
-<h3 id="remaining">残作業（2026-08-17時点）</h3>
-<p>要求定義由来の機能タスク・実装済み機能の穴・技術的負債はすべて解消済み。残っているのは<strong>公開</strong>と<strong>定着</strong>（作ったものが実際に使われる状態にする）の2系統。定着タスクの着手順は <strong>T46 → T45 → T44</strong> を推奨する（理由は「定着」セクション冒頭）。</p>
+<h3 id="remaining">残作業（2026-08-19時点）</h3>
+<p><strong>公開（T43）と定着（T44〜T47）は完了し、v1.0.0 を出した。</strong>残っているのは<strong>ローカルLLMの組み込み</strong>（T48〜T50、2026-08-19起票）と、凍結中のT12。</p>
 <table>
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th><th>実行者</th></tr></thead>
 <tbody>
-<tr><td><a href="#t43">T43</a></td><td>リポジトリのpublic化と公開</td><td>T38</td><td><strong>public化の実行は管理者専任</strong>（不可逆のため）</td></tr>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル</td><td>T03, T05</td><td>凍結中。実装は残したまま画面から外している（2026-08-10、管理者判断）</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t48">T48</a></td><td>ローカルLLM(1) 意味検索（埋め込み）（詳細は <a href="TASKS-local-llm.html">TASKS-local-llm.html</a>）</td><td>なし</td><td>開発管理者＋開発要員（2026-08-19起票。統合ブランチ <code>feature/local-llm</code>）</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル（同上）</td><td>T48, T12</td><td>T48でランタイム同梱を固めてから</td></tr>
@@ -63,7 +62,7 @@
 <tr><td><a href="#t51">T51</a></td><td>ブランチ保護と、開発依存だけのDependabot自動マージ</td><td>T43（完了）</td><td><strong>着手可能。</strong>ワークフロー追加は承認事項</td></tr>
 </tbody>
 </table>
-<p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は T43 の完了が前提。公開リポジトリでないとトークンの埋め込みが必要になり現実的でないため。</p>
+<p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は <strong>T43 の完了により導入可能になった</strong>（公開リポジトリが前提だった）。依存追加は <a href="GOVERNANCE.html#6">GOVERNANCE.html §6</a> の承認事項のため、まだタスク化していない。</p>
 
 <pre class="mermaid">
 flowchart LR
@@ -129,7 +128,7 @@ flowchart LR
   class T29,T30,T31,T32,T33,T34,T35,T36,T37,T38,T39,T40,T41,T42 done;
   class T01,T02,T13,T14 done;
   class T12 frozen;
-  class T43 todo;
+  class T43 done;
   class T48,T49,T50 todo;
   class T51 todo;
   class T47 done;
@@ -781,7 +780,19 @@ flowchart LR
 
 <h3 id="t43">T43: リポジトリのパブリック化と公開</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（2026-08-18。public化・ブランチ保護・疎通確認まで実施。PR #175 で保護スクリプトを用意）</li>
+<li><strong>実績（2026-08-18）</strong>:
+<ul>
+<li><strong>公開直前の再棚卸し</strong>: 秘密情報なし（git履歴全体を走査。検出はテスト用の偽鍵2件のみ）、個人情報なし、<code>package.json</code> と <code>LICENSE</code> がともに Apache-2.0、本番依存332件すべて許容ライセンス、本番依存の脆弱性0件</li>
+<li><strong>管理者がpublic化を実行</strong>。直後に <code>./scripts/apply-branch-protection.sh</code> でブランチ保護を適用した</li>
+<li><strong>保護が効くことを実測</strong>: 直接pushが <code>GH006: Protected branch update failed</code> で拒否されることを確認。必須チェックは <code>build-and-test (ubuntu-latest)</code> / <code>build-and-test (windows-latest)</code> / <code>semgrep</code>、force push・ブランチ削除は禁止、<strong>管理者にも適用</strong></li>
+<li><strong><code>enforce_admins</code> は当初 false にしたが true に変更した。</strong>開発管理者は管理者アカウントで動くため、除外すると<strong>開発管理者にも保護が効かない</strong>（実際に検証中、mainへ空コミットが1件入った。差分ゼロのため内容への影響はなく、管理者判断で残置）。「mainへ直接pushしない」を技術的に強制するには true が要る</li>
+<li><strong>必要な承認数は0</strong>。単独開発では自分のPRを自分で承認できず、1以上にすると自分のPRがマージできなくなる</li>
+<li><strong>匿名（未ログイン）での疎通確認</strong>: リポジトリ・README・Releases・インストーラーがいずれも200で取得できることを確認</li>
+<li><strong>v1.0.0 をリリース</strong>（PR #177）。インストーラーの <strong>SHA-512 が <code>latest.yml</code> の宣言値と一致</strong>することを実測</li>
+</ul>
+</li>
+<li><strong>公開により変わったこと</strong>: <a href="SIGNING.html">SIGNING.html</a> の選択肢C（Certum Open Source Code Signing、年$50〜70）が<strong>条件を満たすようになった</strong>。署名なしの方針は据え置き。また <strong>T48（ブランチ保護と開発依存の自動マージ）の前提が解消</strong>された</li>
 <li>優先度: <strong>高</strong>（管理者要望、2026-08-17。T38の準備が完了したため実行段階に入る）</li>
 <li>依存: 必須: <a href="#t38">T38</a>（公開準備。メタファイル・ライセンス整合・個人情報除去・依存ライセンス監査）／推奨: なし</li>
 <li>目的: T38で「公開できる状態」までは整えたが、<strong>公開そのものは行っていない</strong>ため、hanamaskは依然としてprivateリポジトリのままである。<a href="GOVERNANCE.html#3-ブランチ戦略">GOVERNANCE.html</a> §3.1のとおり配布はインストーラーの再配布によっており、<strong>公開しない限り <code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）も導入できない</strong>。本タスクでpublic化を実行し、OSSとして公開された状態にする。</li>
