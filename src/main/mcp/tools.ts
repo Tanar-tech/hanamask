@@ -397,11 +397,10 @@ const semanticSearchNotesTool: NoteTool = {
   definition: {
     name: "semantic_search_notes",
     description:
-      "自然文で書いた問いに意味が近いノートとタスクを、近い順に返す。" +
-      "search_notes が言葉の一致で探すのに対し、こちらは言い回しが違っても内容が近ければ見つかる" +
-      "（例: 「WSLからの接続でハマった話」で「MCPサーバーへ繋ぐときの詰まりどころ」のノートが出る）。" +
-      "埋め込みモデルの準備ができていない場合は空の結果と理由（unavailable）を返すので、" +
-      "そのときは search_notes を使うこと。",
+      "Find notes and tasks whose meaning is close to a natural-language query, nearest first. " +
+      "Unlike search_notes (keyword match), this finds records phrased differently but about the same thing. " +
+      "Use it before starting work to pull up past findings even when you do not know the exact wording. " +
+      "When the embedding model is not ready it returns empty results with an `unavailable` reason; fall back to search_notes then.",
     inputSchema: {
       type: "object",
       properties: {
