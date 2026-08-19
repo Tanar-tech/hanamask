@@ -1,15 +1,12 @@
 name: SAST
 
+# ci.yml と同じ理由で paths-ignore を外している（2026-08-18）。semgrep はブランチ保護の
+# 必須チェックに入っているため、除外されたPRは永久に条件が揃わずマージできなくなる。
 on:
   pull_request:
     branches: [main]
-    paths-ignore: &non_functional_paths
-      - "**/*.md"
-      - "docs/**"
-      - ".claude/**"
   push:
     branches: [main]
-    paths-ignore: *non_functional_paths
 
 concurrency:
   group: sast-${{ github.workflow }}-${{ github.ref }}
