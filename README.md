@@ -170,6 +170,7 @@ Mermaid図は ```` ```mermaid ```` のコードフェンスとして書く。
 | `create_note` | ノートを作成する（`title`, `body`, 任意の `tags`） |
 | `get_note` | idで1件取得する（存在しなければ `null`） |
 | `search_notes` | タイトル・本文の部分一致検索（空文字で全件） |
+| `semantic_search_notes` | 意味の近いノート・タスクを探す（言葉が一致しなくても内容が近ければ出る。モデルが準備できていなければ空の結果と理由を返す） |
 | `update_note` | タイトル・本文・タグを更新する（省略した項目は据え置き） |
 | `delete_note` | ソフトデリートする（`confirm: true` 必須） |
 | `restore_note` | ソフトデリートしたノートを復元する |
@@ -212,7 +213,6 @@ Mermaid図は専用ツールを持たず、ノート本文へのインライン�
 ### 未実装
 
 - AIチャットパネル（BYO Agent）は未実装（[docs/TASKS.md](docs/TASKS.md) T12）。
-- ローカルLLMによる意味検索（`semantic_search_notes`）は未実装（[docs/TASKS.md](docs/TASKS.md) T48。統合ブランチ `feature/local-llm` で開発中）。
 
 ## 破壊的操作のガードレール
 

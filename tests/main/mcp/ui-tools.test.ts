@@ -9,7 +9,10 @@ const navigate = vi.fn();
 const callTool = (name: string, args: unknown): CallToolResult => {
   const tool = findUiTool(name);
   if (tool === undefined) throw new Error(`Tool not found: ${name}`);
-  return tool.handler(args);
+  const result = tool.handler(args);
+  // ここで扱うのは同期ハンドラだけ。非同期のツールは専用のテストで待って確かめる。
+  if (result instanceof Promise) throw new Error(`Tool is asynchronous: ${name}`);
+  return result;
 };
 
 const readJsonPayload = (result: CallToolResult): unknown => {
@@ -105,6 +108,6 @@ describe("mcp ui tools", () => {
     const openApp = freshTools.findUiTool("open_app");
     if (openApp === undefined) throw new Error("open_app tool not found");
 
-    expect(openApp.handler({}).isError).toBe(true);
+    expect((await openApp.handler({})).isError).toBe(true);
   });
 });
