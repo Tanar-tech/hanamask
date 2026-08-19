@@ -61,6 +61,11 @@ jobs:
             exit 1
           fi
 
+      # 同梱する埋め込みモデル(GGUF)はリポジトリに置いていない（77MB）。
+      # sources.json の固定URLから取得し、sha256 を検証してから同梱する。
+      - name: 埋め込みモデルを取得する
+        run: npm run fetch:model
+
       # --publish never を明示する。electron-builder.yml に publish 設定があるため、
       # CI上でタグを検出すると electron-builder 自身がアップロードを試みる。
       # 添付は後段の gh CLI に一本化し、経路を2つ持たない。

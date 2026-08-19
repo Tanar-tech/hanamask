@@ -5,6 +5,18 @@ This product includes software developed as part of the hanamask project
 (https://github.com/Tanar-tech/hanamask), licensed under the Apache License,
 Version 2.0.
 
+This product bundles an embedding model for local semantic search:
+
+    ruri-v3-70m (cl-nagoya)
+    https://huggingface.co/cl-nagoya/ruri-v3-70m
+    Copyright Nagoya University (cl-nagoya)
+    Licensed under the Apache License, Version 2.0
+    Modified: converted to GGUF and quantized to 8 bits (Q8_0) by the
+    hanamask project. No changes to the model weights beyond quantization.
+
+The full license text ships alongside the model file as
+resources/models/ruri-v3-70m.LICENSE.
+
 Third-party dependencies are distributed under their own licenses. A machine
 readable summary can be regenerated with:
 

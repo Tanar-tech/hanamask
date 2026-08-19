@@ -14,6 +14,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# node-llama-cpp はプリビルドバイナリが無いとインストール時に llama.cpp を
+# ソースからビルドしようとする（CIでは数十分かかる上に環境差で壊れる）。
+# 配布もプリビルド前提なので、CIでも同じ前提を固定する。
+env:
+  NODE_LLAMA_CPP_SKIP_DOWNLOAD: "true"
+
 jobs:
   build-and-test:
     # 配布対象は Windows なのに、CI は ubuntu でしか回っていなかった。

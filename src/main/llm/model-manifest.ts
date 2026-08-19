@@ -13,6 +13,7 @@ export interface EmbeddingModelManifest {
   file: string;
   dimensions: number;
   contextSize: number;
+  batchSize: number;
   queryPrefix: string;
   documentPrefix: string;
   license: EmbeddingModelLicense;
@@ -34,6 +35,7 @@ export const isEmbeddingModelManifest = (value: unknown): value is EmbeddingMode
     typeof manifest.file === "string" &&
     isPositiveNumber(manifest.dimensions) &&
     isPositiveNumber(manifest.contextSize) &&
+    isPositiveNumber(manifest.batchSize) &&
     typeof manifest.queryPrefix === "string" &&
     typeof manifest.documentPrefix === "string" &&
     isEmbeddingModelLicense(manifest.license)
