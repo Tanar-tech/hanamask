@@ -18,6 +18,10 @@ concurrency:
 permissions:
   contents: write
 
+# ci.yml と同じ理由: node-llama-cpp はプリビルド前提で、ソース取得・ビルドを走らせない。
+env:
+  NODE_LLAMA_CPP_SKIP_DOWNLOAD: "true"
+
 jobs:
   windows-installer:
     # better-sqlite3 のネイティブビルドに Visual Studio Build Tools が要る。
