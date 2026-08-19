@@ -13,7 +13,8 @@ const validManifest = () => ({
   id: "ruri-v3-70m-q8_0",
   file: "ruri-v3-70m-q8_0.gguf",
   dimensions: 384,
-  contextSize: 8192,
+  contextSize: 2048,
+  batchSize: 2048,
   queryPrefix: "検索クエリ: ",
   documentPrefix: "検索文書: ",
   license: { name: "Apache-2.0", file: "ruri-v3-70m.LICENSE" },
@@ -24,7 +25,7 @@ describe("isEmbeddingModelManifest", () => {
     expect(isEmbeddingModelManifest(validManifest())).toBe(true);
   });
 
-  it.each(["id", "file", "dimensions", "contextSize", "queryPrefix", "documentPrefix", "license"])(
+  it.each(["id", "file", "dimensions", "contextSize", "batchSize", "queryPrefix", "documentPrefix", "license"])(
     "%s が欠けていたら弾く",
     (field) => {
       const manifest: Record<string, unknown> = { ...validManifest() };
