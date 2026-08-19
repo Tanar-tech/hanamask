@@ -57,9 +57,9 @@
 <tbody>
 <tr><td><a href="#t43">T43</a></td><td>リポジトリのpublic化と公開</td><td>T38</td><td><strong>public化の実行は管理者専任</strong>（不可逆のため）</td></tr>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル</td><td>T03, T05</td><td>凍結中。実装は残したまま画面から外している（2026-08-10、管理者判断）</td></tr>
-<tr><td><a href="#t48">T48</a></td><td>ローカルLLM(1) 意味検索（埋め込み）</td><td>なし</td><td>開発管理者＋開発要員（2026-08-19起票。ローカルLLM組み込みの1本目）</td></tr>
-<tr><td><a href="#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル</td><td>T48, T12</td><td>T48でランタイム同梱を固めてから</td></tr>
-<tr><td><a href="#t50">T50</a></td><td>ローカルLLM(3) 提案系補助</td><td>T48</td><td>T49の後を推奨</td></tr>
+<tr><td><a href="TASKS-local-llm.html#t48">T48</a></td><td>ローカルLLM(1) 意味検索（埋め込み）（詳細は <a href="TASKS-local-llm.html">TASKS-local-llm.html</a>）</td><td>なし</td><td>開発管理者＋開発要員（2026-08-19起票。統合ブランチ <code>feature/local-llm</code>）</td></tr>
+<tr><td><a href="TASKS-local-llm.html#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル（同上）</td><td>T48, T12</td><td>T48でランタイム同梱を固めてから</td></tr>
+<tr><td><a href="TASKS-local-llm.html#t50">T50</a></td><td>ローカルLLM(3) 提案系補助（同上）</td><td>T48</td><td>T49の後を推奨</td></tr>
 </tbody>
 </table>
 <p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は T43 の完了が前提。公開リポジトリでないとトークンの埋め込みが必要になり現実的でないため。</p>
@@ -888,44 +888,7 @@ flowchart TB
 </ul>
 
 <h2 id="local-llm">ローカルLLM組み込み（2026-08-19起票）</h2>
-<p><a href="REQUIREMENTS.html#4-8">REQUIREMENTS.html</a> §4.8。管理者の決定（2026-08-19）: 外部Ollama接続ではなく<strong>アプリに組み込む</strong>、埋め込み用の小さいモデルは同梱・チャット用は後から取得、着手順は意味検索→チャット→提案系。経緯はhanamaskのノート「ローカルLLM組み込みの構想（方針決定済み）」（タグ: ローカルLLM）にある。</p>
-<p><strong>ブランチ運用（2026-08-19、管理者指示）</strong>: この一連の作業はメジャーバージョンアップにあたり、並行して<code>main</code>側でパッチ更新を続けるため、統合ブランチ <strong><code>feature/local-llm</code></strong>（<code>main</code>から分岐）を置く。T48〜T50の各PRは<code>main</code>ではなく<code>feature/local-llm</code>をbaseにする。<code>main</code>に入ったパッチ更新は、<code>main</code>→<code>feature/local-llm</code>のマージPRで随時取り込む（rebaseはしない）。全タスクが揃った時点で<code>feature/local-llm</code>→<code>main</code>のPRを1本出し、そこでメジャーバージョンを上げる。</p>
-
-<h3 id="t48">T48: ローカルLLM(1) 意味検索（埋め込み）</h3>
-<ul>
-<li>ステータス: 未着手（SPEC未作成。issue #181）</li>
-<li>優先度: <strong>高</strong>（管理者決定、2026-08-19）</li>
-<li>依存: 必須: なし／推奨: T46（記録が増えてからでないと意味検索の効果が見えない）</li>
-<li>目的: <a href="REQUIREMENTS.html#4-8">REQUIREMENTS.html</a> §4.8-1。ノート・タスク本文を同梱の埋め込みモデルでベクトル化してSQLiteに保存し、意味的に近い記録を探せるようにする。MCPツール <code>semantic_search_notes</code> として公開し、外部AIエージェントが「作業前に過去の経緯を引く」精度を上げる（キーワードが一致しない記録も引ける）。UIでは詳細画面の「関連ノート」欄と検索結果への併記。<strong>ランタイム同梱（<code>node-llama-cpp</code>＋electron-builderの<code>asarUnpack</code>）とモデル同梱の配布経路をここで固める</strong>のが、後続T49/T50の基盤になる。</li>
-<li>変更範囲: <code>package.json</code>（<code>node-llama-cpp</code> 追加、<code>build</code> の <code>asarUnpack</code>/<code>extraResources</code>）、<code>src/main/llm/</code>（新設: ランタイムの読み込み、埋め込みの計算、推論層のインターフェース）、<code>src/main/db/</code>（埋め込み保存用テーブルとマイグレーション。<a href="MIGRATIONS.html">MIGRATIONS.html</a> を読んでから）、<code>src/main/mcp/tools.ts</code>（<code>semantic_search_notes</code>）、<code>src/main/notify/</code>（更新通知に乗せた再インデックス）、<code>src/renderer/components/</code>（関連ノート欄）、<code>README.md</code>（ツール一覧）、<a href="PACKAGING.html">PACKAGING.html</a>。</li>
-<li>禁止事項: sqlite-vec等のネイティブ拡張を追加しないこと（個人規模なのでJS側のコサイン類似度総当たりで足りる。ネイティブ依存は<code>node-llama-cpp</code>の1つに留める）。既存の<code>search_notes</code>の挙動を変えないこと。記録の内容を外部へ送らないこと。モデルが未準備・読み込み失敗のときにアプリ全体やMCPサーバーを止めないこと（意味検索だけが「未準備」を返す）。</li>
-<li>テスト: 推論層をインターフェースで隔離し、単体テストは固定ベクトルを返すモックで通す（CIで実モデルを走らせない）。埋め込みテーブルのマイグレーション（既存DBに列・表が足され既存行が保持されること）。ノート更新後に埋め込みが再計算されること・削除済みノートが結果に出ないこと。モデル未準備のときの<code>semantic_search_notes</code>の応答。同梱の小モデルで実際に1件だけ推論するE2E（Windows実機で。CIでは任意）。</li>
-<li>停止条件: <strong>同梱する埋め込みモデルの選定</strong>（<strong>再配布可能なOSSライセンスであること・日本語主体で品質を確かめること</strong>が条件（§4.8）。サイズは~100〜200MBのGGUFを目安に候補を挙げる）と、それによるインストーラーサイズの増分は、着手前に管理者へ提示して確認する。<code>node-llama-cpp</code>の追加は<a href="GOVERNANCE.html">GOVERNANCE.html</a> §6の依存関係追加に該当（2026-08-19に方針として承認済み。バージョン・プリビルドの構成を確認してから入れる）。ベクトルをDBに持つかファイルに持つかで迷ったらSPECで管理者に確認する。</li>
-</ul>
-
-<h3 id="t49">T49: ローカルLLM(2) チャットのローカルモデル</h3>
-<ul>
-<li>ステータス: 未着手（SPEC未作成。issue #181）</li>
-<li>優先度: 中</li>
-<li>依存: 必須: T48（ランタイム同梱・モデル取得の経路）, T12（既存のチャットとエージェントループ）／推奨: なし</li>
-<li>目的: <a href="REQUIREMENTS.html#4-8">REQUIREMENTS.html</a> §4.8-2。設定画面からチャット用モデルを取得（userDataへダウンロード・進捗表示・削除）し、チャットのプロバイダをAnthropic APIとローカルモデルで切り替えられるようにする。ローカルモデルもtool useで§7のMCPツール群を呼び、<code>ChatModelClient</code>（<code>src/main/chat/agent-loop.ts</code>）の実装を1つ足す形で既存ループを共用する。tool useに対応しないモデルではツールなしチャットに劣化させ、UIで明示する。応答のストリーミングも併せて入れる（ローカルモデルは遅く、全文待ちだと止まって見えるため）。</li>
-<li>変更範囲: <code>src/main/llm/</code>（チャット推論、モデルの取得と管理）、<code>src/main/chat/</code>（ローカル用<code>ChatModelClient</code>実装、プロバイダ切替）、<code>src/main/settings/chat-settings.ts</code>（プロバイダ・モデルパス）、<code>src/renderer/components/</code>（設定画面のモデル管理、チャットのストリーミング表示）、<code>src/shared/preload-api.ts</code>・IPC。</li>
-<li>禁止事項: Anthropic API経路を壊さないこと（BYO Agentは残す）。モデルのダウンロード元をハードコードした1URLに依存させ、失敗時にアプリが起動しなくならないこと。利用者の同意なくモデルの自動取得を始めないこと（大容量）。T12が凍結中（画面から外している）である前提を、管理者の判断なく解除しないこと。</li>
-<li>テスト: プロバイダ切替のテスト（モックの<code>ChatModelClient</code>で両経路が同じループを通ること）。tool use非対応モデルのときの劣化挙動。ダウンロードの中断・再開・失敗時の状態。ストリーミングのイベント順序。</li>
-<li>停止条件: 取得できるチャットモデルの候補一覧（サイズ・ライセンス・日本語品質・tool use対応。<strong>再配布可能なOSSライセンスと日本語主体の評価</strong>が条件、§4.8）を管理者に提示して確認してから実装する。T12凍結の解除（チャットを画面に戻す）は管理者判断。</li>
-</ul>
-
-<h3 id="t50">T50: ローカルLLM(3) 提案系補助</h3>
-<ul>
-<li>ステータス: 未着手（SPEC未作成。issue #181）</li>
-<li>優先度: 低</li>
-<li>依存: 必須: T48／推奨: T49（チャット用モデルを流用するため。埋め込みモデルだけでは生成ができない）</li>
-<li>目的: <a href="REQUIREMENTS.html#4-8">REQUIREMENTS.html</a> §4.8-3。タグ・タイトルの提案、長文ノートの要約、本文からのタスク候補の抽出を、ローカルモデルで行う。<strong>必ず「提案→利用者が採用」の形</strong>にし、モデルが記録を勝手に書き換えない。</li>
-<li>変更範囲: <code>src/main/llm/</code>（提案用のプロンプトと構造化出力）、<code>src/renderer/components/</code>（詳細画面・編集画面の提案UI）、<code>src/shared/preload-api.ts</code>・IPC。</li>
-<li>禁止事項: 提案の自動適用。MCPツールとして外部エージェントに提案機能を公開しないこと（外部エージェントは自分で考えられる）。提案のためにノート本文を外部へ送らないこと。</li>
-<li>テスト: 推論層をモックし、提案の表示・採用・却下の流れ。採用しない限りDBが変わらないこと。モデル未取得のときにUIが「未準備」を示し、他の機能に影響しないこと。</li>
-<li>停止条件: 提案の種類（何を提案するか）を増やす判断は管理者に確認する。提案UIの配置は画面案を提示してから決める。</li>
-</ul>
+<p>T48〜T50の詳細は <strong><a href="TASKS-local-llm.html">TASKS-local-llm.html</a></strong> にある。統合ブランチ <code>feature/local-llm</code> での進捗更新は同ファイルにのみ書き、<code>main</code> 側で並行するパッチ更新と本ファイルが競合しないようにする（本ファイルへの転記は統合完了時に1回だけ行う）。</p>
 
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
