@@ -57,6 +57,9 @@
 <tbody>
 <tr><td><a href="#t43">T43</a></td><td>リポジトリのpublic化と公開</td><td>T38</td><td><strong>public化の実行は管理者専任</strong>（不可逆のため）</td></tr>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル</td><td>T03, T05</td><td>凍結中。実装は残したまま画面から外している（2026-08-10、管理者判断）</td></tr>
+<tr><td><a href="TASKS-local-llm.html#t48">T48</a></td><td>ローカルLLM(1) 意味検索（埋め込み）（詳細は <a href="TASKS-local-llm.html">TASKS-local-llm.html</a>）</td><td>なし</td><td>開発管理者＋開発要員（2026-08-19起票。統合ブランチ <code>feature/local-llm</code>）</td></tr>
+<tr><td><a href="TASKS-local-llm.html#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル（同上）</td><td>T48, T12</td><td>T48でランタイム同梱を固めてから</td></tr>
+<tr><td><a href="TASKS-local-llm.html#t50">T50</a></td><td>ローカルLLM(3) 提案系補助（同上）</td><td>T48</td><td>T49の後を推奨</td></tr>
 </tbody>
 </table>
 <p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は T43 の完了が前提。公開リポジトリでないとトークンの埋め込みが必要になり現実的でないため。</p>
@@ -105,6 +108,10 @@ flowchart LR
   T44["T44 自動起動とトレイ常駐"] -.-> T45["T45 登録を一度きりに"]
   T45 -.-> T46["T46 頼まれなくても書き・読む<br/>（最も硬い段差）"]
   T46 -.-> T47["T47 使われていないと気づける"]
+  T48["T48 ローカルLLM(1) 意味検索"] --> T49["T49 ローカルLLM(2) チャットのローカルモデル"]
+  T12 --> T49
+  T48 --> T50["T50 ローカルLLM(3) 提案系補助"]
+  T49 -.-> T50
   T31["T31 WSLからMCPへ接続"]
   T32["T32 OS通知"]
   T01["T01 テスト方針の整備"]
@@ -122,6 +129,7 @@ flowchart LR
   class T01,T02,T13,T14 done;
   class T12 frozen;
   class T43 todo;
+  class T48,T49,T50 todo;
   class T47 done;
   class T46 done;
   class T45 done;
@@ -878,6 +886,9 @@ flowchart TB
 <li>テスト: 書き込みが無い状態・ある状態それぞれで表示が正しいことのテスト（<strong>空のDBで落ちないこと</strong>を含む）。集計が削除済みの記録を数えないこと。日付の境界（今週の始まり、タイムゾーン）での挙動。</li>
 <li>停止条件: 「途絶えている」と判断する期間の閾値は要求定義に無いため、画面案を管理者に確認してから決める。指標の種類を増やす判断も同様。</li>
 </ul>
+
+<h2 id="local-llm">ローカルLLM組み込み（2026-08-19起票）</h2>
+<p>T48〜T50の詳細は <strong><a href="TASKS-local-llm.html">TASKS-local-llm.html</a></strong> にある。統合ブランチ <code>feature/local-llm</code> での進捗更新は同ファイルにのみ書き、<code>main</code> 側で並行するパッチ更新と本ファイルが競合しないようにする（本ファイルへの転記は統合完了時に1回だけ行う）。</p>
 
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
