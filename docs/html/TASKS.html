@@ -900,7 +900,7 @@ flowchart TB
 <li>変更範囲: <code>package.json</code>（<code>node-llama-cpp</code> 追加、<code>build</code> の <code>asarUnpack</code>/<code>extraResources</code>）、<code>src/main/llm/</code>（新設: ランタイムの読み込み、埋め込みの計算、推論層のインターフェース）、<code>src/main/db/</code>（埋め込み保存用テーブルとマイグレーション。<a href="MIGRATIONS.html">MIGRATIONS.html</a> を読んでから）、<code>src/main/mcp/tools.ts</code>（<code>semantic_search_notes</code>）、<code>src/main/notify/</code>（更新通知に乗せた再インデックス）、<code>src/renderer/components/</code>（関連ノート欄）、<code>README.md</code>（ツール一覧）、<a href="PACKAGING.html">PACKAGING.html</a>。</li>
 <li>禁止事項: sqlite-vec等のネイティブ拡張を追加しないこと（個人規模なのでJS側のコサイン類似度総当たりで足りる。ネイティブ依存は<code>node-llama-cpp</code>の1つに留める）。既存の<code>search_notes</code>の挙動を変えないこと。記録の内容を外部へ送らないこと。モデルが未準備・読み込み失敗のときにアプリ全体やMCPサーバーを止めないこと（意味検索だけが「未準備」を返す）。</li>
 <li>テスト: 推論層をインターフェースで隔離し、単体テストは固定ベクトルを返すモックで通す（CIで実モデルを走らせない）。埋め込みテーブルのマイグレーション（既存DBに列・表が足され既存行が保持されること）。ノート更新後に埋め込みが再計算されること・削除済みノートが結果に出ないこと。モデル未準備のときの<code>semantic_search_notes</code>の応答。同梱の小モデルで実際に1件だけ推論するE2E（Windows実機で。CIでは任意）。</li>
-<li>停止条件: <strong>同梱する埋め込みモデルの選定</strong>（多言語対応・日本語品質・サイズ。候補は<code>multilingual-e5-small</code>系のGGUF ~100〜200MB）と、それによるインストーラーサイズの増分は、着手前に管理者へ提示して確認する。<code>node-llama-cpp</code>の追加は<a href="GOVERNANCE.html">GOVERNANCE.html</a> §6の依存関係追加に該当（2026-08-19に方針として承認済み。バージョン・プリビルドの構成を確認してから入れる）。ベクトルをDBに持つかファイルに持つかで迷ったらSPECで管理者に確認する。</li>
+<li>停止条件: <strong>同梱する埋め込みモデルの選定</strong>（<strong>再配布可能なOSSライセンスであること・日本語主体で品質を確かめること</strong>が条件（§4.8）。サイズは~100〜200MBのGGUFを目安に候補を挙げる）と、それによるインストーラーサイズの増分は、着手前に管理者へ提示して確認する。<code>node-llama-cpp</code>の追加は<a href="GOVERNANCE.html">GOVERNANCE.html</a> §6の依存関係追加に該当（2026-08-19に方針として承認済み。バージョン・プリビルドの構成を確認してから入れる）。ベクトルをDBに持つかファイルに持つかで迷ったらSPECで管理者に確認する。</li>
 </ul>
 
 <h3 id="t49">T49: ローカルLLM(2) チャットのローカルモデル</h3>
@@ -912,7 +912,7 @@ flowchart TB
 <li>変更範囲: <code>src/main/llm/</code>（チャット推論、モデルの取得と管理）、<code>src/main/chat/</code>（ローカル用<code>ChatModelClient</code>実装、プロバイダ切替）、<code>src/main/settings/chat-settings.ts</code>（プロバイダ・モデルパス）、<code>src/renderer/components/</code>（設定画面のモデル管理、チャットのストリーミング表示）、<code>src/shared/preload-api.ts</code>・IPC。</li>
 <li>禁止事項: Anthropic API経路を壊さないこと（BYO Agentは残す）。モデルのダウンロード元をハードコードした1URLに依存させ、失敗時にアプリが起動しなくならないこと。利用者の同意なくモデルの自動取得を始めないこと（大容量）。T12が凍結中（画面から外している）である前提を、管理者の判断なく解除しないこと。</li>
 <li>テスト: プロバイダ切替のテスト（モックの<code>ChatModelClient</code>で両経路が同じループを通ること）。tool use非対応モデルのときの劣化挙動。ダウンロードの中断・再開・失敗時の状態。ストリーミングのイベント順序。</li>
-<li>停止条件: 取得できるチャットモデルの候補一覧（サイズ・ライセンス・tool use対応）を管理者に提示して確認してから実装する。T12凍結の解除（チャットを画面に戻す）は管理者判断。</li>
+<li>停止条件: 取得できるチャットモデルの候補一覧（サイズ・ライセンス・日本語品質・tool use対応。<strong>再配布可能なOSSライセンスと日本語主体の評価</strong>が条件、§4.8）を管理者に提示して確認してから実装する。T12凍結の解除（チャットを画面に戻す）は管理者判断。</li>
 </ul>
 
 <h3 id="t50">T50: ローカルLLM(3) 提案系補助</h3>
