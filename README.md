@@ -212,6 +212,7 @@ Mermaid図は専用ツールを持たず、ノート本文へのインライン�
 ### 未実装
 
 - AIチャットパネル（BYO Agent）は未実装（[docs/TASKS.md](docs/TASKS.md) T12）。
+- ローカルLLMによる意味検索（`semantic_search_notes`）は未実装（[docs/TASKS.md](docs/TASKS.md) T48。統合ブランチ `feature/local-llm` で開発中）。
 
 ## 破壊的操作のガードレール
 
