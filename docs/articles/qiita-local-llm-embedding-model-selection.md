@@ -6,8 +6,8 @@
 
 - 条件は **再配布可能なOSSライセンス／日本語品質／小さい（〜300MB）／llama.cppで動く** の4つ
 - 選んだのは **cl-nagoya/ruri-v3-70m**（Apache-2.0、Q8_0で約77MB、JMTEB平均73.95）。次点は intfloat/multilingual-e5-small（MIT、約132MB、67.38）
-- ただし **公開されているRuriのGGUFはトークナイザが壊れていて濁点が消える**。自前でGGUF化し（変換スクリプトへ1箇所パッチ）、Hugging Faceのsentence-transformers出力とcos ≥ 0.9998で一致するのを確認してから採用した
-- 推論エンジン側（node-llama-cpp）にも落とし穴が2つ（BOSが付かない／batchSizeの既定値でpoolingが壊れる）。どちらも **エラーは出ず、静かに精度が落ちる**
+- ただし、llama.cppの変換スクリプトは現時点で ModernBERT 派生の SentencePiece（Unigram）語彙を想定しておらず、**そのまま変換した GGUF では濁点・半濁点が落ちる**。変換スクリプトへ1箇所手を入れて自前でGGUF化し、Hugging Faceのsentence-transformers出力とcos ≥ 0.9998で一致するのを確認してから採用した（**Ruri本体には何の問題もない**。変換経路の話）
+- 推論エンジン側（node-llama-cpp v3.20.0 時点）にも、埋め込み用途では注意が要る挙動が2つ（UGM語彙でBOSが付かない／batchSizeの既定値が512）。どちらも **エラーは出ず、精度だけが下がる**ので、元モデルとの一致検証が必須だった
 
 ## 背景: なぜ「同梱」なのか
 
@@ -48,15 +48,17 @@ JMTEBの値はsbintuitionsの公式リーダーボード（2025-10スナップ�
 
 除外の判断で効いたのは **ライセンス**（sarashinaは品質最上位だが非商用限定、EmbeddingGemmaはGemma Termsの下流伝播義務）と **llama.cpp対応**（GLuCoSE・arcticは変換スクリプトにアーキテクチャの登録が無い）の2つです。性能表だけ見ていると選んでしまう候補が、この2条件で落ちます。
 
-## 落とし穴1: 公開されているRuriのGGUFは使えなかった
+## 落とし穴1: 変換経路によっては濁点・半濁点が落ちる
 
-Hugging FaceにはRuri v3 30m/70mのGGUFが公開されています。ところがヘッダを見ると `tokenizer.ggml.model = bert`（WordPiece）になっていました。Ruri v3はSentencePieceの **Unigram** トークナイザなので、これをWPMとして解釈すると、llama.cpp側の正規化（lowercase・strip_accentsが既定でオン）で **濁点・半濁点付きのひらがなが丸ごと消えます**。
+Ruri v3 は SentencePiece の **Unigram** トークナイザ（語彙ごとのスコアで最尤分割する方式）を使っています。一方、llama.cpp の変換スクリプト（`conversion/bert.py`）の `ModernBertModel` は本家 ModernBERT（英語・BPE）を前提にしていて、**ModernBERT 派生の Unigram 語彙を正しく書き出す経路が現時点ではありません**。
 
-実測では「ぱぴぷぺぽ・ばびぶべぼ・がぎぐげご」が空トークンになり、HF出力との一致度はcos min 0.777 / mean 0.840。エラーは一切出ず、検索精度だけが黙って落ちる状態でした。
+このため、既存の手順で変換された GGUF では語彙の種別が `bert`（WordPiece）として記録されることがあります。llama.cpp の WordPiece トークナイザは既定で `lowercase` と `strip_accents` の正規化をかけるので、NFD 分解で「が」→「か」＋結合文字に割れた **濁点・半濁点がアクセント記号として除去され**、「ぱぴぷぺぽ・ばびぶべぼ・がぎぐげご」が空トークンになります。手元で試した GGUF はこの状態で、HF 出力との一致度は cos min 0.777 / mean 0.840 でした。エラーは一切出ず、検索精度だけが黙って落ちます。
+
+これは **変換スクリプト側の想定外の組み合わせ**で起きる話で、モデル本体や GGUF を公開してくれている方の落ち度ではありません（自分で素直に変換しても同じ結果になります）。本記事では「**GGUF が公開されている＝そのまま使える、ではない**」という教訓として扱います。
 
 ### 自前変換
 
-llama.cppの変換スクリプト（`conversion/bert.py`）の `ModernBertModel.set_vocab` はBPE固定です。`tokenizer.model` があるとき（＝Ruriのようなsentencepiece派生）だけ、SentencePieceのUnigramをllama.cppのUGM（`tokenizer.ggml.model = "t5"`）に載せる分岐を足しました。
+`ModernBertModel.set_vocab` は BPE 固定なので、`tokenizer.model` があるとき（＝Ruriのようなsentencepiece派生）だけ、SentencePieceのUnigramをllama.cppのUGM（`tokenizer.ggml.model = "t5"`）に載せる分岐を足しました。
 
 ```python
 def set_vocab(self):
@@ -77,12 +79,12 @@ python convert_hf_to_gguf.py ./ruri-v3-70m --outfile ruri-v3-70m-q8_0.gguf --out
 
 `--outtype q8_0` が直接使えるので `llama-quantize` のビルドは不要。poolingは `1_Pooling/config.json` のmean設定を変換スクリプトが拾って `pooling_type = MEAN` を自動で書いてくれます。
 
-## 落とし穴2: node-llama-cpp側の2点
+## 落とし穴2: node-llama-cpp を埋め込み用途で使うときの注意（v3.20.0 時点）
 
-自前GGUFでも初回計測はcos 0.91〜0.97で、原因が2つありました。
+自前GGUFでも初回計測はcos 0.91〜0.97で、原因が2つありました。どちらも v3.20.0 時点の挙動で、将来のバージョンでは変わる可能性があります。
 
-1. **BOSが付かない。** node-llama-cpp v3.20の `getEmbeddingFor(string)` はUGM語彙のときBOSを付けません（GGUFに `add_bos_token=True` が入っていても無視されます）。→ 文字列ではなくトークン配列で渡す
-2. **`batchSize` の既定が `min(contextSize, 512)`。** 512トークンを超える入力がubatch分割され、poolingが壊れます（522トークンでcos 0.773）。→ `batchSize` を `contextSize` と同じにする
+1. **UGM 語彙では BOS が自動で付かない。** `getEmbeddingFor(string)` は内部でトークナイズする際、語彙タイプが UGM（Unigram）のときは先頭に付けるトークンを無しと判断します（GGUF の `add_bos_token=True` は参照されません。EOS は付きます）。埋め込みモデルは `[BOS] … [EOS]` で学習されているので、BOS が無いと分布がずれます（実測で 0.955 → 0.895）。→ 文字列ではなくトークン配列で渡す
+2. **`batchSize` の既定が `min(contextSize, 512)`。** かつネイティブ側で `n_ubatch = n_batch` に揃うため、512トークンを超える入力はマイクロバッチに分割されます。埋め込み（非因果・mean pooling）は1入力を1バッチで処理する前提なので、分割されると pooling が入力の一部にしか効きません（522トークンでcos 0.773）。→ `batchSize` を `contextSize` と同じにする
 
 ```js
 const ctx = await model.createEmbeddingContext({ contextSize: 2048, batchSize: 2048 });
@@ -92,7 +94,7 @@ const { vector } = await ctx.getEmbeddingFor(tokens);
 
 この2点を入れて **10文でcos min 0.999855 / mean 0.999902**、1554トークンの長文でも0.9999で一致しました。濁点・半濁点はトークン列がHFとバイト単位で完全一致しています。
 
-どちらも「エラーにならず精度が落ちる」ので、**元モデルとの一致検証をやらずに組み込むと気づけません**。node-llama-cppを更新したときのために、検証スクリプト（Node側で埋め込み → Python側でsentence-transformersと比較）をリポジトリに残しました。
+どちらも「エラーにならず精度が落ちる」ので、**元モデルとの一致検証をやらずに組み込むと気づけません**。node-llama-cppを更新したときのために、検証スクリプト（Node側で埋め込み → Python側でsentence-transformersと比較）をリポジトリに残しました。上流への報告は、既存の issue や設計上の意図（UGM の BOS 扱い、batchSize の既定値の理由）を確認したうえで行う予定です。
 
 ## 組み込み設計の要点
 
@@ -107,7 +109,7 @@ const { vector } = await ctx.getEmbeddingFor(tokens);
 
 - Ruri v3はApache-2.0。GGUF化・量子化は「改変」にあたるので、①ライセンス全文の同梱、②改変した旨（形式変換と8bit量子化のみ）、③帰属表示（cl-nagoya、元モデルURL）を行いました。HFリポジトリにはLICENSEファイルが無くREADMEのメタデータだけなので、全文はアプリ側で用意しています
 - node-llama-cppはMIT。npm依存としてライセンス検査（許可リスト）を通し、NOTICEに載せる
-- 公開GGUFは使えないので、自前変換したGGUFはアプリのリリースアセットとして配布し、ダウンロード時にsha256を検証（不一致は破棄）。取得元は固定URLのみ
+- 自前変換したGGUFはアプリのリリースアセットとして配布し、ダウンロード時にsha256を検証（不一致は破棄）。取得元は固定URLのみ
 
 ## セキュリティで気にした点
 
@@ -120,7 +122,7 @@ const { vector } = await ctx.getEmbeddingFor(tokens);
 
 - 日本語向けの小型埋め込みモデルは選択肢が増えていて、**Ruri v3 70mは約77MBでbge-m3を上回る**。ライセンスもApache-2.0で組み込みに向く
 - ただし **「GGUFが公開されている＝そのまま使える」ではない**。トークナイザの種類が合っているか、poolingが入っているか、元モデルと出力が一致するかを実測してから採用する
-- node-llama-cppのような薄いラッパーには、BOSやbatchSizeのように「静かに壊れる」設定がある。**元モデルとの一致検証を回帰テストとして残す**のが一番の保険だった
+- 推論ランタイム側にも、BOSやbatchSizeのように「エラーにならず精度だけ下がる」設定がある。**元モデルとの一致検証を回帰テストとして残す**のが一番の保険だった
 
 ## 参考
 
