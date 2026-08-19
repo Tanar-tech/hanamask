@@ -70,7 +70,7 @@
 - [ ] モデルが読み込めない状態でも、アプリ起動・既存の検索・他のMCPツールが通常通り動き、`semantic_search_notes` は空の結果と理由を返す
 - [ ] 記録の内容がネットワークへ送られない（外部通信が発生しない）
 - [ ] インストーラーだけで動く（モデルの追加ダウンロード・別ソフトの導入が不要）
-- [ ] 同梱したモデルとエンジンのライセンス文がインストール先に同梱される
+- [ ] 同梱したモデルとエンジンのライセンス文がインストール先に同梱され、`NOTICE` に同梱モデルの表示（名前・作者・ライセンス・改変あり）が載る
 - [ ] 既存のDB（この機能が無い版で作られたもの）を開いても、既存の記録が失われず、索引が自動で作られる
 
 ### 未決定・要確認事項
@@ -214,8 +214,9 @@ CREATE TABLE IF NOT EXISTS embeddings (
 **セット F: 同梱・配布**
 - 目的: 受け入れ条件「インストーラーだけで動く」「ライセンス同梱」「外部通信なし」
 - 触ってよいファイル: `package.json`（`node-llama-cpp` 追加は `npm install node-llama-cpp@^3.20.0` で。scripts に `fetch:model` 追加）、`package-lock.json`、`scripts/fetch-embedding-model.mjs`（新規）、`resources/models/embedding.json`・`resources/models/sources.json`（新規）、`.gitignore`（`resources/models/*.gguf`, `resources/models/*.LICENSE`）、`electron-builder.yml`、`.github/workflows/ci.yml`（`NODE_LLAMA_CPP_SKIP_DOWNLOAD=true` の env と、`fetch:model` は**回さない**）、`.github/workflows/release.yml`（package 前に `fetch:model`）、`docs/PACKAGING.md`、`tests/main/packaging-layout.test.ts`（変更なしで通ることを確認。通らないなら理由を報告）
+- **ライセンス対応（このセットの責務）**: hanamask 本体は Apache-2.0（`LICENSE`/`NOTICE`）。① 推論エンジン node-llama-cpp と `@node-llama-cpp/*`（MIT）は npm 依存として `check:licenses` の許可リスト（MIT/Apache-2.0）で検査され、`license-checker` の集計に載る。② モデル（Ruri v3: Apache-2.0 ／ e5: MIT）は npm 依存ではないので**自前で対応**する: モデルの LICENSE（Apache-2.0 なら NOTICE も、あれば）を `fetch-embedding-model.mjs` が GGUF と一緒に取得し `resources/models/` に置く → `extraResources` で `resources/models/` に同梱（受け入れ条件「ライセンス文が同梱される」）。リポジトリ直下 `NOTICE` に「同梱モデル: <名前>、<作者>、<ライセンス>、改変（GGUF量子化）あり」の1段落を追記（Apache-2.0 §4(b)/(d) の表示義務、MIT の著作権表示義務を満たす）。`sources.json` に出典URLと sha256 を残す。
 - 依存（読み取りのみ）: 調査結果の electron-builder テンプレート、`scripts/check-licenses.mjs`
-- テスト: `check:licenses` が通る／`fetch-embedding-model.mjs` は sha256 不一致で失敗し部分ファイルを残さない（テストは fetch をモック）／`npm run build` が通る。**実インストーラーのサイズ実測は Windows 実機で行い PACKAGING.md §5 に追記**（管理者環境）
+- テスト: `check:licenses` が通る／`fetch-embedding-model.mjs` が LICENSE を GGUF と同時に取得し、無ければ失敗する／`fetch-embedding-model.mjs` は sha256 不一致で失敗し部分ファイルを残さない（テストは fetch をモック）／`npm run build` が通る。**実インストーラーのサイズ実測は Windows 実機で行い PACKAGING.md §5 に追記**（管理者環境）
 
 ### Phase 4 統合ゲートでのみ編集するファイル
 
