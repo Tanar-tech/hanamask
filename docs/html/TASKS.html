@@ -59,7 +59,6 @@
 <tr><td><a href="TASKS-local-llm.html#t48">T48</a></td><td>ローカルLLM(1) 意味検索（埋め込み）（詳細は <a href="TASKS-local-llm.html">TASKS-local-llm.html</a>）</td><td>なし</td><td>開発管理者＋開発要員（2026-08-19起票。統合ブランチ <code>feature/local-llm</code>）</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル（同上）</td><td>T48, T12</td><td>T48でランタイム同梱を固めてから</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t50">T50</a></td><td>ローカルLLM(3) 提案系補助（同上）</td><td>T48</td><td>T49の後を推奨</td></tr>
-<tr><td><a href="#t53">T53</a></td><td>未マージのアクション更新（#172）を判断する</td><td>なし（推奨 T52）</td><td>調査済み・CI緑。用途はE2Eのスクショ保存のみ</td></tr>
 </tbody>
 </table>
 <p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は <strong>T43 の完了により導入可能になった</strong>（公開リポジトリが前提だった）。依存追加は <a href="GOVERNANCE.html#6">GOVERNANCE.html §6</a> の承認事項のため、まだタスク化していない。</p>
@@ -132,7 +131,7 @@ flowchart LR
   class T48,T49,T50 todo;
   class T51 done;
   class T52 done;
-  class T53 todo;
+  class T53 done;
   class T47 done;
   class T46 done;
   class T45 done;
@@ -942,7 +941,7 @@ flowchart TB
 
 <h3 id="t53">T53: 未マージのアクション更新（#172）を判断する</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（#172 をマージ。<strong>確認の過程で、スクリーンショットが元から保存されていない不具合を見つけて修正した</strong> — PR #192）</li>
 <li>優先度: <strong>低</strong>（管理者要望、2026-08-19）</li>
 <li>依存: 必須: なし／推奨: <a href="#t52">T52</a>（恒久的な方針が決まれば、本タスクはその適用で済む）</li>
 <li>目的: <strong>PR #172（<code>actions/upload-artifact</code> 4.6.2 → 7.0.1）が宙に浮いている。</strong>自動マージの対象外で、手動マージの判断も保留したままになっている。</li>
@@ -951,6 +950,14 @@ flowchart TB
 <li>禁止事項: 他のアクションの更新をこのPRに混ぜないこと。用途を広げないこと（スクリーンショット保存以外に使わない）。</li>
 <li>テスト: マージ後、<strong>E2Eのスクリーンショットが実際にアーティファクトとして保存されること</strong>をCIの成果物で確認する。<code>if-no-files-found: ignore</code> を指定しているため、<strong>壊れても失敗せず静かに何も上がらなくなる</strong>。緑であることだけでは確認にならない。</li>
 <li>停止条件: 特になし（メジャー更新だが、影響範囲が限定的で調査済みのため）。ただしマージ後にスクリーンショットが上がらなくなっていた場合は、<strong>戻すか原因を追うかを管理者に確認する</strong>。</li>
+<li><strong>実績（2026-08-19）</strong>: v7 の <code>action.yml</code> で使用中の入力3つ（<code>name</code> / <code>path</code> / <code>if-no-files-found</code>）が存在することを確認してマージした。
+<ul>
+<li><strong>本タスクのテスト条件そのものが誤っていた。</strong>「マージ後にアーティファクトが保存されることを確認する」と書いたが、<strong>保存ステップの条件は <code>failure()</code></strong> で、成功時には走らない。タスクを書いたときに <code>if:</code> を読んでいなかった。</li>
+<li>意図的にE2Eを失敗させて確かめたところ、<strong><code>No files were found</code> で1枚も保存されていなかった</strong>。原因は <code>tests/e2e/.artifacts/</code> が<strong>先頭がドットの隠しディレクトリ</strong>で、<code>upload-artifact</code> が <strong>v4.4.0 以降これを既定で除外する</strong>こと。<strong>v7への更新とは無関係で、ピン留めしていた v4.6.2 の時点で既に壊れていた。</strong></li>
+<li><code>include-hidden-files: true</code> を足して解消（PR #192）。<strong>E2Eが落ちたとき、原因を調べる人が見るはずのスクリーンショットに辿り着けない</strong>状態が続いていた。</li>
+<li><strong>静かに壊れていた理由</strong>: ①ステップの条件が <code>failure()</code> で普段走らない ②<code>if-no-files-found: ignore</code> でファイルが無くても警告すら出ずステップは <code>success</code> ③隠しディレクトリの除外。3つが重なると、緑でも赤でも異常に見えない。</li>
+</ul>
+</li>
 </ul>
 
 </main>
