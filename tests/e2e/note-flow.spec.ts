@@ -45,6 +45,9 @@ describe("note flow (Electron app + MCP server + renderer)", () => {
     await window.getByText("E2Eテストノート").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "02-note-created.png") });
 
+    // 一時的な失敗（upload-artifact v7 の保存確認用。スクショを撮ったあとに落とす）。
+    expect(true).toBe(false);
+
     await app.close();
     app = undefined;
 
