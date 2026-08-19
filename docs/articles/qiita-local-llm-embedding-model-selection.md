@@ -1,5 +1,18 @@
-# Windowsアプリに搭載するLLMを選定した
-
+---
+title: Windowsアプリに搭載するLLMを選定した
+tags:
+  - Electron
+  - LLM
+  - embedding
+  - llama.cpp
+  - 日本語
+private: true
+updated_at: '2026-08-19T21:24:00+09:00'
+id: null
+organization_url_name: null
+slide: false
+ignorePublish: false
+---
 個人で作っているElectron製のローカル完結ノートアプリ（hanamask）に「意味検索」を付けるため、**インストーラーに同梱する日本語向けの埋め込みモデル**を選びました。この記事は、その選定条件・候補比較・採用理由と、採用に至るまでに踏んだ落とし穴のメモです。
 
 ## TL;DR
@@ -131,3 +144,9 @@ const { vector } = await ctx.getEmbeddingFor(tokens);
 - [node-llama-cpp](https://node-llama-cpp.withcat.ai/)
 - [llama.cpp ModernBERT対応 PR #15641](https://github.com/ggml-org/llama.cpp/pull/15641)
 - hanamaskリポジトリ内の検証手順とパッチ: `docs/local-llm/embedding-model-verification.md`、`scripts/embedding-model/`
+
+## 更新履歴
+
+| 日付 | 内容 |
+|---|---|
+| 2026-08-19 | 初稿（hanamask T48 の選定・検証結果をもとに作成）。落とし穴2節を「変換経路の構造的な問題／v3.20.0 時点の挙動」として記述し、第三者の成果物を責めない表現に改めた。上流への報告は既存 issue と設計意図を精査中のため「予定」のまま |
