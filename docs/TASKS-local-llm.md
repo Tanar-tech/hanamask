@@ -9,13 +9,14 @@
 
 ### T48: ローカルLLM(1) 意味検索（埋め込み）
 
-- ステータス: 未着手（SPEC未作成。issue #181）
+- ステータス: 実装中（SPEC承認済み 2026-08-19。セット0〜F・Phase 4 まで `impl/t48` に統合、Phase 5 レビュー中。issue #181）
 - 優先度: **高**（管理者決定、2026-08-19）
 - 依存: 必須: なし／推奨: T46（記録が増えてからでないと意味検索の効果が見えない）
 - 目的: `docs/REQUIREMENTS.md` §4.8-1。ノート・タスク本文を同梱の埋め込みモデルでベクトル化してSQLiteに保存し、意味的に近い記録を探せるようにする。MCPツール `semantic_search_notes` として公開し、外部AIエージェントが「作業前に過去の経緯を引く」精度を上げる（キーワードが一致しない記録も引ける）。UIでは詳細画面の「関連ノート」欄と検索結果への併記。**ランタイム同梱（`node-llama-cpp`＋electron-builderの`asarUnpack`）とモデル同梱の配布経路をここで固める**のが、後続T49/T50の基盤になる。
 - 変更範囲: `package.json`（`node-llama-cpp` 追加、`build` の `asarUnpack`/`extraResources`）、`src/main/llm/`（新設: ランタイムの読み込み、埋め込みの計算、推論層のインターフェース）、`src/main/db/`（埋め込み保存用テーブルとマイグレーション。`docs/MIGRATIONS.md` を読んでから）、`src/main/mcp/tools.ts`（`semantic_search_notes`）、`src/main/notify/`（更新通知に乗せた再インデックス）、`src/renderer/components/`（関連ノート欄）、`README.md`（ツール一覧）、`docs/PACKAGING.md`。
 - 禁止事項: sqlite-vec等のネイティブ拡張を追加しないこと（個人規模なのでJS側のコサイン類似度総当たりで足りる。ネイティブ依存は`node-llama-cpp`の1つに留める）。既存の`search_notes`の挙動を変えないこと。記録の内容を外部へ送らないこと。モデルが未準備・読み込み失敗のときにアプリ全体やMCPサーバーを止めないこと（意味検索だけが「未準備」を返す）。
 - テスト: 推論層をインターフェースで隔離し、単体テストは固定ベクトルを返すモックで通す（CIで実モデルを走らせない）。埋め込みテーブルのマイグレーション（既存DBに列・表が足され既存行が保持されること）。ノート更新後に埋め込みが再計算されること・削除済みノートが結果に出ないこと。モデル未準備のときの`semantic_search_notes`の応答。同梱の小モデルで実際に1件だけ推論するE2E（Windows実機で。CIでは任意）。
+- 実績（2026-08-19、セット0の検証）: **cl-nagoya/ruri-v3-70m（Apache-2.0）を採用**。自前変換 GGUF Q8_0（73.4MiB）で HF sentence-transformers との一致 cos min 0.99986。公開GGUFは濁点が消える不良品のため使わず、自前変換版を GitHub Release アセット `embedding-model-ruri-v3-70m-q8_0-v1` で配布（sha256 `5d1c83a9…`、管理者がアップロード）。必須対処: BOS をトークン配列で明示、`batchSize = contextSize`（2048）、プロバイダ側でトークン数切り詰め。詳細は `docs/local-llm/embedding-model-verification.md`、変換パッチと検証スクリプトは `scripts/embedding-model/`。
 - 停止条件: **同梱する埋め込みモデルの選定**（**再配布可能なOSSライセンスであること・日本語主体で品質を確かめること**が条件（§4.8）。サイズは~100〜200MBのGGUFを目安に候補を挙げる）と、それによるインストーラーサイズの増分は、着手前に管理者へ提示して確認する。`node-llama-cpp`の追加は`docs/GOVERNANCE.md` §6の依存関係追加に該当（2026-08-19に方針として承認済み。バージョン・プリビルドの構成を確認してから入れる）。ベクトルをDBに持つかファイルに持つかで迷ったらSPECで管理者に確認する。
 
 ### T49: ローカルLLM(2) チャットのローカルモデル
