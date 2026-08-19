@@ -6,7 +6,7 @@ name: CI
 # ドキュメントだけの変更でもCIを回して、必須チェックが必ず報告される状態にする。
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "feature/**"]
   push:
     branches: [main]
 

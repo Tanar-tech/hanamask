@@ -4,7 +4,7 @@ name: Docs
 # 走らない。同期漏れを捕まえたいのはまさにそのPRなので、専用に用意する。
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "feature/**"]
     paths:
       - "docs/**"
       # 検査そのものを変えたPRでも動かす。さもないと壊れたまま入っても気付けない。
