@@ -123,13 +123,16 @@
   "id": "ruri-v3-70m-q8_0",
   "file": "ruri-v3-70m-q8_0.gguf",
   "dimensions": 384,
-  "contextSize": 8192,
+  "contextSize": 2048,
+  "batchSize": 2048,
   "queryPrefix": "検索クエリ: ",
   "documentPrefix": "検索文書: ",
   "license": { "name": "Apache-2.0", "file": "ruri-v3-70m.LICENSE" }
 }
 ```
 モデルの差し替えはこのファイルと GGUF の差し替えのみで済むこと（e5 なら `query: ` / `passage: `、512、384）。
+
+**セット0の検証結果による確定事項（2026-08-19）**: Ruri v3 70m 合格（Node vs HF cos min 0.99986）。実装上の必須対処: ① node-llama-cpp 3.20 は UGM 語彙で BOS を付けない → `getEmbeddingFor` には文字列でなく `[bos, ...tokenize(text), eos]` の**トークン配列**を渡す。② `batchSize` を `contextSize` と同値にする（既定 512 だと超過分の pooling が壊れる）。③ 長文はプロバイダ側で**トークン数**で切る（`contextSize - 2` にスライスしてから BOS/EOS）。文字数の切り詰め（`maxCharsForContext`）はその手前の粗い上限。④ `contextSize` はモデル上限 8192 ではなく **2048** にする（batchSize 分のメモリと、1554トークンで 2.7 秒かかる速度のため。SPEC 未決定5「長文は先頭のみ」と整合）。⑤ 公開 GGUF は使わず、自前変換版（sha256 `5d1c83a92cf277e141819ef2403c5eab7fb2f71c5c48cb7e5a19044989f0a8a9`）を hanamask の GitHub Release アセットとして配布する。変換パッチと検証スクリプトはリポジトリに保存し、node-llama-cpp 更新時の回帰確認に使う。
 
 **推論層のインターフェース**（`src/main/llm/embedding-provider.ts`、Set B）:
 ```ts
@@ -192,7 +195,7 @@ T49 以降（プロンプトインジェクション、利用者持ち込み GGU
 - 目的: 未決定事項1の判断材料。Ruri v3 70m を SPM 語彙で GGUF に変換（`ModernBertModel.set_vocab` を `_set_vocab_sentencepiece()` に差し替える1行パッチ）し、node-llama-cpp 3.20 で読み込めること・`pooling_type` が mean で入っていること・sentence-transformers の出力とのコサイン類似 ≥ 0.999 を確認する。濁点を含む日本語文で劣化が無いこと。
 - 触ってよいファイル: `docs/local-llm/embedding-model-verification.md`（新規、結果と手順）。リポジトリのコードは触らない。作業は scratchpad で行う。
 - 失敗時: multilingual-e5-small（`cstr/multilingual-e5-small-GGUF` Q8_0）に切り替え、その GGUF に `pooling_type` が入っていることだけ確認して同じ文書に記録する。
-- 判定を管理者に報告してから Set F のマニフェスト値を確定する。
+- 判定を管理者に報告してから Set F のマニフェスト値を確定する。**結果: 合格（上記「確定事項」参照）。報告書は `docs/local-llm/embedding-model-verification.md` に Set F が保存する。**
 
 **セット A: 埋め込みの保存**
 - 目的: 受け入れ条件「既存DBを開いても失われず索引が作られる」「ゴミ箱を含めない」の土台
