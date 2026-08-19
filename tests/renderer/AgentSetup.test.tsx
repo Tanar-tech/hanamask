@@ -126,6 +126,7 @@ describe("AgentSetup", () => {
 
   it("接続先の読み込みに失敗したら理由を出す", async () => {
     stubHanamask({
+      readActivity: vi.fn(async () => ({ lastRecordedAt: null, recentCount: 0 })),
       readMcpEndpoint: vi.fn(() => Promise.reject(new Error("接続先を取得できません"))),
     });
 

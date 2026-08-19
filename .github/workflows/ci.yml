@@ -1,15 +1,14 @@
 name: CI
 
+# 以前は docs/** と *.md を paths-ignore で除外していたが、2026-08-18 のブランチ保護で
+# build-and-test と semgrep を必須チェックにしたため、除外されたPRは3件が永久に揃わず
+# BLOCKED のままになった（管理者も enforce_admins: true で回避できない）。
+# ドキュメントだけの変更でもCIを回して、必須チェックが必ず報告される状態にする。
 on:
   pull_request:
     branches: [main]
-    paths-ignore: &non_functional_paths
-      - "**/*.md"
-      - "docs/**"
-      - ".claude/**"
   push:
     branches: [main]
-    paths-ignore: *non_functional_paths
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}

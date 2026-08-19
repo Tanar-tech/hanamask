@@ -110,6 +110,22 @@ flowchart TD
 </ul>
 <p>上記に該当しない日常的な開発作業（ブランチ作成、実装、テスト、ドキュメント更新、<code>main</code> への通常マージ）は開発管理者の裁量で進めてよい。</p>
 
+<h3 id="6-1">6.1 依存更新（Dependabot）の扱い（2026-08-18追加）</h3>
+<p><strong>CIが緑であることは前提であって、判断材料の全部ではない。</strong>配布物に入るかどうかで3つに分けて扱う。</p>
+<table>
+<thead><tr><th>区分</th><th>Dependabotのグループ</th><th>扱い</th></tr></thead>
+<tbody>
+<tr><td>本番依存</td><td><code>production</code></td><td><strong>変更内容を確認し、一言添えてから</strong>管理者がマージする。利用者のデータや描画に直接効く</td></tr>
+<tr><td>配布物に入るランタイム</td><td><code>production-runtime</code>（現在は <code>electron</code> のみ）</td><td>本番依存と同じ扱い。<strong><code>devDependencies</code> にあるが、electron-builder が配布物へ同梱する</strong></td></tr>
+<tr><td>開発だけのもの</td><td><code>development</code></td><td>CIが緑（単体・E2Eが両OSで通る）なら、それ以上調べる価値は薄い</td></tr>
+</tbody>
+</table>
+<ul>
+<li><strong><code>electron</code> を <code>development</code> から分離した理由</strong>: Dependabot は <code>devDependencies</code> を機械的に &quot;development&quot; と分類するため、ラベルを信じて素通りさせると<strong>利用者が実行するランタイムが黙って変わる</strong>。メジャー更新は Chromium と Node のバージョンが動き、CSP・<code>safeStorage</code>・ネイティブアドオン（<code>better-sqlite3</code> の ABI）へ波及する（メジャーは <code>ignore</code> で自動PRの対象外にしてある）。</li>
+<li><strong>CIはパッケージ後の挙動を見ていない。</strong>ネイティブアドオンが絡む更新（<code>better-sqlite3</code> 等）は、リリース時のインストール確認が最後の砦になる。</li>
+<li>経緯: <code>mermaid</code> の脆弱性を追った際、<code>STATE.md</code> の「auditの指摘は開発依存のみ」という記述が誤りで、<strong>実際は配布物に入る本番依存だった</strong>（2026-08-16）。区分を機械的に判断できるようにするのが本節の狙い。</li>
+</ul>
+
 <h2 id="7">7. 開発要員（サブエージェント）運用ルール</h2>
 <ul>
 <li>タスクは独立して検証可能な単位に分解してから委任する。委任時には目的・背景・完了条件を明示する（詳細はAgent運用の指針に準ずる）。</li>
