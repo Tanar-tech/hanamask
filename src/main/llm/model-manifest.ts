@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { asRecord } from "../records.js";
 
 export const EMBEDDING_MANIFEST_FILE_NAME = "embedding.json";
 
@@ -20,16 +21,16 @@ export interface EmbeddingModelManifest {
 }
 
 const isEmbeddingModelLicense = (value: unknown): value is EmbeddingModelLicense => {
-  if (typeof value !== "object" || value === null) return false;
-  const license: Record<string, unknown> = { ...value };
+  const license = asRecord(value);
+  if (license === null) return false;
   return typeof license.name === "string" && typeof license.file === "string";
 };
 
 const isPositiveNumber = (value: unknown): boolean => typeof value === "number" && value > 0;
 
 export const isEmbeddingModelManifest = (value: unknown): value is EmbeddingModelManifest => {
-  if (typeof value !== "object" || value === null) return false;
-  const manifest: Record<string, unknown> = { ...value };
+  const manifest = asRecord(value);
+  if (manifest === null) return false;
   return (
     typeof manifest.id === "string" &&
     typeof manifest.file === "string" &&

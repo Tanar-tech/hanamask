@@ -18,7 +18,6 @@ export interface EmbeddingIndexStatus {
 
 export interface EmbeddingIndexerRepo {
   upsertEmbedding: (row: StoredEmbedding) => void;
-  deleteEmbedding: (entityType: EmbeddedEntityType, entityId: string) => void;
   listStaleEntities: (modelId: string) => StaleEntity[];
   contentHashOf: (title: string, body: string) => string;
 }
@@ -36,6 +35,7 @@ export interface EmbeddingIndexerDeps {
   contextSize: number;
   now?: () => string;
   debounceMs?: number;
+  logger?: { warn(message: string): void };
 }
 
 export interface EmbeddingIndexer {
@@ -75,8 +75,15 @@ export const createEmbeddingIndexer = (deps: EmbeddingIndexerDeps): EmbeddingInd
   const statusListeners = new Set<(status: EmbeddingIndexStatus) => void>();
   const unsubscribes: Array<() => void> = [];
   let status: EmbeddingIndexStatus = statusOf(deps.getAvailability(), 0);
+  const warn = (message: string): void => {
+    if (deps.logger === undefined) {
+      console.warn(message);
+      return;
+    }
+    deps.logger.warn(message);
+  };
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
-  let flushing = false;
+  let drainPromise: Promise<void> | null = null;
   let started = false;
 
   const publishStatus = (): void => {
@@ -105,28 +112,40 @@ export const createEmbeddingIndexer = (deps: EmbeddingIndexerDeps): EmbeddingInd
   };
 
   /*
+   * 索引更新が黙って止まらないよう、失敗は必ず記録する。本文・タイトル・エラー本文は
+   * 記録に載せない（ログから記録の中身が漏れないようにするため。SPEC S4）。
+   */
+  const warnEmbedFailure = (item: QueueItem, error: unknown): void => {
+    const kind = error instanceof Error ? error.name : "unknown";
+    warn(`埋め込みに失敗しました: ${item.entityType} ${item.entityId} (${kind})`);
+  };
+
+  /*
    * node-llama-cpp の埋め込みは並列にしても速くならないため直列で回す。1件が throw しても
    * キューからは外す（その項目は次の変更で再試行される）。
    */
-  const drain = async (): Promise<void> => {
-    if (flushing) return;
-    flushing = true;
-    try {
-      for (const [key, item] of queue) {
-        const availability = deps.getAvailability();
-        if (availability.state !== "ready") break;
-        queue.delete(key);
-        try {
-          await embedOne(availability.provider, item);
-        } catch {
-          // 1件の失敗で索引更新全体を止めない。
-        }
-        publishStatus();
+  const drainQueue = async (): Promise<void> => {
+    for (const [key, item] of queue) {
+      const availability = deps.getAvailability();
+      if (availability.state !== "ready") break;
+      queue.delete(key);
+      try {
+        await embedOne(availability.provider, item);
+      } catch (error) {
+        warnEmbedFailure(item, error);
       }
-    } finally {
-      flushing = false;
       publishStatus();
     }
+  };
+
+  // 進行中の drain を Promise で保持するのは、reindexAll がその完了を待てるようにするため。
+  const drain = async (): Promise<void> => {
+    if (drainPromise !== null) return drainPromise;
+    drainPromise = drainQueue().finally(() => {
+      drainPromise = null;
+      publishStatus();
+    });
+    return drainPromise;
   };
 
   const scheduleFlush = (): void => {
@@ -157,12 +176,12 @@ export const createEmbeddingIndexer = (deps: EmbeddingIndexerDeps): EmbeddingInd
       enqueueStale();
       return;
     }
-    if (change.action === "deleted") {
-      queue.delete(keyOf(toQueueItem(change)));
-      deps.repo.deleteEmbedding(change.entity, change.id);
-      publishStatus();
-      return;
-    }
+    /*
+     * 削除はソフトデリートなので埋め込み行には触らない。検索は deleted_at IS NULL の
+     * JOIN で除外するため結果に出ず、復元時は content_hash が一致して再計算も起きない。
+     * 物理削除で行き場を失った行は purge の孤児掃除が落とす。
+     */
+    if (change.action === "deleted") return;
     enqueue([toQueueItem(change)]);
   };
 
@@ -192,7 +211,12 @@ export const createEmbeddingIndexer = (deps: EmbeddingIndexerDeps): EmbeddingInd
     publishStatus();
   };
 
+  /*
+   * 進行中の drain があるとその周回はキューを取り切ってしまうので、待ってからもう1周する。
+   * 待たないと reindexAll が「まだ埋めていない分」を残したまま resolve してしまう。
+   */
   const reindexAll = async (): Promise<void> => {
+    await drainPromise;
     enqueueStale();
     await drain();
   };

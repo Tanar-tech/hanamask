@@ -20,7 +20,12 @@ import {
 } from "../db/tasks-repo.js";
 import { listTagsInUse } from "../db/tags-repo.js";
 import { createLink, deleteLink, listLinks, toEntityType } from "../db/links-repo.js";
-import { searchSemanticEntities } from "../llm/semantic-search-service.js";
+import {
+  DEFAULT_SEMANTIC_LIMIT,
+  MAX_SEMANTIC_LIMIT,
+  normalizeSemanticLimit,
+  searchSemanticEntities,
+} from "../llm/semantic-search-service.js";
 import { attachImage } from "../images/attach-image.js";
 import { navigateUi, showUiWindow } from "../ui/navigate.js";
 import { emitLinksChanged, emitNotesChanged, emitTasksChanged } from "./change-emitter.js";
@@ -101,20 +106,6 @@ const readOptionalTags = (args: Record<string, unknown>): string[] | undefined =
     throw new Error('"tags" must be an array of strings');
   }
   return value;
-};
-
-const readOptionalCount = (
-  args: Record<string, unknown>,
-  key: string,
-  fallback: number,
-  max: number,
-): number => {
-  const value = args[key];
-  if (value === undefined) return fallback;
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
-    throw new Error(`"${key}" must be a positive integer`);
-  }
-  return Math.min(value, max);
 };
 
 /*
@@ -350,9 +341,6 @@ const attachImageTool: NoteTool = {
   }),
 };
 
-const DEFAULT_SEMANTIC_SEARCH_LIMIT = 10;
-const MAX_SEMANTIC_SEARCH_LIMIT = 100;
-
 // 検索そのものは semantic-search-service にある。画面（IPC）と同じ結果を返すため共有する。
 const searchSemantically = async (query: string, limit: number): Promise<CallToolResult> =>
   jsonResult(await searchSemanticEntities(query, limit));
@@ -371,7 +359,7 @@ const semanticSearchNotesTool: NoteTool = {
         query: { type: "string", description: "探したい内容を表す自然文" },
         limit: {
           type: "integer",
-          description: `返す件数の上限（既定 ${DEFAULT_SEMANTIC_SEARCH_LIMIT}）`,
+          description: `返す件数の上限（既定 ${DEFAULT_SEMANTIC_LIMIT}、最大 ${MAX_SEMANTIC_LIMIT}）`,
         },
       },
       required: ["query"],
@@ -380,7 +368,7 @@ const semanticSearchNotesTool: NoteTool = {
   handler: toToolHandler((args) =>
     searchSemantically(
       readString(args, "query"),
-      readOptionalCount(args, "limit", DEFAULT_SEMANTIC_SEARCH_LIMIT, MAX_SEMANTIC_SEARCH_LIMIT),
+      normalizeSemanticLimit(args.limit),
     ),
   ),
 };

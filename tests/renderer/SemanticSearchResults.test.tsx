@@ -115,6 +115,27 @@ describe("SemanticSearchResults", () => {
     expect(onSelectTask).toHaveBeenCalledWith("task-1");
   });
 
+  // 種別ごとにまとめず、スコアの降順で1本に並べる（近い順に読めることを優先する）。
+  it("ノートとタスクをまたいでスコアの降順に並べる", async () => {
+    mockEmbeddingApi({
+      readStatus: () => READY,
+      readResult: () => ({
+        notes: [makeNote({ score: 0.4 }), makeNote({ id: "note-2", title: "遠いノート", score: 0.1 })],
+        tasks: [makeTask({ score: 0.9 })],
+      }),
+    });
+
+    render(<SemanticSearchResults query="MCPの接続" onSelectNote={noop} onSelectTask={noop} />);
+
+    const list = await screen.findByRole("list", { name: "意味が近い記録" });
+    const rows = within(list).getAllByRole("listitem");
+    expect(rows.map((row) => row.textContent)).toEqual([
+      `${TASK_TITLE}タスク`,
+      `${NOTE_TITLE}ノート`,
+      "遠いノートノート",
+    ]);
+  });
+
   it("タスクの選択先が無いときタスクはボタンにしない", async () => {
     mockEmbeddingApi({ readStatus: () => READY, readResult: () => FOUND });
 
