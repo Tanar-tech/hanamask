@@ -15,10 +15,10 @@ Hugging Face sentence-transformers の出力と **全10文でコサイン類似�
    EOS は付く）。GGUF 側に `add_bos_token=True` が入っていても無視される。
    → 文字列ではなく**トークン配列**を渡す: `ctx.getEmbeddingFor([model.tokens.bos, ...model.tokenize(text), model.tokens.eos])`
 2. **`batchSize` を `contextSize` と同じにする。** 既定は `min(contextSize, 512)` で、かつ addon 側が `n_ubatch = n_batch` にする
-   （`AddonContext.cpp:381`）。512トークンを超える入力はubatch分割され、pooling が壊れる（522トークンで cos 0.773）。
+   （`AddonContext.cpp:381`）。512トークンを超える入力はubatch分割され、pooling が入力の一部にしか効かない（522トークンで cos 0.773）。
    → `createEmbeddingContext({contextSize: 8192, batchSize: 8192})`
 
-**公開GGUF `keisuke-miyako/ruri-v3-70m-gguf-q8_0` は使ってはいけない**（詳細は後述）。自前変換版の配布が必要。
+**公開されている既存GGUF（`keisuke-miyako/ruri-v3-70m-gguf-q8_0`）はトークナイザ種別が合わずそのままでは採用できない**（詳細は後述。上流の変換スクリプトが ModernBERT 派生の Unigram 語彙を想定していないために起きる構造的な問題で、公開者の落ち度ではない）。自前変換版の配布が必要。
 
 ## 環境・コマンド
 
@@ -205,7 +205,7 @@ detokenize(tokenize(x)) == x （完全復元）
 **公開GGUFはそのまま使えない。自前変換したGGUFを hanamask のリリースアセット等で配布する必要がある。**
 
 唯一の既存公開GGUF `keisuke-miyako/ruri-v3-70m-gguf-q8_0`（`ruri-v3-70m-Q8_0.gguf`,
-sha256 `ec58ad8676d448e91762ca04e08e6df4376221f2661f453d70fa83485b1672f9`）は**壊れている**:
+sha256 `ec58ad8676d448e91762ca04e08e6df4376221f2661f453d70fa83485b1672f9`）は**トークナイザ種別の不一致により本モデルでは正しく動かない**（上流変換スクリプトの想定外の組み合わせに起因。公開者の問題ではない）:
 
 - `tokenizer.ggml.model = 'bert'`（WordPiece）で変換されており、Unigram 語彙が WPM として解釈される
 - 結果、**濁点・半濁点付きのひらがなが丸ごと消える**。「ぱぴぷぺぽ・ばびぶべぼ・がぎぐげご」が
