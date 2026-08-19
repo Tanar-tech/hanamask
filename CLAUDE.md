@@ -26,6 +26,7 @@
 - タスクをサブエージェントに委任する際は、汎用の Agent 呼び出しをする前にまず `.claude/agents/` に適した役割が定義されていないか確認し、あればそれを優先して起用する（Agent tool の `subagent_type` に該当ファイルの `name` を指定する）。
 - Parallel Subagent Framework のPhase 3/5では上記メンバーを並列起動する（下記参照）。フロー外の単発タスクでも、実装は `implementer`、レビューは `reviewer`、成果物の動作検証は `verifier` を同様に起用してよい。
 - 新しい役割が恒常的に必要になった場合は、都度その場限りのAgent呼び出しで済ませず `.claude/agents/` にメンバーとして定義を追加することを検討し、管理者に提案する。
+- **サブエージェントのモデルはOpusを既定とする（2026-08-19、管理者指示。コスト効率のため）。**`.claude/agents/` の各定義は `model: opus`（reviewerはsonnet）で固定してあり、`inherit` にしない（開発管理者セッションがFableのとき、そのまま継承するとFableで走ってしまう）。汎用の `Explore` / `general-purpose` / `Plan` を Agent tool で呼ぶときも **必ず `model: "opus"` を明示する**。Fableを使うのは開発管理者セッション本体だけ。
 
 # Parallel Subagent Framework
 

@@ -50,19 +50,19 @@
 </tbody>
 </table>
 
-<h3 id="remaining">残作業（2026-08-17時点）</h3>
-<p>要求定義由来の機能タスク・実装済み機能の穴・技術的負債はすべて解消済み。残っているのは<strong>公開</strong>と<strong>定着</strong>（作ったものが実際に使われる状態にする）の2系統。定着タスクの着手順は <strong>T46 → T45 → T44</strong> を推奨する（理由は「定着」セクション冒頭）。</p>
+<h3 id="remaining">残作業（2026-08-19時点）</h3>
+<p><strong>公開（T43）と定着（T44〜T47）は完了し、v1.0.0 を出した。</strong>残っているのは<strong>ローカルLLMの組み込み</strong>（T48〜T50、2026-08-19起票）と、凍結中のT12。</p>
 <table>
 <thead><tr><th>タスク</th><th>残っている内容</th><th>必須依存</th><th>実行者</th></tr></thead>
 <tbody>
-<tr><td><a href="#t43">T43</a></td><td>リポジトリのpublic化と公開</td><td>T38</td><td><strong>public化の実行は管理者専任</strong>（不可逆のため）</td></tr>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル</td><td>T03, T05</td><td>凍結中。実装は残したまま画面から外している（2026-08-10、管理者判断）</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t48">T48</a></td><td>ローカルLLM(1) 意味検索（埋め込み）（詳細は <a href="TASKS-local-llm.html">TASKS-local-llm.html</a>）</td><td>なし</td><td>開発管理者＋開発要員（2026-08-19起票。統合ブランチ <code>feature/local-llm</code>）</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル（同上）</td><td>T48, T12</td><td>T48でランタイム同梱を固めてから</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t50">T50</a></td><td>ローカルLLM(3) 提案系補助（同上）</td><td>T48</td><td>T49の後を推奨</td></tr>
+<tr><td><a href="#t53">T53</a></td><td>未マージのアクション更新（#172）を判断する</td><td>なし（推奨 T52）</td><td>調査済み・CI緑。用途はE2Eのスクショ保存のみ</td></tr>
 </tbody>
 </table>
-<p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は T43 の完了が前提。公開リポジトリでないとトークンの埋め込みが必要になり現実的でないため。</p>
+<p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は <strong>T43 の完了により導入可能になった</strong>（公開リポジトリが前提だった）。依存追加は <a href="GOVERNANCE.html#6">GOVERNANCE.html §6</a> の承認事項のため、まだタスク化していない。</p>
 
 <pre class="mermaid">
 flowchart LR
@@ -128,8 +128,11 @@ flowchart LR
   class T29,T30,T31,T32,T33,T34,T35,T36,T37,T38,T39,T40,T41,T42 done;
   class T01,T02,T13,T14 done;
   class T12 frozen;
-  class T43 todo;
+  class T43 done;
   class T48,T49,T50 todo;
+  class T51 done;
+  class T52 done;
+  class T53 todo;
   class T47 done;
   class T46 done;
   class T45 done;
@@ -779,7 +782,19 @@ flowchart LR
 
 <h3 id="t43">T43: リポジトリのパブリック化と公開</h3>
 <ul>
-<li>ステータス: 未着手</li>
+<li>ステータス: 完了（2026-08-18。public化・ブランチ保護・疎通確認まで実施。PR #175 で保護スクリプトを用意）</li>
+<li><strong>実績（2026-08-18）</strong>:
+<ul>
+<li><strong>公開直前の再棚卸し</strong>: 秘密情報なし（git履歴全体を走査。検出はテスト用の偽鍵2件のみ）、個人情報なし、<code>package.json</code> と <code>LICENSE</code> がともに Apache-2.0、本番依存332件すべて許容ライセンス、本番依存の脆弱性0件</li>
+<li><strong>管理者がpublic化を実行</strong>。直後に <code>./scripts/apply-branch-protection.sh</code> でブランチ保護を適用した</li>
+<li><strong>保護が効くことを実測</strong>: 直接pushが <code>GH006: Protected branch update failed</code> で拒否されることを確認。必須チェックは <code>build-and-test (ubuntu-latest)</code> / <code>build-and-test (windows-latest)</code> / <code>semgrep</code>、force push・ブランチ削除は禁止、<strong>管理者にも適用</strong></li>
+<li><strong><code>enforce_admins</code> は当初 false にしたが true に変更した。</strong>開発管理者は管理者アカウントで動くため、除外すると<strong>開発管理者にも保護が効かない</strong>（実際に検証中、mainへ空コミットが1件入った。差分ゼロのため内容への影響はなく、管理者判断で残置）。「mainへ直接pushしない」を技術的に強制するには true が要る</li>
+<li><strong>必要な承認数は0</strong>。単独開発では自分のPRを自分で承認できず、1以上にすると自分のPRがマージできなくなる</li>
+<li><strong>匿名（未ログイン）での疎通確認</strong>: リポジトリ・README・Releases・インストーラーがいずれも200で取得できることを確認</li>
+<li><strong>v1.0.0 をリリース</strong>（PR #177）。インストーラーの <strong>SHA-512 が <code>latest.yml</code> の宣言値と一致</strong>することを実測</li>
+</ul>
+</li>
+<li><strong>公開により変わったこと</strong>: <a href="SIGNING.html">SIGNING.html</a> の選択肢C（Certum Open Source Code Signing、年$50〜70）が<strong>条件を満たすようになった</strong>。署名なしの方針は据え置き。また <strong>T48（ブランチ保護と開発依存の自動マージ）の前提が解消</strong>された</li>
 <li>優先度: <strong>高</strong>（管理者要望、2026-08-17。T38の準備が完了したため実行段階に入る）</li>
 <li>依存: 必須: <a href="#t38">T38</a>（公開準備。メタファイル・ライセンス整合・個人情報除去・依存ライセンス監査）／推奨: なし</li>
 <li>目的: T38で「公開できる状態」までは整えたが、<strong>公開そのものは行っていない</strong>ため、hanamaskは依然としてprivateリポジトリのままである。<a href="GOVERNANCE.html#3-ブランチ戦略">GOVERNANCE.html</a> §3.1のとおり配布はインストーラーの再配布によっており、<strong>公開しない限り <code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）も導入できない</strong>。本タスクでpublic化を実行し、OSSとして公開された状態にする。</li>
@@ -889,6 +904,54 @@ flowchart TB
 
 <h2 id="local-llm">ローカルLLM組み込み（2026-08-19起票）</h2>
 <p>T48〜T50の詳細は <strong><a href="TASKS-local-llm.html">TASKS-local-llm.html</a></strong> にある。統合ブランチ <code>feature/local-llm</code> での進捗更新は同ファイルにのみ書き、<code>main</code> 側で並行するパッチ更新と本ファイルが競合しないようにする（本ファイルへの転記は統合完了時に1回だけ行う）。</p>
+
+<h3 id="t51">T51: ブランチ保護と、開発依存だけのDependabot自動マージ</h3>
+<ul>
+<li>ステータス: 完了（PR #187。ブランチ保護はT43で適用済み、自動マージのワークフローを本タスクで追加）</li>
+<li>優先度: <strong>中</strong>（管理者要望、2026-08-18）</li>
+<li>依存: <strong>必須: <a href="#t43">T43</a>（2026-08-18 完了）</strong>／推奨: なし</li>
+<li><strong>採番の経緯（2026-08-19）</strong>: 当初 T48 として起票したが、<strong>同じIDがローカルLLM(1)に採番された</strong>（別セッションが並行して起票し、先に main へ入った）。ID衝突を避けるため T51 に改番した。<code>docs/TASKS.md</code> に同じIDが2つ並んでも <code>check:tasks</code> は検出しない（見出し数と抽出数しか突き合わせていない）ため、<strong>採番前に main の最新を確認すること</strong>。</li>
+<li><strong>着手前に判明した制約と、その解消（2026-08-18）</strong>: 起票時点では<strong>ブランチ保護もrulesetも使えなかった。</strong><code>gh api repos/.../branches/main/protection</code> と <code>.../rulesets</code> のいずれも <code>403 Upgrade to GitHub Pro or make this repository public to enable this feature.</code> を返す（privateかつ無料プランのため）。
+<ul>
+<li><strong>したがって自動マージだけを先に入れてはいけない。</strong>必須ステータスチェックが設定できない状態で <code>gh pr merge --auto</code> を使うと、<strong>CIを待たずに即マージされる</strong>。「便利にする」つもりが「無条件で取り込む」になり、依存更新のPRを人が見ない状態が完成してしまう</li>
+<li>解ける道は2つ。<strong>(a) T43でpublic化する</strong>（公開リポジトリなら無料プランでもブランチ保護が使える）、<strong>(b) GitHub Proにする</strong>（管理者の判断・費用が伴う）</li>
+<li><strong>本タスクはT43の完了を待つ</strong>のが素直。順序が逆になると危険側に倒れるため、依存を「推奨」から<strong>「必須」に格上げした</strong></li>
+<li><strong>2026-08-18に解消。</strong>public化と同時にブランチ保護を適用し、必須チェック（<code>build-and-test (ubuntu-latest)</code> / <code>(windows-latest)</code> / <code>semgrep</code>）が効いていることを実測した。<strong>したがって本タスクは着手可能。</strong>残る前提はリポジトリ設定の <strong>Allow auto-merge</strong> の有効化と、ワークフロー追加の承認</li>
+<li><strong>公開後に判明した注意点</strong>: 必須チェックを指定すると、<strong>それらが起動しないPRは永久にマージできなくなる</strong>。実際に <code>ci.yml</code> / <code>sast.yml</code> の <code>paths-ignore</code> によりドキュメントのみのPRがブロックされ、除外を外して解消した（PR #180）。自動マージを入れる際も「<strong>対象のPRで必須チェックが本当に起動するか</strong>」を先に確かめること</li>
+</ul>
+
+<h3 id="t52">T52: GitHub Actionsの更新PRの扱いを決める</h3>
+<ul>
+<li>ステータス: 完了（PR #189。管理者判断により<strong>マイナー以下は自動マージの対象に含める</strong>）</li>
+<li>優先度: <strong>低</strong>（管理者要望、2026-08-19）</li>
+<li>依存: 必須: なし／推奨: <a href="#t51">T51</a>（自動マージの仕組みを流用するため）</li>
+<li>目的: <strong><code>github-actions</code> エコシステムのPRだけ、扱いが決まっていない。</strong>T51 で npm の依存は <code>development</code> / <code>production</code> / <code>production-runtime</code> に区分し、開発依存のみ自動マージするようにしたが、<strong>アクションの更新はどのグループにも属さない</strong>（<code>.github/dependabot.yml</code> の <code>groups</code> は npm 側にしか定義していない）。結果として <code>dependency-group</code> が空になり、<strong>自動マージの条件を一律に外れて手動マージ待ちで溜まる</strong>。</li>
+<li><strong>実測した現状（2026-08-19、PR #172 で確認）</strong>: <code>actions/upload-artifact</code> 4.6.2 → 7.0.1 のPRで <code>fetch-metadata</code> の出力は <code>dependency-type: direct:production</code> / <code>update-type: version-update:semver-major</code> / <strong><code>dependency-group:</code>（空）</strong>。除外された理由は「メジャー更新」と「グループ未定義」が重なっており、<strong>マイナー更新でも同じく除外される</strong>。</li>
+<li><strong>決めるべきこと</strong>:
+<ul>
+<li>アクションの更新を自動マージの対象に含めるか。含めるなら <code>github-actions</code> 側にもグループを定義し、ワークフローの条件を広げる</li>
+<li><strong>含める場合の危険</strong>: アクションは<strong>CIとリリースの実行環境そのもの</strong>で、<code>release.yml</code> も含む。壊れると配布物が作れなくなる。一方で<strong>アクションはSHA固定しており</strong>（<a href="GOVERNANCE.html">GOVERNANCE.html</a>）、更新PRはSHAの差し替えなので差分は読みやすい</li>
+<li><strong>メジャー更新は対象外を維持する</strong>（T51と同じ方針）。#172 のようにメジャー3つ分飛ぶことがある</li>
+</ul>
+</li>
+<li>変更範囲: <code>.github/dependabot.yml</code>（グループ定義）、<code>.github/workflows/dependabot-auto-merge.yml</code>（条件）、<a href="GOVERNANCE.html#6-1">GOVERNANCE.html §6.1</a>（区分の追記）。<strong>アプリケーションコードは変更しない。</strong></li>
+<li>禁止事項: <strong>メジャー更新を自動マージの対象に含めないこと。</strong>SHA固定をやめてタグ指定に変えないこと（固定の意味が失われる）。<code>release.yml</code> が使うアクションだけを特別扱いする複雑な分岐を作らないこと（判定が読めなくなる）。既存の <code>cooldown</code>（7日）を緩めないこと。</li>
+<li>テスト: 自動テストの対象外。<strong>実際のDependabot PRで挙動を確認する</strong>（T51で確立した方法）。具体的には <code>fetch-metadata</code> の出力（<code>dependency-group</code> / <code>update-type</code>）をログで確認し、<strong>意図した分岐に入ったことと、CIが緑になるまでマージされないことの両方</strong>を見る。「設定した」で済ませない。</li>
+<li>停止条件: <strong>自動マージの対象を広げる判断は管理者に確認する</strong>（CI・リリースの実行環境が対象になるため）。ワークフローと <code>dependabot.yml</code> の変更は <a href="safety.html">safety.html</a> の denylist と <a href="GOVERNANCE.html#6">GOVERNANCE.html §6</a> に該当する。</li>
+</ul>
+
+<h3 id="t53">T53: 未マージのアクション更新（#172）を判断する</h3>
+<ul>
+<li>ステータス: 未着手</li>
+<li>優先度: <strong>低</strong>（管理者要望、2026-08-19）</li>
+<li>依存: 必須: なし／推奨: <a href="#t52">T52</a>（恒久的な方針が決まれば、本タスクはその適用で済む）</li>
+<li>目的: <strong>PR #172（<code>actions/upload-artifact</code> 4.6.2 → 7.0.1）が宙に浮いている。</strong>自動マージの対象外で、手動マージの判断も保留したままになっている。</li>
+<li><strong>調査済み（2026-08-19）</strong>: <strong>破壊的変更の記載が無い</strong>（上流のv7.0リリースノートに breaking changes の記述はなく、主な変更はESM化）。用途は <code>ci.yml</code> の<strong>E2Eスクリーンショット保存のみ</strong>で、<code>release.yml</code> では使っていないため<strong>リリース経路に影響しない</strong>。CIは全チェック緑。</li>
+<li>変更範囲: <code>.github/workflows/ci.yml</code>（SHAとバージョンコメントの更新）のみ。</li>
+<li>禁止事項: 他のアクションの更新をこのPRに混ぜないこと。用途を広げないこと（スクリーンショット保存以外に使わない）。</li>
+<li>テスト: マージ後、<strong>E2Eのスクリーンショットが実際にアーティファクトとして保存されること</strong>をCIの成果物で確認する。<code>if-no-files-found: ignore</code> を指定しているため、<strong>壊れても失敗せず静かに何も上がらなくなる</strong>。緑であることだけでは確認にならない。</li>
+<li>停止条件: 特になし（メジャー更新だが、影響範囲が限定的で調査済みのため）。ただしマージ後にスクリーンショットが上がらなくなっていた場合は、<strong>戻すか原因を追うかを管理者に確認する</strong>。</li>
+</ul>
 
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>

@@ -42,6 +42,21 @@ if (headings.length !== tasks.length) {
   process.exit(1);
 }
 
+/*
+ * IDの重複を検出する。2026-08-19、別セッションが並行してタスクを起票し、同じ T48 が
+ * 「ローカルLLM(1)」と「ブランチ保護と自動マージ」の 2つを指す状態になりかけた。
+ * 件数の突き合わせでは両方カウントされるだけで気付けない。
+ */
+const duplicated = [...new Set(tasks.map((task) => task.id))].filter(
+  (id) => tasks.filter((task) => task.id === id).length > 1,
+);
+
+if (duplicated.length > 0) {
+  console.error(`同じタスクIDが複数あります: ${duplicated.join(", ")}`);
+  console.error("\n別々の作業が同じIDを採番した可能性があります。採番前に main の最新を確認してください。");
+  process.exit(1);
+}
+
 // 見出しごと消えた場合は上の突き合わせでは気付けないので、下限も見る。
 const MINIMUM_EXPECTED_TASKS = 20;
 if (tasks.length < MINIMUM_EXPECTED_TASKS) {
