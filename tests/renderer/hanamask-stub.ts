@@ -1,5 +1,6 @@
 import { vi } from "vitest";
 import type { AppSettings, HanamaskPreloadApi } from "../../src/shared/preload-api";
+import type { EmbeddingApi, EmbeddingStatus } from "../../src/renderer/components/RelatedNotes";
 
 const CHAT_SETTINGS = { apiKeyMask: null, model: "claude-sonnet-4-5" };
 
@@ -7,9 +8,22 @@ const notStubbed = (name: string) => (): never => {
   throw new Error(`${name} is not stubbed`);
 };
 
+const UNAVAILABLE_STATUS: EmbeddingStatus = { state: "unavailable", pending: 0 };
+
+/*
+ * 意味検索のAPIはPhase 4で HanamaskPreloadApi に入る。それまではレンダラー側の
+ * 契約（EmbeddingApi）でスタブし、Object.assign で本体の型を保ったまま足す。
+ */
+const stubEmbeddingApi = (): EmbeddingApi => ({
+  semanticSearch: vi.fn(async () => ({ notes: [], tasks: [] })),
+  relatedNotes: vi.fn(async () => ({ notes: [] })),
+  readEmbeddingStatus: vi.fn(async () => UNAVAILABLE_STATUS),
+  onEmbeddingStatusChanged: vi.fn(() => () => {}),
+});
+
 /** 何もしない既定のpreload API。関心のある口だけを差し替えて使う。 */
-export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
-  window.hanamask = {
+export const stubHanamask = (overrides: Partial<HanamaskPreloadApi & EmbeddingApi>): void => {
+  const base: HanamaskPreloadApi = {
     deleteTask: vi.fn(async () => {}),
     listDeletedTasks: vi.fn(async () => []),
     restoreTask: vi.fn(async () => null),
@@ -48,6 +62,6 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     onLinksChanged: vi.fn(() => () => {}),
     exportBackup: vi.fn(notStubbed("exportBackup")),
     importBackup: vi.fn(notStubbed("importBackup")),
-    ...overrides,
   };
+  window.hanamask = Object.assign(base, stubEmbeddingApi(), overrides);
 };
