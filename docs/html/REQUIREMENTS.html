@@ -21,6 +21,7 @@
 
 <h3>コンセプト</h3>
 <p>AI開発（AIエージェントとの協働）に最適化されたノートアプリケーション。<strong>MCPサーバーとして自身のツール群を公開し、利用者が普段使っているAIエージェント（Claude Code等のCLIエージェント）が直接ノート・タスクを読み書きする</strong>ことを主要な操作経路とする。アプリ本体はローカルで動作する<strong>ネイティブデスクトップアプリ</strong>（Electron採用、詳細は§5）とし、AIチャットも搭載するが、そこで動くAIはhanamaskが自前で提供・管理するものではなく、<strong>利用者自身が管理するAIエージェント（Claude等、BYO Agent）</strong>であり、内部的にはCLIエージェントと同じMCPツール群を呼び出す薄いフロントエンドとして位置づける。加えて、図（Mermaid記法）の作成と画像の取り込みに対応する。</p>
+<p><strong>ノートとページへの再編（2026-08-20改定）</strong>: v2.1.0で、ナレッジの単位を<strong>ノート</strong>（ページをとりまとめる束。概要を持つ）と<strong>ページ</strong>（従来の「ノート」に相当する記録の基本単位）の2概念に分ける。両者は上下関係ではなく<strong>並列の存在</strong>で、リンク・タグ・意味検索の索引・編集履歴・ゴミ箱はどちらにも付きうる。どのノートにも属さない<strong>無所属ページ</strong>も許す。詳細は<a href="#4-9">§4.9</a>。<strong>本節を含む本書の各所にある「ノート」は、§4.9で明記した箇所を除き、v2.1.0以前の意味（＝ページ）のまま残している</strong>（実装完了時に文言を整える）。</p>
 <p><strong>ローカルLLMの組み込み（2026-08-19改定）</strong>: 上記のBYO Agent方針とは別に、hanamask自身が<strong>ローカルで動く小型LLM（推論ランタイムとモデル）をアプリに組み込む</strong>。用途は、外部AIエージェントやチャットの代替ではなく、①ノート・タスクの意味検索（埋め込み）、②チャットでAPIキー無しに使えるローカルモデルの選択肢、③タグ・タイトル・要約などの提案、というアプリ内の補助に限る（詳細は<a href="#4-8">§4.8</a>）。データを外部へ送らずに済むローカル完結の利点を活かすことが狙いで、BYO Agentの入口（MCPツール群）を置き換えるものではない。</p>
 
 <h3>Notionとの差分（なぜ作るか）</h3>
@@ -57,19 +58,38 @@ flowchart LR
 <p>管理者本人による個人利用のみ。マルチテナント・厳密な認証・課金機能は想定しない（詳細は §5, §8）。</p>
 
 <h2 id="2">2. 用語定義</h2>
+<p><strong>v2.1.0（2026-08-20）で「ノート」の意味を変えた。</strong>それ以前の「ノート」は本表の<strong>ページ</strong>にあたり、新しい「ノート」はページをとりまとめる束を指す（<a href="#4-9">§4.9</a>）。</p>
 <table>
 <thead><tr><th>用語</th><th>定義</th></tr></thead>
 <tbody>
-<tr><td>ノート</td><td>ナレッジを記録する基本単位。タイトル・本文（Markdown、図・画像埋め込みを含む）・タグを持つ。</td></tr>
-<tr><td>タスク</td><td>やるべき作業を表す単位。ステータス（未着手/進行中/完了）・期限を持つ。ノートとは別エンティティ。</td></tr>
-<tr><td>リンク</td><td>ノートとタスクの間、またはノート同士・タスク同士の相互参照関係。</td></tr>
-<tr><td>MCPツール</td><td>hanamaskが公開するMCPサーバーの操作単位（例: <code>create_note</code>, <code>search_notes</code>, <code>update_task</code>, <code>link_entities</code>, <code>open_note</code> 等。一覧は§7）。外部のAIエージェントから呼び出される。</td></tr>
+<tr><td>ページ</td><td>ナレッジを記録する基本単位。タイトル・本文（Markdown、図・画像埋め込みを含む）・タグを持つ。<strong>v2.1.0以前に「ノート」と呼んでいたものがこれにあたる</strong>（データもIDもそのまま引き継ぐ）。いずれかのノートに属することも、どのノートにも属さない（無所属）こともできる。</td></tr>
+<tr><td>ノート</td><td>複数のページをとりまとめる束。ノート自身も<strong>概要</strong>（タイトル・概要本文（Markdown）・タグ）を持つ。ページの入れ物であると同時に、それ自体が検索・リンク・履歴の対象になる<strong>ページと並列の存在</strong>である（<a href="#4-9">§4.9</a>）。英語名は <code>notebook</code>（MCPツール名・DBのテーブル名。UI表記は「ノート」）。</td></tr>
+<tr><td>無所属ページ</td><td>どのノートにも属さないページ。v2.1.0への移行では既存の全レコードがこれになる（<a href="#4-9">§4.9</a>）。</td></tr>
+<tr><td>タスク</td><td>やるべき作業を表す単位。ステータス（未着手/進行中/完了）・期限を持つ。ノート・ページとは別エンティティ。</td></tr>
+<tr><td>リンク</td><td>ノート・ページ・タスクの間の相互参照関係（同種同士も含む）。</td></tr>
+<tr><td>MCPツール</td><td>hanamaskが公開するMCPサーバーの操作単位（例: <code>create_note</code>, <code>search_notes</code>, <code>update_task</code>, <code>link_entities</code>, <code>open_note</code> 等。一覧は§7）。外部のAIエージェントから呼び出される。<strong>v2.1.0以降、名前に <code>note</code> を含む既存ツールはページを操作する</strong>（<a href="#4-9">§4.9</a>の互換方針）。</td></tr>
 <tr><td>図（Mermaid図）</td><td>Mermaid記法のテキストから自動生成される構造化図（フローチャート・シーケンス図・ER図等）。</td></tr>
-<tr><td>デスクトップUI</td><td>ノート・タスクの閲覧・手動編集およびAIチャットのための、ローカルで動作するネイティブアプリ画面。チャットのAIモデル自体はhanamaskが提供せず、利用者自身が管理するAIエージェント（BYO Agent）を接続して使う。</td></tr>
+<tr><td>デスクトップUI</td><td>ノート・ページ・タスクの閲覧・手動編集およびAIチャットのための、ローカルで動作するネイティブアプリ画面。チャットのAIモデル自体はhanamaskが提供せず、利用者自身が管理するAIエージェント（BYO Agent）を接続して使う。</td></tr>
 </tbody>
 </table>
 
+<pre class="mermaid">
+flowchart TB
+  NB["ノート（notebook）<br/>概要: タイトル・概要本文・タグ"]
+  P1["ページ（旧「ノート」）"]
+  P2["ページ"]
+  P0["無所属ページ<br/>notebook_id = NULL<br/>移行直後は全てこれ"]
+  Common["リンク・タグ・意味検索の索引・<br/>編集履歴・ゴミ箱<br/>（ノートにもページにも付きうる）"]
+
+  NB -->|とりまとめる| P1
+  NB -->|とりまとめる| P2
+  NB -.- Common
+  P1 -.- Common
+  P0 -.- Common
+</pre>
+
 <h2 id="3">3. 利用シーン・フロー（想定）</h2>
+<p><strong>v2.1.0での読み替え（2026-08-20）</strong>: 本節の1〜8で「ノート」と書かれている記録の単位は、§2の<strong>ページ</strong>を指す（記録・検索・図・画像の扱いは従来のまま変わらない）。ページを束ねる新しい「ノート」に関する利用シーンは9・10に追記した。</p>
 <ol>
 <li><strong>CLIエージェントとの作業中に記録</strong>: 利用者がClaude Code等のCLIエージェントと開発作業をしている最中に、エージェントがMCPツール経由でノート作成・タスク登録を行う（例: 調査結果の要約をノート化、TODOをタスク化）。</li>
 <li><strong>デスクトップUIのAIチャットから記録</strong>: 利用者がデスクトップUIのチャットパネルで自身のAIエージェントと会話し、「〇〇についてメモして」「△△のタスクを追加して」のように依頼する。チャット側のAIエージェントもMCPツール経由でノート作成・タスク登録を行う。</li>
@@ -79,6 +99,8 @@ flowchart LR
 <li><strong>デスクトップUIでの閲覧・棚卸し</strong>: 利用者がアプリを開いてノート一覧・タスク一覧を確認する。誤りがあれば手動で編集・削除する。</li>
 <li><strong>デスクトップUIでの画像取り込み</strong>: ノート編集画面でファイル選択/クリップボード貼り付けにより画像を添付する。</li>
 <li><strong>相互リンクの探索</strong>: デスクトップUI上でノートに紐づくタスク、タスクに紐づくノートをたどりながら文脈を把握する。</li>
+<li><strong>エージェントによる案件のとりまとめ（v2.1.0）</strong>: 同じ案件のページが増えてきたところで、エージェントがMCPツール経由でノートを作り、関連するページをそこへ移す。ノートの概要（何の案件か・どこまで進んだか）もエージェントが書き、ページの追加・更新に合わせて追従更新する（<a href="#4-9">§4.9</a>）。</li>
+<li><strong>ノートから入って読む（v2.1.0）</strong>: 利用者はデスクトップUIのExplorer型ナビでノートと無所属ページを一覧し、ノートを開いて概要を読んでから、そこに束ねられたページへ降りていく。とりまとめる前の記録は無所属ページのまま並ぶので、束ねる作業をしなくても従来通り使える（<a href="#4-9">§4.9</a>）。</li>
 </ol>
 
 <pre class="mermaid">
@@ -186,6 +208,55 @@ stateDiagram-v2
 <li><strong>制約</strong>: 実行はローカルのみで、記録の内容を外部へ送らない。CI（Linux）では実モデルを走らせず、推論層をインターフェースで隔離してモックで検証する。ランタイムの依存追加とインストーラーサイズの増加は<code>docs/GOVERNANCE.md</code> §6の承認事項として扱う。</li>
 </ul>
 
+<h3 id="4-9">4.9 ノートとページ（v2.1.0）</h3>
+<p><strong>2026-08-20改定</strong>（管理者決定、issue #199）。それまで記録の単位は「ノート」1種類だけだったが、案件ごとに記録が増えると一覧が平たく流れてしまい、まとまりを表現できなかった。そこで単位を<strong>ノート</strong>と<strong>ページ</strong>の2つに分ける。</p>
+<ul>
+<li><strong>旧「ノート」＝ページ</strong>: タイトル・本文（Markdown）・タグ・画像・Mermaid図・編集履歴・ゴミ箱の扱いは<strong>従来のまま変えない</strong>（§4.2, §4.4, §4.5, §4.7）。名前が変わるだけで、機能・データ・IDは引き継ぐ。</li>
+<li><strong>ノート＝ページをとりまとめる束</strong>: ノート自身も<strong>概要</strong>（タイトル・概要本文（Markdown）・タグ）を持つ。単なるフォルダではなく、「この案件は何で、どこまで進んだか」を読める場所として扱う。</li>
+<li><strong>ノートとページは並列の存在</strong>: <strong>リンク・タグ・意味検索の索引・編集履歴・ゴミ箱は、ノートにもページにも付きうる</strong>。ノートを検索で引き当てる、ノート同士をリンクする、ノートの概要を過去のバージョンに戻す、ノートをソフトデリートして復元する、のいずれも成立する。</li>
+<li><strong>無所属のページを許す</strong>: どのノートにも属さないページを認める。とりまとめは任意であり、束ねなければ使えない、という制約は作らない。1つのページが属するノートは高々1つ（複数ノートへの同時所属は初期スコープに含めない）。</li>
+<li><strong>ノートの操作もAIが行える</strong>: ノートの作成・更新・削除・復元をMCPツールとして公開し、外部AIエージェントが束ね方まで含めて面倒を見られるようにする（§4.1と同じ思想）。</li>
+<li><strong>概要はAIが自動生成・追従更新してよい</strong>: ノートの概要は、所属ページの内容から自動生成し、ページの追加・更新に合わせて更新してよい。これは<a href="#4-8">§4.8</a>-3の「提案→利用者が採用」の例外にあたる（対象がノートの概要に限られ、ページ本文＝利用者の記録そのものは書き換えないため）。<strong>自動生成の主体（外部AIエージェントに任せるか、同梱のローカルLLMで行うか）とトリガーは実装タスク側で確定する</strong>（<a href="TASKS-notebooks.html">TASKS-notebooks.html</a>、管理者確認の停止条件を置く）。利用者が手で書いた概要も、原則はそのまま尊重するが、<strong>実装やアプリの機能面で不都合がある場合は自動更新で上書きしてよい</strong>（2026-08-20 管理者判断。編集履歴に残るため復元は可能）。</li>
+<li><strong>ノートを削除したときの所属ページ（2026-08-20 確定）</strong>: ページは道連れにしない。<strong>ノートがゴミ箱にある間は所属情報を保持したまま、表示上は無所属ページとして扱う</strong>（ページは引き続き読める）。ノートを復元すれば束がそのまま戻る。30日経過してノートが完全削除（パージ）された時点で所属情報を外し、正式に無所属ページになる。既存のソフトデリート（30日復元）と対称で、誤削除でも記録も束も失われない。</li>
+</ul>
+
+<h4>既存データの移行</h4>
+<p>既存の全レコードを<strong>無所属ページ</strong>にする。包みノートは作らない（「未分類」のような自動生成のノートも作らない）。<strong>IDは維持</strong>し、リンク・編集履歴・画像・埋め込みの参照は切らない。実質的には呼び名の読み替えのみで、利用者から見て記録が移動・消失することはない。</p>
+
+<h4>MCPツールの互換方針（案A確定）</h4>
+<p>既存の <code>create_note</code> / <code>update_note</code> / <code>get_note</code> / <code>search_notes</code> / <code>delete_note</code> / <code>restore_note</code> / <code>list_note_versions</code> / <code>restore_note_version</code> / <code>attach_image</code> / <code>semantic_search_notes</code> 等は、<strong>名前・引数・戻り値を一切変えずに「ページを操作するツール」として温存する</strong>。既に利用者のAIエージェントの手順やhanamask内の記録が旧名に依存しているため、改名は接続済みのエージェントを黙って壊す。</p>
+<ul>
+<li>ツールの<strong>説明文</strong>で「これはページを操作する」ことと新しいツールの存在を案内し、エージェントが自然に新しい呼び方へ移れるようにする。</li>
+<li>新設するのは、ページ用の <code>*_page</code> 群＋ノートへの出し入れを行う <code>move_page</code>、およびノート用の <code>create_notebook</code> / <code>update_notebook</code> / <code>get_notebook</code> / <code>list_notebooks</code> / <code>delete_notebook</code> / <code>restore_notebook</code>（一覧は<a href="#7">§7.3</a>）。</li>
+<li><strong>旧名の廃止は v3 まで行わない</strong>。破壊的変更を伴わないため、本改定は<strong>v2.1.0（マイナーバージョン）</strong>とする。</li>
+</ul>
+
+<h4>デスクトップUI</h4>
+<p>Main View に加えて<strong>Explorer型のナビゲーション</strong>を持つ。ナビにはノートと無所属ページが混在して並び、<strong>ノートをクリックするとそのノートに属するページの一覧（サブナビ）が出る</strong>。</p>
+<ul>
+<li><strong>役割分担（2026-08-20 確定）</strong>: <strong>ページの一覧を持つのはナビ側だけ</strong>とする。ノートを開いたときの Main View は一覧を繰り返さず、<strong>概要（AIが追従更新する本文）・タグ・「最近更新されたページ」のプレビュー2〜3件（本文抜粋つき、クリックで開く）</strong>を表示する。ナビと Main View に同じ一覧が二重に出る構成にしない。</li>
+<li><strong>ナビの絞り込み検索（2026-08-20 確定）</strong>: ノート・ページが増えたときのため、ナビ上部に簡易検索を置く。対象は<strong>タイトルの逐次絞り込みのみ</strong>とし、全文検索・意味検索は従来どおりホームの検索が担う（検索系を二重に作らない）。</li>
+<li><strong>サブナビ方式（2026-08-20 確定）</strong>: モックアップ2案の比較により<strong>サブペイン方式</strong>（ナビの隣にページ一覧のペインを出す）を採用する。ページが多いノートでも見通しが良く、ノート一覧が常に見えることを優先した。</li>
+</ul>
+
+<pre class="mermaid">
+flowchart LR
+  subgraph Nav["Explorer型ナビ（ノートと無所属ページが混在）"]
+    NB1["ノートA<br/>（概要を持つ）"]
+    NB2["ノートB"]
+    P0["無所属ページ<br/>（移行直後は全てこれ）"]
+  end
+  NB1 -->|クリック| Sub["サブナビ: ノートAに属するページ一覧<br/>（サブペイン方式で確定）"]
+  Sub --> P1["ページ1"]
+  Sub --> P2["ページ2"]
+  P0 --> Main["Main View（ページ本文）"]
+  P1 --> Main
+  P2 --> Main
+</pre>
+
+<h4>文言の整備について</h4>
+<p>本改定では、要求定義本文の「ノート」を機械的に「ページ」へ置換することは<strong>しない</strong>（改定の範囲が読み取れなくなるため）。§1・§3に読み替えの注記を置き、本節と§2・§6・§7で新旧の対応を明示するに留める。<strong>本文全体の文言は、実装が完了した時点でまとめて整える</strong>。</p>
+
 <h2 id="5">5. 非機能要件</h2>
 <ul>
 <li><strong>想定利用者数</strong>: 管理者本人のみ（1ユーザー）。</li>
@@ -198,27 +269,41 @@ stateDiagram-v2
 </ul>
 
 <h2 id="6">6. データモデル（概念レベル・暫定）</h2>
+<p><strong>v2.1.0での読み替え（2026-08-20）</strong>: 以下の <code>Note</code>（テーブル名 <code>notes</code>）は§2の<strong>ページ</strong>にあたる。実体・IDはそのままで、新たに所属先のノートを指す <code>notebook_id</code> を持つ（<a href="#4-9">§4.9</a>）。ページを束ねる新しい「ノート」は <strong><code>Notebook</code></strong> として追加する（英語名 <code>notebook</code>、UI表記は「ノート」）。</p>
 <ul>
-<li><strong>Note</strong>: <code>id</code>, <code>title</code>, <code>body</code>(Markdown。Mermaid図はコードフェンスとして本文にインライン記述する), <code>tags</code>, <code>deleted_at</code>(ソフトデリート用、NULL=有効), <code>created_at</code>, <code>updated_at</code></li>
-<li><strong>NoteVersion</strong>: <code>id</code>, <code>note_id</code>, <code>title</code>, <code>body</code>, <code>tags</code>, <code>created_at</code>（<code>update_note</code>実行前のスナップショット。編集履歴・復元用）</li>
+<li><strong>Note</strong>（＝ページ）: <code>id</code>, <code>title</code>, <code>body</code>(Markdown。Mermaid図はコードフェンスとして本文にインライン記述する), <code>tags</code>, <code>notebook_id</code>(所属ノート。<strong>NULL可＝無所属ページ</strong>。v2.1.0追加), <code>deleted_at</code>(ソフトデリート用、NULL=有効), <code>created_at</code>, <code>updated_at</code></li>
+<li><strong>Notebook</strong>（＝ノート。v2.1.0追加）: <code>id</code>, <code>title</code>, <code>summary</code>(概要本文。Markdown), <code>tags</code>, <code>deleted_at</code>(ソフトデリート用、NULL=有効), <code>created_at</code>, <code>updated_at</code>。所属ページは <code>Note.notebook_id</code> の側から辿る</li>
+<li><strong>NoteVersion</strong>: <code>id</code>, <code>note_id</code>, <code>title</code>, <code>body</code>, <code>tags</code>, <code>created_at</code>（<code>update_note</code>実行前のスナップショット。編集履歴・復元用）。<strong>ノートの概要にも編集履歴を持たせる</strong>（<a href="#4-9">§4.9</a>）。既存表に対象種別を足すか別表を設けるかは実装時に決める</li>
 <li><strong>Task</strong>: <code>id</code>, <code>title</code>, <code>status</code>(<code>todo</code> | <code>in_progress</code> | <code>done</code>), <code>due_date</code>, <code>deleted_at</code>(ソフトデリート用、NULL=有効), <code>created_at</code>, <code>updated_at</code></li>
-<li><strong>Link</strong>: <code>id</code>, <code>from_type</code>(<code>note</code> | <code>task</code>), <code>from_id</code>, <code>to_type</code>(<code>note</code> | <code>task</code>), <code>to_id</code></li>
-<li><strong>Image</strong>: <code>id</code>, <code>note_id</code>, <code>file_path</code>, <code>mime_type</code></li>
+<li><strong>Link</strong>: <code>id</code>, <code>from_type</code>(<code>note</code> | <code>notebook</code> | <code>task</code>), <code>from_id</code>, <code>to_type</code>(<code>note</code> | <code>notebook</code> | <code>task</code>), <code>to_id</code>（v2.1.0で <code>notebook</code> を追加）</li>
+<li><strong>Image</strong>: <code>id</code>, <code>note_id</code>, <code>file_path</code>, <code>mime_type</code>（画像はページに添付する。ノートの概要への直接添付は初期スコープに含めない）</li>
 </ul>
 <p>各レコードに <code>created_at</code>/<code>updated_at</code> を持たせる。</p>
 
 <pre class="mermaid">
 erDiagram
+  NOTEBOOK ||--o{ NOTE : "とりまとめる（notebook_id は NULL 可）"
   NOTE ||--o{ NOTE_VERSION : "更新前スナップショット"
   NOTE ||--o{ IMAGE : "添付"
   NOTE ||..o{ LINK : "from/to (note側)"
+  NOTEBOOK ||..o{ LINK : "from/to (notebook側。v2.1.0)"
   TASK ||..o{ LINK : "from/to (task側)"
 
+  NOTEBOOK {
+    string id PK
+    string title
+    string summary
+    string tags
+    datetime deleted_at
+    datetime created_at
+    datetime updated_at
+  }
   NOTE {
     string id PK
     string title
     string body
     string tags
+    string notebook_id FK
     datetime deleted_at
     datetime created_at
     datetime updated_at
@@ -259,27 +344,28 @@ erDiagram
 <p>Diagramは独立エンティティにせず、Mermaidコードをノート本文にMarkdownのコードフェンス（<code>```mermaid</code>）としてインライン埋め込みする方式とする。これにより専用の図操作ツールは持たず、<code>update_note</code>が本文の一部として図の追加・更新を兼ねる。データモデル（§6）の<code>Diagram</code>エンティティは廃止する。</p>
 
 <h3>7.1 データ操作ツール</h3>
+<p><strong>v2.1.0（2026-08-20）</strong>: 名前に <code>note</code> を含む既存ツールは、<strong>名前・引数・戻り値を変えずに「ページを操作するツール」として温存する</strong>（<a href="#4-9">§4.9</a>の互換方針、案A）。同じ操作を新しい呼び方でできる <code>*_page</code> 群と、ノート（<code>notebook</code>）用のツール群を新設する（<a href="#7">§7.3</a>）。旧名の廃止は v3 まで行わない。</p>
 <table>
 <thead><tr><th>ツール名</th><th>何をするか</th></tr></thead>
 <tbody>
-<tr><td><code>create_note</code></td><td>新しいノートを作る</td></tr>
-<tr><td><code>update_note</code></td><td>ノートの内容（本文・タグ）を書き換える。Mermaid図も本文に含めて更新する。実行前の内容は自動的に履歴（NoteVersion）として保存される</td></tr>
-<tr><td><code>get_note</code></td><td>1件のノートを詳細まで取得する（紐づくタスクも含む）</td></tr>
-<tr><td><code>search_notes</code></td><td>ノートをキーワード・タグで探す（削除済みノートはデフォルトで除外）</td></tr>
-<tr><td><code>semantic_search_notes</code></td><td>埋め込みベクトルで意味的に近いノートを探す（§4.8。<strong>未実装</strong>、モデル未準備のときは空の結果と理由を返す）</td></tr>
-<tr><td><code>delete_note</code></td><td>ノートをソフトデリートする。<code>confirm: true</code>が必須</td></tr>
-<tr><td><code>restore_note</code></td><td>ソフトデリートしたノートを復元する</td></tr>
-<tr><td><code>list_note_versions</code></td><td>ノートの編集履歴一覧を取得する</td></tr>
-<tr><td><code>restore_note_version</code></td><td>ノートを過去のバージョンに戻す</td></tr>
+<tr><td><code>create_note</code></td><td>新しい<strong>ページ</strong>を作る（v2.1.0以降。以下 <code>note</code> を含むツールは全てページを操作する）</td></tr>
+<tr><td><code>update_note</code></td><td>ページの内容（本文・タグ）を書き換える。Mermaid図も本文に含めて更新する。実行前の内容は自動的に履歴（NoteVersion）として保存される</td></tr>
+<tr><td><code>get_note</code></td><td>1件のページを詳細まで取得する（紐づくタスクも含む）</td></tr>
+<tr><td><code>search_notes</code></td><td>ページをキーワード・タグで探す（削除済みページはデフォルトで除外）</td></tr>
+<tr><td><code>semantic_search_notes</code></td><td>埋め込みベクトルで意味的に近い記録を探す（<a href="#4-8">§4.8</a>）</td></tr>
+<tr><td><code>delete_note</code></td><td>ページをソフトデリートする。<code>confirm: true</code>が必須</td></tr>
+<tr><td><code>restore_note</code></td><td>ソフトデリートしたページを復元する</td></tr>
+<tr><td><code>list_note_versions</code></td><td>ページの編集履歴一覧を取得する</td></tr>
+<tr><td><code>restore_note_version</code></td><td>ページを過去のバージョンに戻す</td></tr>
 <tr><td><code>create_task</code></td><td>新しいタスクを作る</td></tr>
 <tr><td><code>update_task</code></td><td>タスクの内容（タイトル・ステータス・期限）を書き換える</td></tr>
 <tr><td><code>list_tasks</code></td><td>条件（未完了のみ等）でタスクを一覧取得する（削除済みタスクはデフォルトで除外）</td></tr>
 <tr><td><code>delete_task</code></td><td>タスクをソフトデリートする。<code>confirm: true</code>が必須</td></tr>
 <tr><td><code>restore_task</code></td><td>ソフトデリートしたタスクを復元する</td></tr>
-<tr><td><code>link_entities</code></td><td>ノートとタスクなど、2つを紐づける</td></tr>
+<tr><td><code>link_entities</code></td><td>ページとタスクなど、2つを紐づける（v2.1.0でノートも対象に加わる）</td></tr>
 <tr><td><code>unlink_entities</code></td><td>紐づきを解除する</td></tr>
-<tr><td><code>list_links</code></td><td>あるノート/タスクに紐づいているもの一覧を取得する</td></tr>
-<tr><td><code>attach_image</code></td><td>ノートに画像を添付する</td></tr>
+<tr><td><code>list_links</code></td><td>あるノート/ページ/タスクに紐づいているもの一覧を取得する</td></tr>
+<tr><td><code>attach_image</code></td><td>ページに画像を添付する</td></tr>
 </tbody>
 </table>
 
@@ -295,9 +381,33 @@ erDiagram
 </tbody>
 </table>
 
+<h3>7.3 ノート/ページ再編で新設するツール（v2.1.0、<strong>未実装</strong>）</h3>
+<p><a href="#4-9">§4.9</a>で導入する。<strong>未実装</strong>（<a href="TASKS-notebooks.html">TASKS-notebooks.html</a> で起票済み）。<code>*_page</code> は上表の対応する <code>*_note</code> と同じ操作を新しい呼び方で提供するもので、挙動を分けない。</p>
+<table>
+<thead><tr><th>ツール名</th><th>何をするか</th></tr></thead>
+<tbody>
+<tr><td><code>create_page</code></td><td>新しいページを作る（<code>create_note</code> と同じ。所属ノートを指定できる）</td></tr>
+<tr><td><code>update_page</code></td><td>ページの内容（本文・タグ）を書き換える（<code>update_note</code> と同じ）</td></tr>
+<tr><td><code>get_page</code></td><td>1件のページを詳細まで取得する（<code>get_note</code> と同じ。所属ノートも返す）</td></tr>
+<tr><td><code>search_pages</code></td><td>ページをキーワード・タグで探す（<code>search_notes</code> と同じ。所属ノートで絞れる）</td></tr>
+<tr><td><code>delete_page</code></td><td>ページをソフトデリートする。<code>confirm: true</code>が必須</td></tr>
+<tr><td><code>restore_page</code></td><td>ソフトデリートしたページを復元する</td></tr>
+<tr><td><code>list_page_versions</code></td><td>ページの編集履歴一覧を取得する</td></tr>
+<tr><td><code>restore_page_version</code></td><td>ページを過去のバージョンに戻す</td></tr>
+<tr><td><code>move_page</code></td><td>ページをノートへ入れる／別のノートへ移す／ノートから出して無所属にする</td></tr>
+<tr><td><code>create_notebook</code></td><td>新しいノート（ページの束）を作る。概要（タイトル・概要本文・タグ）を持つ</td></tr>
+<tr><td><code>update_notebook</code></td><td>ノートの概要を書き換える。実行前の内容は履歴として保存される</td></tr>
+<tr><td><code>get_notebook</code></td><td>1件のノートを取得する（概要と所属ページの一覧）</td></tr>
+<tr><td><code>list_notebooks</code></td><td>ノートを一覧・検索する（削除済みはデフォルトで除外）</td></tr>
+<tr><td><code>delete_notebook</code></td><td>ノートをソフトデリートする。<code>confirm: true</code>が必須。所属ページの扱い（無所属化するか道連れにするか）は実装時に確定する</td></tr>
+<tr><td><code>restore_notebook</code></td><td>ソフトデリートしたノートを復元する</td></tr>
+</tbody>
+</table>
+
 <h2 id="8">8. 未決定事項・今後確認したい項目</h2>
 <ul>
 <li>将来の複数マシン同期機能の具体的な方式（クラウド経由か、ローカルネットワーク直接同期か等）・時期</li>
+<li><strong>ノートの概要を自動生成する主体（<a href="#4-9">§4.9</a>、v2.1.0）</strong>: 外部AIエージェントに任せるか、同梱のローカルLLM（<a href="#4-8">§4.8</a>-3）で行うか。後者ならT50を前倒しする必要がある。トリガー（どのタイミングで追従更新するか）も併せて決める</li>
 </ul>
 
 <h2 id="9">9. スコープ外（現時点）</h2>
