@@ -578,8 +578,8 @@ export const findTaskTool = (name: string): McpTool | undefined =>
 
 const ENTITY_TYPE_SCHEMA = {
   type: "string",
-  enum: ["note", "task"],
-  description: 'Entity type ("note" or "task")',
+  enum: ["note", "task", "notebook"],
+  description: 'Entity type ("note", "task" or "notebook")',
 } as const;
 
 const readEntityType = (args: Record<string, unknown>, key: string): EntityType =>
