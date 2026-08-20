@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS links (
 -- bundled model invalidates every vector, and content_hash lets a restart re-embed only the
 -- records whose text actually changed.
 CREATE TABLE IF NOT EXISTS embeddings (
-  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task')),
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task','notebook')),
   entity_id   TEXT NOT NULL,
   model_id    TEXT NOT NULL,
   content_hash TEXT NOT NULL,
