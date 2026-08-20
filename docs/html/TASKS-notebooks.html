@@ -51,7 +51,7 @@ flowchart TB
 
 <h3 id="t54">T54: ノート/ページ(1) DB基盤と既存データの移行</h3>
 <ul>
-<li>ステータス: 実装中（SPEC承認済み 2026-08-20。セットA〜C実装済み・<code>impl/t54</code> に統合、Phase 5 レビュー中）</li>
+<li>ステータス: 完了（PR #203、<code>SPEC.md</code>。§6実データ検証済み）</li>
 <li>優先度: <strong>高</strong>（管理者決定、2026-08-20。これが無いと後続が全て着手できない）</li>
 <li>依存: 必須: なし／推奨: なし</li>
 <li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9・§6。ページを束ねる <code>notebooks</code> 表と、ページの所属先 <code>notes.notebook_id</code>（NULL可＝無所属）を追加し、<strong>ノートの概要にも編集履歴（バージョン）が付く</strong>状態にする。既存の全レコードは <code>notebook_id</code> が NULL のまま<strong>無所属ページ</strong>として引き継がれ（IDも中身も変えない）、包みノートは作らない。<strong>呼び名の読み替えとデータの器だけをここで用意し、外から見える挙動は変えない</strong>のが後続T55〜T59の基盤になる。</li>
