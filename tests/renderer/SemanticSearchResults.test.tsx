@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { toUpdatedLabel } from "../../src/renderer/text/dateLabel";
 import { SemanticSearchResults } from "../../src/renderer/components/SemanticSearchResults";
 import type {
   EmbeddingStatus,
@@ -129,11 +130,21 @@ describe("SemanticSearchResults", () => {
 
     const list = await screen.findByRole("list", { name: "意味が近い記録" });
     const rows = within(list).getAllByRole("listitem");
+    const updated = toUpdatedLabel("2026-08-03T00:00:00.000Z");
     expect(rows.map((row) => row.textContent)).toEqual([
-      `${TASK_TITLE}タスク`,
-      `${NOTE_TITLE}ノート`,
-      "遠いノートノート",
+      `${TASK_TITLE}${updated}タスク`,
+      `${NOTE_TITLE}${updated}ノート`,
+      `遠いノート${updated}ノート`,
     ]);
+  });
+
+  it("各行に更新日が併記される", async () => {
+    mockEmbeddingApi({ readStatus: () => READY, readResult: () => FOUND });
+
+    render(<SemanticSearchResults query="MCPの接続" onSelectNote={noop} />);
+
+    const list = await screen.findByRole("list", { name: "意味が近い記録" });
+    expect(within(list).getAllByText(toUpdatedLabel("2026-08-03T00:00:00.000Z")).length).toBeGreaterThan(0);
   });
 
   it("タスクの選択先が無いときタスクはボタンにしない", async () => {

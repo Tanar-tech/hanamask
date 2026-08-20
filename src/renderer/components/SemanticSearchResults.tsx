@@ -8,6 +8,7 @@ import {
   useSemanticSection,
 } from "./SemanticSection";
 import type { SemanticSearchResult } from "../../shared/preload-api";
+import { toUpdatedLabel } from "../text/dateLabel";
 
 const HEADING = "意味が近い記録";
 const NOTE_LABEL = "ノート";
@@ -27,6 +28,7 @@ interface ResultRow {
   title: string;
   score: number;
   typeLabel: string;
+  updatedAt: string;
   onSelect: ((id: string) => void) | undefined;
 }
 
@@ -43,6 +45,7 @@ const toRows = (
       title: note.title,
       score: note.score,
       typeLabel: NOTE_LABEL,
+      updatedAt: note.updatedAt,
       onSelect: onSelectNote,
     })),
     ...result.tasks.map((task) => ({
@@ -51,6 +54,7 @@ const toRows = (
       title: task.title,
       score: task.score,
       typeLabel: TASK_LABEL,
+      updatedAt: task.updatedAt,
       onSelect: onSelectTask,
     })),
   ].sort((left, right) => right.score - left.score);
@@ -94,7 +98,10 @@ export const SemanticSearchResults = ({
         {rows.map((row) => (
           <li key={row.key} className={SECTION_ROW}>
             <ResultTitle row={row} />
-            <span className={TYPE_BADGE}>{row.typeLabel}</span>
+            <span className="flex items-center gap-3">
+              <span className={TYPE_BADGE}>{toUpdatedLabel(row.updatedAt)}</span>
+              <span className={TYPE_BADGE}>{row.typeLabel}</span>
+            </span>
           </li>
         ))}
       </ul>

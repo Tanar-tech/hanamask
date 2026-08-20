@@ -4,9 +4,11 @@ import {
   SECTION_ROW,
   SemanticSection,
   TITLE_BUTTON,
+  TYPE_BADGE,
   useSemanticSection,
 } from "./SemanticSection";
 import type { RelatedNotesResult } from "../../shared/preload-api";
+import { toUpdatedLabel } from "../text/dateLabel";
 
 const HEADING = "関連するノート";
 const RELATED_LIMIT = 5;
@@ -43,6 +45,7 @@ export const RelatedNotes = ({ noteId, onSelectNote }: RelatedNotesProps): JSX.E
             >
               {note.title}
             </button>
+            <span className={TYPE_BADGE}>{toUpdatedLabel(note.updatedAt)}</span>
           </li>
         ))}
       </ul>

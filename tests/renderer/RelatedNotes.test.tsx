@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { toUpdatedLabel } from "../../src/renderer/text/dateLabel";
 import { RelatedNotes } from "../../src/renderer/components/RelatedNotes";
 import type {
   EmbeddingStatus,
@@ -79,6 +80,7 @@ describe("RelatedNotes", () => {
 
     expect(await screen.findByRole("list", { name: "関連するノート" })).toBeTruthy();
     expect(relatedNotes).toHaveBeenCalledWith("note-1", 5);
+    expect(screen.getByText(toUpdatedLabel("2026-08-03T00:00:00.000Z"))).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: RELATED_TITLE }));
     expect(onSelectNote).toHaveBeenCalledWith("note-2");
   });
