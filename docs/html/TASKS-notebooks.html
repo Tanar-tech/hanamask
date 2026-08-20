@@ -108,7 +108,7 @@ flowchart TB
 <li>ステータス: 未着手（SPEC未作成。issue #199）</li>
 <li>優先度: 中</li>
 <li>依存: 必須: T57（ノートを読むIPC/リポジトリ経路が要る。T54〜T55でも足りるが、ツールと同時に画面を確認できる方が手戻りが少ない）／推奨: T56</li>
-<li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9。Main View に加えて<strong>Explorer型のナビゲーション</strong>を持ち、ノートと<strong>無所属ページ</strong>が混在して並ぶ状態にする。<strong>ノートをクリックするとそのノートに属するページの一覧（サブナビ）が出る。</strong>束ねる作業をしていない利用者が従来どおり使えること（無所属ページがそのまま並ぶこと）を崩さない。</li>
+<li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9。Main View に加えて<strong>Explorer型のナビゲーション</strong>を持ち、ノートと<strong>無所属ページ</strong>が混在して並ぶ状態にする。（ページ一覧はナビ側だけが持ち、Main View は概要＋タグ＋最近更新されたページのプレビュー。ナビ上部にタイトルの逐次絞り込みを置く。§4.9 の2026-08-20確定事項）<strong>ノートをクリックするとそのノートに属するページの一覧（サブナビ）が出る。</strong>束ねる作業をしていない利用者が従来どおり使えること（無所属ページがそのまま並ぶこと）を崩さない。</li>
 <li><strong>調査済み（2026-08-20）</strong>: ルーティングは <code>NavigateTarget</code> を<strong>4箇所で消費</strong>しており、遷移先の追加はこの4箇所すべてに効く。左レールは静的な配列を描くだけの presentational コンポーネントで、動的なツリーを載せる構造になっていない。<strong><code>hanamask-stub.ts</code> が preload API を全網羅している</strong>ため、API を1つ足すと全 renderer テストに波及する（<strong>ただし直すのは1箇所</strong>）。</li>
 <li>変更範囲: <code>src/renderer/components/</code>（Explorer型ナビ、サブナビ、無所属ページの並び）、<code>src/renderer/</code>（ルーティング・<code>NavigateTarget</code> の消費箇所4つ）、<code>src/shared/preload-api.ts</code>・IPC（ノート一覧・所属ページ一覧の取得）、<code>tests/.../hanamask-stub.ts</code>。</li>
 <li>禁止事項: <strong>ナビ方式（サブペイン／ツリー展開）を管理者に確認せず選んで実装しないこと</strong>（停止条件）。無所属ページをナビから隠さないこと（束ねていない記録が見えなくなると、移行した既存データが全部見えなくなる）。「未分類」等の疑似ノートを作って無所属ページをそこに押し込まないこと。既存のノート一覧・検索・詳細画面の動線を壊さないこと。リアルタイム反映（§4.6）を壊さないこと（ナビもMCP経由の変更に追随する）。</li>
