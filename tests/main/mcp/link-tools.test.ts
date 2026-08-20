@@ -18,7 +18,10 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 const callTool = (name: string, args: unknown): CallToolResult => {
   const tool = findLinkTool(name);
   if (tool === undefined) throw new Error(`Tool not found: ${name}`);
-  return tool.handler(args);
+  const result = tool.handler(args);
+  // ここで扱うのは同期ハンドラだけ。非同期のツールは専用のテストで待って確かめる。
+  if (result instanceof Promise) throw new Error(`Tool is asynchronous: ${name}`);
+  return result;
 };
 
 const readJsonPayload = (result: CallToolResult): unknown => {

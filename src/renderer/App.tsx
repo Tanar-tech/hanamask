@@ -103,14 +103,24 @@ export const App = (): JSX.Element => {
             <div className={PANE}>
               {/* keyで再マウントさせないと、応答待ちの非同期処理が切替後のノートを上書きしうる。 */}
               {view.kind === "note" && (
-                <NoteDetail key={view.id} noteId={view.id} onBack={backToList} />
+                <NoteDetail
+                  key={view.id}
+                  noteId={view.id}
+                  onBack={backToList}
+                  onSelectNote={openNote}
+                />
               )}
               {view.kind === "task" && (
                 <TaskDetail key={view.id} taskId={view.id} onBack={backToList} />
               )}
               {view.kind === "trash" && <TrashView onBack={backToList} />}
               {view.kind === "search" && (
-                <SearchResults query={view.query} onSelectNote={openNote} onBack={backToList} />
+                <SearchResults
+                  query={view.query}
+                  onSelectNote={openNote}
+                  onSelectTask={openTask}
+                  onBack={backToList}
+                />
               )}
               {view.kind === "list" && section === "notes" && <NoteList onSelectNote={openNote} />}
               {view.kind === "list" && section === "tasks" && (

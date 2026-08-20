@@ -20,6 +20,12 @@ import {
 } from "../db/tasks-repo.js";
 import { listTagsInUse } from "../db/tags-repo.js";
 import { createLink, deleteLink, listLinks, toEntityType } from "../db/links-repo.js";
+import {
+  DEFAULT_SEMANTIC_LIMIT,
+  MAX_SEMANTIC_LIMIT,
+  normalizeSemanticLimit,
+  searchSemanticEntities,
+} from "../llm/semantic-search-service.js";
 import { attachImage } from "../images/attach-image.js";
 import { navigateUi, showUiWindow } from "../ui/navigate.js";
 import { emitLinksChanged, emitNotesChanged, emitTasksChanged } from "./change-emitter.js";
@@ -27,7 +33,7 @@ import type { EntityType, TaskStatus } from "../../shared/preload-api.js";
 
 export interface McpTool {
   definition: Tool;
-  handler: (args: unknown) => CallToolResult;
+  handler: (args: unknown) => CallToolResult | Promise<CallToolResult>;
 }
 
 export type NoteTool = McpTool;
@@ -47,18 +53,23 @@ const errorResult = (message: string): CallToolResult => ({
   isError: true,
 });
 
+const toErrorResult = (error: unknown): CallToolResult =>
+  errorResult(error instanceof Error ? error.message : String(error));
+
 // Any failure (invalid arguments, database not open) must reach the MCP client as an
-// error result rather than rejecting and tearing down the transport.
+// error result rather than rejecting and tearing down the transport. 非同期ハンドラだけを
+// Promise のまま返し、同期のハンドラは同期のまま返す（結果をそのまま読む呼び出し側が壊れない）。
 const toToolHandler =
-  (run: (args: Record<string, unknown>) => CallToolResult) =>
-  (args: unknown): CallToolResult => {
+  (run: (args: Record<string, unknown>) => CallToolResult | Promise<CallToolResult>) =>
+  (args: unknown): CallToolResult | Promise<CallToolResult> => {
     try {
       if (!isRecord(args)) {
         throw new Error("Tool arguments must be an object");
       }
-      return run(args);
+      const result = run(args);
+      return result instanceof Promise ? result.catch(toErrorResult) : result;
     } catch (error) {
-      return errorResult(error instanceof Error ? error.message : String(error));
+      return toErrorResult(error);
     }
   };
 
@@ -330,10 +341,43 @@ const attachImageTool: NoteTool = {
   }),
 };
 
+// 検索そのものは semantic-search-service にある。画面（IPC）と同じ結果を返すため共有する。
+const searchSemantically = async (query: string, limit: number): Promise<CallToolResult> =>
+  jsonResult(await searchSemanticEntities(query, limit));
+
+const semanticSearchNotesTool: NoteTool = {
+  definition: {
+    name: "semantic_search_notes",
+    description:
+      "Find notes and tasks whose meaning is close to a natural-language query, nearest first. " +
+      "Unlike search_notes (keyword match), this finds records phrased differently but about the same thing. " +
+      "Use it before starting work to pull up past findings even when you do not know the exact wording. " +
+      "When the embedding model is not ready it returns empty results with an `unavailable` reason; fall back to search_notes then.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "探したい内容を表す自然文" },
+        limit: {
+          type: "integer",
+          description: `返す件数の上限（既定 ${DEFAULT_SEMANTIC_LIMIT}、最大 ${MAX_SEMANTIC_LIMIT}）`,
+        },
+      },
+      required: ["query"],
+    },
+  },
+  handler: toToolHandler((args) =>
+    searchSemantically(
+      readString(args, "query"),
+      normalizeSemanticLimit(args.limit),
+    ),
+  ),
+};
+
 export const noteTools: readonly NoteTool[] = [
   createNoteTool,
   getNoteTool,
   searchNotesTool,
+  semanticSearchNotesTool,
   updateNoteTool,
   deleteNoteTool,
   restoreNoteTool,

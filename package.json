@@ -1,6 +1,6 @@
 {
   "name": "hanamask",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "license": "Apache-2.0",
   "private": true,
   "description": "AI開発に最適化されたMCPネイティブ・ローカルノートアプリ（Electron。タスク管理は補助機能として同梱。仕様: docs/REQUIREMENTS.md）",
@@ -17,6 +17,7 @@
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && node scripts/copy-main-assets.mjs",
     "lint": "eslint .",
+    "fetch:model": "node scripts/fetch-embedding-model.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:readme": "node scripts/check-readme-tools.mjs",
     "check:tasks": "node scripts/check-task-status.mjs",
@@ -56,6 +57,7 @@
     "better-sqlite3": "^13.0.3",
     "mermaid": "^11.16.1",
     "motion": "^12.43.0",
+    "node-llama-cpp": "^3.20.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-markdown": "^10.1.0",

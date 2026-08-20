@@ -200,6 +200,7 @@ describe("mcp note tools", () => {
       "restore_note",
       "restore_note_version",
       "search_notes",
+      "semantic_search_notes",
       "update_note",
     ]);
   });

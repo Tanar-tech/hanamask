@@ -63,18 +63,28 @@ const textOf = (result: CallToolResult): string =>
     .map((block) => (block.type === "text" ? block.text : `[${block.type}]`))
     .join("\n");
 
-const runTool = (use: ChatToolUse): { text: string; isError: boolean } => {
+const runTool = async (use: ChatToolUse): Promise<{ text: string; isError: boolean }> => {
   const tool = findTool(use.name);
   if (tool === undefined) {
     return { text: `ツール ${use.name} は存在しません`, isError: true };
   }
   try {
-    const result = tool.handler(use.input);
+    const result = await tool.handler(use.input);
     return { text: textOf(result), isError: result.isError === true };
   } catch (cause) {
     // ツールの失敗で会話ごと止めない。結果としてClaudeへ返し、次の判断を任せる。
     return { text: `ツールの実行に失敗しました: ${String(cause)}`, isError: true };
   }
+};
+
+const toToolResultBlock = async (
+  use: ChatToolUse,
+  onEvent: (event: ChatEvent) => void,
+): Promise<ChatContentBlock> => {
+  onEvent({ kind: "tool-started", toolName: use.name });
+  const { text, isError } = await runTool(use);
+  onEvent({ kind: isError ? "tool-failed" : "tool-finished", toolName: use.name, detail: text });
+  return { type: "tool_result", tool_use_id: use.id, content: text, is_error: isError };
 };
 
 export const chatToolDefinitions = (): ChatToolDefinition[] =>
@@ -125,22 +135,11 @@ export const runChatTurn = async (input: {
 
     if (reply.toolUses.length === 0) return messages;
 
-    const results = reply.toolUses.map((use) => {
-      input.onEvent({ kind: "tool-started", toolName: use.name });
-      const { text, isError } = runTool(use);
-      input.onEvent({
-        kind: isError ? "tool-failed" : "tool-finished",
-        toolName: use.name,
-        detail: text,
-      });
-      const block: ChatContentBlock = {
-        type: "tool_result",
-        tool_use_id: use.id,
-        content: text,
-        is_error: isError,
-      };
-      return block;
-    });
+    // ツールはDBを書き換えるので、要求された順に1つずつ実行する。
+    const results: ChatContentBlock[] = [];
+    for (const use of reply.toolUses) {
+      results.push(await toToolResultBlock(use, input.onEvent));
+    }
     messages.push({ role: "user", content: results });
   }
 

@@ -51,3 +51,16 @@ CREATE TABLE IF NOT EXISTS links (
   to_type TEXT NOT NULL,
   to_id TEXT NOT NULL
 );
+
+-- Semantic search index. One vector per record, keyed by which model produced it: swapping the
+-- bundled model invalidates every vector, and content_hash lets a restart re-embed only the
+-- records whose text actually changed.
+CREATE TABLE IF NOT EXISTS embeddings (
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task')),
+  entity_id   TEXT NOT NULL,
+  model_id    TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  vector      BLOB NOT NULL,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (entity_type, entity_id)
+);

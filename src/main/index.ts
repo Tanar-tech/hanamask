@@ -59,12 +59,15 @@ import type {
   AppSettings,
   BackupExportResult,
   BackupImportResult,
+  EmbeddingStatus,
   EntityType,
   Image,
   Link,
   NavigateTarget,
   Note,
   NoteVersion,
+  RelatedNotesResult,
+  SemanticSearchResult,
   Task,
   TaskStatus,
 } from "../shared/preload-api.js";
@@ -84,6 +87,22 @@ import {
   type EntityChange,
 } from "./mcp/change-emitter.js";
 import { createChangeNotifier, type ChangeNotification } from "./notify/change-notifier.js";
+import { createEmbeddingIndexer, type EmbeddingIndexer } from "./llm/embedding-indexer.js";
+import { createEmbeddingRuntimeHolder } from "./llm/embedding-runtime-holder.js";
+import { setEmbeddingRuntime } from "./llm/index.js";
+import { loadEmbeddingProvider } from "./llm/llama-embedding-provider.js";
+import { readEmbeddingModelManifest } from "./llm/model-manifest.js";
+import {
+  findRelatedNotes,
+  normalizeSemanticLimit,
+  searchSemanticEntities,
+} from "./llm/semantic-search-service.js";
+import {
+  contentHashOf,
+  listStaleEntities,
+  upsertEmbedding,
+  type EmbeddedEntityType,
+} from "./db/embeddings-repo.js";
 import { startMcpServer } from "./mcp/server.js";
 
 const DB_FILE_NAME = "hanamask.sqlite3";
@@ -136,6 +155,13 @@ const APP_SETTINGS_READ_CHANNEL = "app:read-settings";
 const APP_SETTINGS_SAVE_CHANNEL = "app:save-settings";
 const OPEN_AT_LOGIN_ARG = "--hanamask-autostart";
 const UI_NAVIGATE_CHANNEL = "ui:navigate";
+const EMBEDDING_SEARCH_CHANNEL = "embedding:search";
+const EMBEDDING_RELATED_NOTES_CHANNEL = "embedding:related-notes";
+const EMBEDDING_STATUS_READ_CHANNEL = "embedding:read-status";
+const EMBEDDING_STATUS_CHANGED_CHANNEL = "embedding:status-changed";
+const MODELS_DIR_NAME = "models";
+const DEV_MODELS_DIR_PATH = "../../resources/models";
+const DEFAULT_RELATED_NOTES_LIMIT = 5;
 const RENDERER_READY_EVENT = "did-finish-load";
 
 const moduleDir = dirname(fileURLToPath(import.meta.url));
@@ -473,6 +499,115 @@ const importBackupFromFile = async (): Promise<BackupImportResult> => {
   return { status: "imported", counts, safetyCopyPath };
 };
 
+const embeddingRuntime = createEmbeddingRuntimeHolder();
+let embeddingIndexer: EmbeddingIndexer | undefined;
+
+/*
+ * モデルの置き場は同梱物の中に固定する。上書きできるのは環境変数（E2E）だけで、
+ * レンダラーもMCPツールも任意のパスを読ませられない（SPEC セキュリティ要件 S6）。
+ */
+const resolveModelsDirPath = (): string => {
+  // 配布ビルドでモデルの置き場を外から差し替えられないようにする。
+  if (app.isPackaged) return join(process.resourcesPath, MODELS_DIR_NAME);
+  const override = process.env.HANAMASK_MODELS_DIR;
+  if (override !== undefined && override !== "") return override;
+  return join(moduleDir, DEV_MODELS_DIR_PATH);
+};
+
+const currentEmbeddingStatus = (): EmbeddingStatus => {
+  if (embeddingIndexer !== undefined) return embeddingIndexer.getStatus();
+  const availability = embeddingRuntime.availability();
+  return availability.state === "unavailable"
+    ? { state: "unavailable", pending: 0, reason: availability.reason }
+    : { state: availability.state, pending: 0 };
+};
+
+const broadcastEmbeddingStatus = (status: EmbeddingStatus): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(EMBEDDING_STATUS_CHANGED_CHANNEL, status);
+  });
+};
+
+const readEntityForEmbedding = (
+  entityType: EmbeddedEntityType,
+  entityId: string,
+): { title: string; body: string } | undefined => {
+  const entity = entityType === "note" ? getNote(entityId) : getTask(entityId);
+  return entity === null ? undefined : { title: entity.title, body: entity.body };
+};
+
+// マニフェストが読めないときはモデルが同梱されていない。索引係を作らず unavailable のままにする。
+const readContextSize = (modelsDir: string): number | undefined => {
+  try {
+    return readEmbeddingModelManifest(modelsDir).contextSize;
+  } catch {
+    return undefined;
+  }
+};
+
+const startEmbeddingIndexer = (contextSize: number): void => {
+  const indexer = createEmbeddingIndexer({
+    repo: { upsertEmbedding, listStaleEntities, contentHashOf },
+    getAvailability: embeddingRuntime.availability,
+    onAvailabilityChanged: embeddingRuntime.onAvailabilityChanged,
+    subscribeNotes: onNotesChanged,
+    subscribeTasks: onTasksChanged,
+    readEntity: readEntityForEmbedding,
+    contextSize,
+  });
+  indexer.onStatusChanged(broadcastEmbeddingStatus);
+  indexer.start();
+  embeddingIndexer = indexer;
+};
+
+/*
+ * モデルの読み込みは await しない。数秒かかることがあり、待つとその間ウィンドウが出ない。
+ * 読み込み中の問い合わせには loading が返り、終わったら購読者へ知らせて保留分を埋める。
+ */
+const setUpEmbeddings = (): void => {
+  setEmbeddingRuntime(embeddingRuntime);
+  const modelsDir = resolveModelsDirPath();
+  const contextSize = readContextSize(modelsDir);
+  if (contextSize !== undefined) startEmbeddingIndexer(contextSize);
+  const apply = (availability: Parameters<typeof embeddingRuntime.setAvailability>[0]): void => {
+    embeddingRuntime.setAvailability(availability);
+    broadcastEmbeddingStatus(currentEmbeddingStatus());
+  };
+  void loadEmbeddingProvider(modelsDir)
+    .then(apply)
+    .catch((error: unknown) => {
+      apply({ state: "unavailable", reason: String(error) });
+    });
+};
+
+const readNonEmptyString = (value: unknown, name: string): string => {
+  if (typeof value !== "string" || value === "") {
+    throw new Error(`${name} must be a non-empty string`);
+  }
+  return value;
+};
+
+// レンダラーから来た値は信用しない。型が合わないときは reject にする（SPEC S6）。
+const searchSemantic = (
+  _event: IpcMainInvokeEvent,
+  query: unknown,
+  limit: unknown,
+): Promise<SemanticSearchResult> =>
+  searchSemanticEntities(
+    readNonEmptyString(query, "query"),
+    normalizeSemanticLimit(limit),
+  );
+
+const findRelated = (
+  _event: IpcMainInvokeEvent,
+  noteId: unknown,
+  limit: unknown,
+): RelatedNotesResult =>
+  findRelatedNotes(
+    readNonEmptyString(noteId, "noteId"),
+    normalizeSemanticLimit(limit, DEFAULT_RELATED_NOTES_LIMIT),
+  );
+
 const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
   removeImportLeftovers(resolveImagesDirPath());
@@ -502,6 +637,7 @@ const start = async (): Promise<void> => {
   onNotesChanged(handleNotesChanged);
   onTasksChanged(handleTasksChanged);
   onLinksChanged(broadcastLinksChanged);
+  setUpEmbeddings();
   const mcpServer = await startMcpServer();
   mcpPort = mcpServer.port;
   stopMcpServer = mcpServer.close;
@@ -567,6 +703,9 @@ ipcMain.handle(LINKS_CREATE_CHANNEL, addLink);
 ipcMain.handle(LINKS_DELETE_CHANNEL, removeLink);
 ipcMain.handle(BACKUP_EXPORT_CHANNEL, exportBackupToFile);
 ipcMain.handle(BACKUP_IMPORT_CHANNEL, importBackupFromFile);
+ipcMain.handle(EMBEDDING_SEARCH_CHANNEL, searchSemantic);
+ipcMain.handle(EMBEDDING_RELATED_NOTES_CHANNEL, findRelated);
+ipcMain.handle(EMBEDDING_STATUS_READ_CHANNEL, () => currentEmbeddingStatus());
 /*
  * レンダラーから来る値は信用せず、booleanだけを受け付ける。ログイン項目の書き換えは
  * OSに副作用が残るため、保存が通ったときだけ反映する。
@@ -619,6 +758,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   isQuitting = true;
+  embeddingIndexer?.stop();
   tray?.destroy();
   tray = null;
   stopMcpServer?.().catch((error: unknown) => {

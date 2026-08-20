@@ -92,6 +92,26 @@ describe("chat agent loop", () => {
     ]);
   });
 
+  it("非同期ハンドラのツールも結果を返して会話が進む", async () => {
+    const client = clientReturning([
+      {
+        text: "",
+        // semantic_search_notes は埋め込みの取得を待つため handler が Promise を返す。
+        toolUses: [{ id: "t1", name: "semantic_search_notes", input: { query: "過去の経緯" } }],
+        stopReason: "tool_use",
+      },
+      { text: "探しました", toolUses: [], stopReason: "end_turn" },
+    ]);
+    const { events, onEvent } = collect();
+
+    await runChatTurn({ client, model: "m", history: [], userText: "探して", onEvent });
+
+    const finished = events.find((event) => event.kind === "tool-finished");
+    // Promise がそのまま文字列化されると "[object Promise]" になるので、中身で確かめる。
+    expect(finished?.detail).toContain("notes");
+    expect(events.at(-1)).toEqual({ kind: "assistant-text", text: "探しました" });
+  });
+
   it("知らないツール名を要求されても会話を止めない", async () => {
     const client = clientReturning([
       { text: "", toolUses: [{ id: "t1", name: "make_coffee", input: {} }], stopReason: "tool_use" },

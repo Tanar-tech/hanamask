@@ -115,6 +115,10 @@ const mockHanamask = (
     saveChatApiKey: vi.fn(async () => ({ apiKeyMask: "4f2a", model: "claude-sonnet-4-5" })),
     clearChatApiKey: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatModel: vi.fn(async (model: string) => ({ apiKeyMask: null, model })),
+    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [] })),
+    relatedNotes: vi.fn(async () => ({ notes: [] })),
+    readEmbeddingStatus: vi.fn(async () => ({ state: "unavailable" as const, pending: 0 })),
+    onEmbeddingStatusChanged: vi.fn(() => () => {}),
   };
   return {
     getNote: getNoteMock,
@@ -185,7 +189,7 @@ describe("NoteDetail", () => {
   it("マウント時に指定IDのノートを取得してタイトル・本文・タグを表示する", async () => {
     const { getNote } = mockHanamask(async () => makeNote());
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText("設計メモ")).toBeTruthy();
     expect(screen.getByText("MCPサーバーの設計についてのメモ本文")).toBeTruthy();
@@ -197,7 +201,7 @@ describe("NoteDetail", () => {
   it("本文の改行を含む全文を表示する", async () => {
     mockHanamask(async () => makeNote({ body: "1行目\n2行目" }));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText(/1行目/)).toBeTruthy();
     expect(screen.getByText(/2行目/)).toBeTruthy();
@@ -206,7 +210,7 @@ describe("NoteDetail", () => {
   it("本文が空のノートでは本文が無いことを文字で示す", async () => {
     mockHanamask(async () => makeNote({ body: "   " }));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText("本文はまだありません")).toBeTruthy();
   });
@@ -214,7 +218,7 @@ describe("NoteDetail", () => {
   it("本文があるノートでは本文が無いという表示を出さない", async () => {
     mockHanamask(async () => makeNote({ body: "本文があります" }));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText("本文があります")).toBeTruthy();
     expect(screen.queryByText("本文はまだありません")).toBeNull();
@@ -223,7 +227,7 @@ describe("NoteDetail", () => {
   it("ノートが見つからない場合はエラーメッセージを表示する", async () => {
     mockHanamask(async () => null);
 
-    render(<NoteDetail noteId="missing-note" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="missing-note" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.queryByText("設計メモ")).toBeNull();
@@ -234,7 +238,7 @@ describe("NoteDetail", () => {
       throw new Error("boom");
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByRole("alert")).toBeTruthy();
   });
@@ -242,7 +246,7 @@ describe("NoteDetail", () => {
   it("タグが空の場合でもタイトルと本文を表示する", async () => {
     mockHanamask(async () => makeNote({ tags: [] }));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText("設計メモ")).toBeTruthy();
   });
@@ -251,7 +255,7 @@ describe("NoteDetail", () => {
     mockHanamask(async () => makeNote());
     const onBack = vi.fn();
 
-    render(<NoteDetail noteId="note-1" onBack={onBack} />);
+    render(<NoteDetail noteId="note-1" onBack={onBack} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await act(async () => {
       screen.getByRole("button", { name: "戻る" }).click();
@@ -264,7 +268,7 @@ describe("NoteDetail", () => {
     mockHanamask(async () => null);
     const onBack = vi.fn();
 
-    render(<NoteDetail noteId="missing-note" onBack={onBack} />);
+    render(<NoteDetail noteId="missing-note" onBack={onBack} onSelectNote={vi.fn()} />);
     await screen.findByRole("alert");
     await act(async () => {
       screen.getByRole("button", { name: "戻る" }).click();
@@ -281,7 +285,7 @@ describe("NoteDetail", () => {
       ],
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     await screen.findByText("設計メモ");
     await waitFor(() => {
@@ -297,7 +301,7 @@ describe("NoteDetail", () => {
   it("画像の添付操作には文字のラベルが見えている", async () => {
     mockHanamask(async () => makeNote());
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
 
     // アイコンや既定のファイル選択ボタンだけでは何を選ぶ入力なのか伝わらない。
@@ -308,7 +312,7 @@ describe("NoteDetail", () => {
   it("画像が無いときはプレビューを表示しない", async () => {
     mockHanamask(async () => makeNote());
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     await screen.findByText("設計メモ");
     expect(screen.queryAllByRole("img")).toHaveLength(0);
@@ -325,7 +329,7 @@ describe("NoteDetail", () => {
       },
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
 
     await selectFile(new File(["hello"], "shot.png", { type: "image/png" }));
@@ -347,7 +351,7 @@ describe("NoteDetail", () => {
       listImages: async () => stored,
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     expect(screen.queryAllByRole("img")).toHaveLength(0);
 
@@ -368,7 +372,7 @@ describe("NoteDetail", () => {
       },
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
 
     await selectFile(new File(["hello"], "doc.pdf", { type: "application/pdf" }));
@@ -386,7 +390,7 @@ describe("NoteDetail", () => {
       ],
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
 
     await waitFor(() => {
@@ -405,7 +409,7 @@ describe("NoteDetail", () => {
       },
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
 
     await pasteFile(new File(["hello"], "clipboard.png", { type: "image/png" }));
@@ -422,7 +426,7 @@ describe("NoteDetail", () => {
   it("画像以外の貼り付けでは添付しない", async () => {
     const { attachImage } = mockHanamask(async () => makeNote());
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
 
     await pasteItems([{ kind: "string", type: "text/plain", getAsFile: () => null }]);
@@ -437,7 +441,7 @@ describe("NoteDetail", () => {
       },
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
 
     await pasteFile(new File(["hello"], "clipboard.bmp", { type: "image/bmp" }));
@@ -451,10 +455,10 @@ describe("NoteDetail", () => {
       id === "note-2" ? makeNote({ id: "note-2", title: "別のノート" }) : makeNote(),
     );
 
-    const { rerender } = render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    const { rerender } = render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     expect(await screen.findByText("設計メモ")).toBeTruthy();
 
-    rerender(<NoteDetail noteId="note-2" onBack={vi.fn()} />);
+    rerender(<NoteDetail noteId="note-2" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText("別のノート")).toBeTruthy();
     expect(getNote).toHaveBeenCalledTimes(2);
@@ -465,7 +469,7 @@ describe("NoteDetail", () => {
     const body = "前書き\n\n```mermaid\ngraph TD;\n  A-->B;\n```\n\n後書き";
     mockHanamask(async () => makeNote({ body }));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     await waitFor(() => expect(queryRenderedSvg()).not.toBeNull());
     expect(vi.mocked(mermaid.render).mock.calls[0]?.[1]).toBe("graph TD;\n  A-->B;");
@@ -478,7 +482,7 @@ describe("NoteDetail", () => {
     const body = "前書き\n\n```mermaid\ngraph TD;\n  A-->B;\n```\n\n後書き";
     mockHanamask(async () => makeNote({ body }));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText(/前書き/)).toBeTruthy();
     expect(screen.getByText(/後書き/)).toBeTruthy();
@@ -488,7 +492,7 @@ describe("NoteDetail", () => {
     mockMermaidRender();
     mockHanamask(async () => makeNote({ body: "```ts\nconst a = 1;\n```" }));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText(/const a = 1;/)).toBeTruthy();
     expect(mermaid.render).not.toHaveBeenCalled();
@@ -499,7 +503,7 @@ describe("NoteDetail", () => {
     const body = "```mermaid\ngraph TD;\n  A-->B;\n```\n中間\n```mermaid\ngraph LR;\n  C-->D;\n```";
     mockHanamask(async () => makeNote({ body }));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     await waitFor(() => expect(mermaid.render).toHaveBeenCalledTimes(2));
     expect(screen.getByText(/中間/)).toBeTruthy();
@@ -510,7 +514,7 @@ describe("NoteDetail の編集", () => {
   it("編集ボタンで編集フォームに現在の内容を表示する", async () => {
     mockHanamask(async () => makeNote());
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
 
@@ -524,7 +528,7 @@ describe("NoteDetail の編集", () => {
     const body = "```mermaid\ngraph TD;\n  A-->B;\n```";
     mockHanamask(async () => makeNote({ body }));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await waitFor(() => expect(queryRenderedSvg()).not.toBeNull());
     await startEditing();
 
@@ -537,7 +541,7 @@ describe("NoteDetail の編集", () => {
       updateNote: async () => makeNote({ title: "改訂版", body: "新しい本文", tags: ["mcp"] }),
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
     typeInto("タイトル", "改訂版");
@@ -557,7 +561,7 @@ describe("NoteDetail の編集", () => {
       updateNote: async () => makeNote({ title: "改訂版", body: "新しい本文", tags: ["mcp"] }),
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
     typeInto("タイトル", "改訂版");
@@ -572,7 +576,7 @@ describe("NoteDetail の編集", () => {
   it("キャンセルすると編集内容を破棄して元の内容に戻る", async () => {
     const { updateNote } = mockHanamask(async () => makeNote());
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
     typeInto("タイトル", "破棄されるタイトル");
@@ -593,7 +597,7 @@ describe("NoteDetail の編集", () => {
       },
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
     typeInto("タイトル", "改訂版");
@@ -606,7 +610,7 @@ describe("NoteDetail の編集", () => {
   it("更新対象のノートが存在しない場合はエラーメッセージを表示する", async () => {
     mockHanamask(async () => makeNote(), { updateNote: async () => null });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
     await clickButton("保存");
@@ -622,7 +626,7 @@ describe("NoteDetail の編集履歴", () => {
       listNoteVersions: async () => [makeVersion()],
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText("旧タイトル")).toBeTruthy();
     expect(screen.getByRole("button", { name: "このバージョンに戻す" })).toBeTruthy();
@@ -632,7 +636,7 @@ describe("NoteDetail の編集履歴", () => {
   it("編集モードでは編集履歴を表示しない", async () => {
     mockHanamask(async () => makeNote(), { listNoteVersions: async () => [makeVersion()] });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("旧タイトル");
     await startEditing();
 
@@ -651,7 +655,7 @@ describe("NoteDetail の編集履歴", () => {
     });
     vi.stubGlobal("confirm", vi.fn(() => true));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("旧タイトル");
     await clickButton("このバージョンに戻す");
 
@@ -679,7 +683,7 @@ describe("NoteDetail の編集履歴", () => {
     });
     vi.stubGlobal("confirm", vi.fn(() => true));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("旧タイトル");
     await clickButton("このバージョンに戻す");
 
@@ -704,7 +708,7 @@ describe("NoteDetail の外部更新反映", () => {
   it("表示モードで変更通知を受けるとタイトル・本文・タグを最新に更新する", async () => {
     const { onNotesChanged, updateExternally } = mockChangingNote();
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
 
     updateExternally({ title: "MCPが書き換えた", body: "MCPが書き換えた本文", tags: ["ai"] });
@@ -719,7 +723,7 @@ describe("NoteDetail の外部更新反映", () => {
   it("編集中に変更通知を受けても編集内容を上書きしない", async () => {
     const { onNotesChanged, updateExternally } = mockChangingNote();
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
     typeInto("タイトル", "編集中のタイトル");
@@ -735,7 +739,7 @@ describe("NoteDetail の外部更新反映", () => {
   it("編集中に変更通知を受けると通知を表示し、破棄して最新を読み込める", async () => {
     const { onNotesChanged, updateExternally } = mockChangingNote();
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
     typeInto("タイトル", "編集中のタイトル");
@@ -756,7 +760,7 @@ describe("NoteDetail の外部更新反映", () => {
   it("編集をキャンセルすると通知が消え最新の内容を表示する", async () => {
     const { onNotesChanged, updateExternally } = mockChangingNote();
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
 
@@ -773,7 +777,7 @@ describe("NoteDetail の外部更新反映", () => {
     const { onNotesChanged, updateExternally } = mockChangingNote();
     window.hanamask.updateNote = vi.fn(async () => makeNote({ title: "利用者の保存結果" }));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
     typeInto("タイトル", "利用者の保存結果");
@@ -798,7 +802,7 @@ describe("NoteDetail の外部更新反映", () => {
     });
     vi.stubGlobal("confirm", vi.fn(() => true));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("旧タイトル");
     await clickButton("このバージョンに戻す");
     await emitNotesChanged(onNotesChanged);
@@ -833,7 +837,7 @@ describe("NoteDetail の外部更新反映", () => {
     );
     vi.stubGlobal("confirm", vi.fn(() => true));
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("旧タイトル");
     // 取得が先に始まり、その応答待ちの間に復元が始まって先に完了する順序。
     await emitNotesChanged(onNotesChanged);
@@ -861,7 +865,7 @@ describe("NoteDetail の外部更新反映", () => {
       { updateNote: async () => makeNote({ title: "利用者の保存結果" }) },
     );
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await startEditing();
     typeInto("タイトル", "利用者の保存結果");
@@ -896,7 +900,7 @@ describe("NoteDetail の外部更新反映", () => {
       },
     });
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     // 取得が先に始まり、その応答待ちの間に添付が始まって先に完了する順序。
     await emitNotesChanged(onNotesChanged);
@@ -935,7 +939,7 @@ describe("NoteDetail の外部更新反映", () => {
       },
     );
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
     await emitNotesChanged(onNotesChanged);
     await selectFile(new File(["hello"], "shot.png", { type: "image/png" }));
@@ -959,7 +963,7 @@ describe("NoteDetail の外部更新反映", () => {
       return makeNote({ id, title: id === "note-1" ? "設計メモ" : "別のメモ" });
     });
 
-    const { rerender } = render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    const { rerender } = render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
 
     failReload = true;
@@ -969,7 +973,7 @@ describe("NoteDetail の外部更新反映", () => {
     );
 
     failReload = false;
-    rerender(<NoteDetail noteId="note-2" onBack={vi.fn()} />);
+    rerender(<NoteDetail noteId="note-2" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByText("別のメモ")).toBeTruthy();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -987,7 +991,7 @@ describe("NoteDetail のリンク", () => {
   it("表示モードではリンクUIを表示する", async () => {
     const { listLinks } = mockLinks();
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
 
     expect(await screen.findByRole("heading", { name: "リンク" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "リンクする" })).toBeTruthy();
@@ -999,7 +1003,7 @@ describe("NoteDetail のリンク", () => {
   it("編集モードではリンクUIを表示しない", async () => {
     mockLinks();
 
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByRole("heading", { name: "リンク" });
     await startEditing();
 
@@ -1012,7 +1016,7 @@ describe("NoteDetail の本文Markdown描画", () => {
   const renderBody = async (body: string): Promise<void> => {
     // タグ一覧も ul なので、本文の箇条書きだけを数えられるようタグは空にしておく。
     mockHanamask(async () => makeNote({ body, tags: [] }));
-    render(<NoteDetail noteId="note-1" onBack={vi.fn()} />);
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
   };
 
