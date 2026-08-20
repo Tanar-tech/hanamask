@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SemanticSearchResult } from "../../../src/shared/preload-api";
 
 const searchSemanticEntities = vi.fn(
-  async (): Promise<SemanticSearchResult> => ({ notes: [], tasks: [] }),
+  async (): Promise<SemanticSearchResult> => ({ notes: [], tasks: [], notebooks: [] }),
 );
 
 vi.mock("../../../src/main/llm/semantic-search-service", async (importOriginal) => ({

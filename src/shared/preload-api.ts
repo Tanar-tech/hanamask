@@ -155,10 +155,15 @@ export interface ScoredTask extends Task {
   score: number;
 }
 
+export interface ScoredNotebook extends Notebook {
+  score: number;
+}
+
 /* unavailable が入っているときは中身が空。理由をUIとエージェントに同じ形で伝える。 */
 export interface SemanticSearchResult {
   notes: ScoredNote[];
   tasks: ScoredTask[];
+  notebooks: ScoredNotebook[];
   unavailable?: string;
 }
 

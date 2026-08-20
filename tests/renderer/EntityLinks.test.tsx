@@ -83,7 +83,7 @@ const mockHanamask = (overrides: LinkApiOverrides = {}) => {
     saveChatModel: vi.fn(async (model: string) => ({ apiKeyMask: null, model })),
     exportBackup: vi.fn(),
     importBackup: vi.fn(),
-    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [] })),
+    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [], notebooks: [] })),
     relatedNotes: vi.fn(async () => ({ notes: [] })),
     readEmbeddingStatus: vi.fn(async () => ({ state: "unavailable" as const, pending: 0 })),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),

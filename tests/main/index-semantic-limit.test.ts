@@ -3,7 +3,7 @@ import type { RelatedNotesResult, SemanticSearchResult } from "../../src/shared/
 
 const ipcHandle = vi.fn();
 const searchSemanticEntities = vi.fn(
-  async (): Promise<SemanticSearchResult> => ({ notes: [], tasks: [] }),
+  async (): Promise<SemanticSearchResult> => ({ notes: [], tasks: [], notebooks: [] }),
 );
 const findRelatedNotes = vi.fn((): RelatedNotesResult => ({ notes: [] }));
 

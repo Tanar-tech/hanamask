@@ -1,14 +1,10 @@
 import { listEmbeddings, type StoredEmbedding } from "../db/embeddings-repo.js";
 import { getNote } from "../db/notes-repo.js";
+import { getNotebook } from "../db/notebooks-repo.js";
 import { getTask } from "../db/tasks-repo.js";
 import { getEmbeddingRuntime } from "./index.js";
 import { rankBySimilarity, type Ranked } from "./semantic-search.js";
-import type {
-  RelatedNotesResult,
-  ScoredNote,
-  ScoredTask,
-  SemanticSearchResult,
-} from "../../shared/preload-api.js";
+import type { RelatedNotesResult, SemanticSearchResult } from "../../shared/preload-api.js";
 
 export const EMBEDDING_LOADING_REASON = "埋め込みモデルの準備中です";
 
@@ -32,18 +28,22 @@ export const normalizeSemanticLimit = (
 
 // 実体が消えている・ゴミ箱に入ったものは索引に残っていても結果から落とす。
 const attachEntities = (ranked: readonly Ranked[]): SemanticSearchResult => {
-  const notes: ScoredNote[] = [];
-  const tasks: ScoredTask[] = [];
+  const result: SemanticSearchResult = { notes: [], tasks: [], notebooks: [] };
   ranked.forEach(({ entityType, entityId, score }) => {
     if (entityType === "note") {
       const note = getNote(entityId);
-      if (note !== null) notes.push({ ...note, score });
+      if (note !== null) result.notes.push({ ...note, score });
       return;
     }
-    const task = getTask(entityId);
-    if (task !== null) tasks.push({ ...task, score });
+    if (entityType === "task") {
+      const task = getTask(entityId);
+      if (task !== null) result.tasks.push({ ...task, score });
+      return;
+    }
+    const notebook = getNotebook(entityId);
+    if (notebook !== null) result.notebooks.push({ ...notebook, score });
   });
-  return { notes, tasks };
+  return result;
 };
 
 interface ReadyRuntime {
@@ -65,7 +65,9 @@ export const searchSemanticEntities = async (
   limit: number,
 ): Promise<SemanticSearchResult> => {
   const runtime = readReadyRuntime();
-  if (typeof runtime === "string") return { notes: [], tasks: [], unavailable: runtime };
+  if (typeof runtime === "string") {
+    return { notes: [], tasks: [], notebooks: [], unavailable: runtime };
+  }
   const vector = await runtime.embedQuery(query);
   return attachEntities(rankBySimilarity(vector, listEmbeddings(runtime.modelId), limit));
 };

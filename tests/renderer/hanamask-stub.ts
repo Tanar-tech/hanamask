@@ -69,7 +69,7 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     onLinksChanged: vi.fn(() => () => {}),
     exportBackup: vi.fn(notStubbed("exportBackup")),
     importBackup: vi.fn(notStubbed("importBackup")),
-    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [] })),
+    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [], notebooks: [] })),
     relatedNotes: vi.fn(async () => ({ notes: [] })),
     readEmbeddingStatus: vi.fn(async () => UNAVAILABLE_STATUS),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
