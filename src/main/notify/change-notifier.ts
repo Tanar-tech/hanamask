@@ -10,6 +10,8 @@ const MAX_LISTED_TITLES = 3;
 const ENTITY_LABELS: Record<EntityChange["entity"], string> = {
   note: "ノート",
   task: "タスク",
+  // ページを「ノート」と呼んだままなので、束も当面は同じ表記になる。呼び替えは T58。
+  notebook: "ノート",
 };
 
 const ACTION_LABELS: Record<EntityChange["action"], string> = {
@@ -59,18 +61,27 @@ const buildBody = (changes: readonly EntityChange[]): string => {
   return omitted > 0 ? `${listed.join("、")} ほか${omitted}件` : listed.join("、");
 };
 
-export const createChangeNotifier = (deps: ChangeNotifierDeps): ChangeNotifier => {
+const toNavigateTarget = (change: EntityChange): NavigateTarget | undefined => {
+  // 削除されたものは開けない。
+  if (change.action === "deleted") return undefined;
+  // NavigateTarget に notebook を足すのは T58。それまで束はウィンドウを出すだけにする。
+  if (change.entity === "notebook") return undefined;
+  return { kind: change.entity, id: change.id };
+};
+
+export const createChangeNotifier =(deps: ChangeNotifierDeps): ChangeNotifier => {
   let pending: EntityChange[] = [];
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
 
   const openChanges = (changes: readonly EntityChange[]): void => {
     const [only] = changes;
-    // 削除されたものは開けないので、まとめて通知したときと同じくウィンドウを出すだけにする。
-    if (changes.length !== 1 || only === undefined || only.action === "deleted") {
+    const target = only === undefined ? undefined : toNavigateTarget(only);
+    // 開き先が無いものは、まとめて通知したときと同じくウィンドウを出すだけにする。
+    if (changes.length !== 1 || target === undefined) {
       deps.showWindow();
       return;
     }
-    deps.navigate({ kind: only.entity, id: only.id });
+    deps.navigate(target);
   };
 
   const flush = (): void => {
