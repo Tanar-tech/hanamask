@@ -58,6 +58,7 @@ interface ImageApiOverrides {
 const makeVersion = (overrides: Partial<NoteVersion> = {}): NoteVersion => ({
   id: "version-1",
   noteId: "note-1",
+  entityType: "note",
   title: "旧タイトル",
   body: "旧本文",
   tags: ["design"],

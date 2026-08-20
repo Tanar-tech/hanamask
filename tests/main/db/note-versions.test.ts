@@ -12,12 +12,29 @@ import {
   updateNote,
 } from "../../../src/main/db/notes-repo";
 
+/*
+ * entity_type 列を足すマイグレーションはセットAが並行して実装中なので、無いあいだは
+ * SPEC.md の DDL をここであてる。セットA合流後はこの分岐を通らない。
+ */
+const isColumnRow = (value: unknown): value is { name: string } => {
+  if (typeof value !== "object" || value === null) return false;
+  const row: Record<string, unknown> = { ...value };
+  return typeof row.name === "string";
+};
+
+const ensureEntityTypeColumn = (): void => {
+  const rows: unknown[] = getDb().prepare("SELECT name FROM pragma_table_info(?)").all("note_versions");
+  if (rows.some((row) => isColumnRow(row) && row.name === "entity_type")) return;
+  getDb().exec("ALTER TABLE note_versions ADD COLUMN entity_type TEXT NOT NULL DEFAULT 'note'");
+};
+
 describe("note versions", () => {
   let dbFilePath: string;
 
   beforeEach(() => {
     dbFilePath = join(tmpdir(), `hanamask-versions-test-${randomUUID()}.sqlite3`);
     openDb(dbFilePath);
+    ensureEntityTypeColumn();
   });
 
   afterEach(() => {
@@ -53,6 +70,29 @@ describe("note versions", () => {
     expect(version?.tags).toEqual(["a", "b"]);
     expect(version?.id).toMatch(/^[0-9a-f-]{36}$/);
     expect(new Date(version?.createdAt ?? "").toISOString()).toBe(version?.createdAt);
+  });
+
+  it("marks a page snapshot as a note version", () => {
+    const created = createNote({ title: "v1", body: "本文1", tags: [] });
+
+    updateNote(created.id, { body: "本文2" });
+
+    expect(listNoteVersions(created.id)[0]?.entityType).toBe("note");
+  });
+
+  it("hides rows of another entity type from the page history", () => {
+    const created = createNote({ title: "v1", body: "本文1", tags: [] });
+    updateNote(created.id, { body: "本文2" });
+    getDb()
+      .prepare(
+        "INSERT INTO note_versions (id, note_id, entity_type, title, body, tags, created_at) VALUES (?, ?, 'notebook', ?, ?, ?, ?)",
+      )
+      .run(randomUUID(), created.id, "概要", "概要本文", "[]", new Date().toISOString());
+
+    const versions = listNoteVersions(created.id);
+
+    expect(versions).toHaveLength(1);
+    expect(versions[0]?.body).toBe("本文1");
   });
 
   it("lists versions newest first", () => {
@@ -109,6 +149,18 @@ describe("note versions", () => {
     const versions = listNoteVersions(created.id);
     expect(versions).toHaveLength(2);
     expect(versions[0]?.body).toBe("本文2");
+  });
+
+  it("refuses to restore a version belonging to another entity type", () => {
+    const created = createNote({ title: "v1", body: "本文1", tags: [] });
+    const notebookVersionId = randomUUID();
+    getDb()
+      .prepare(
+        "INSERT INTO note_versions (id, note_id, entity_type, title, body, tags, created_at) VALUES (?, ?, 'notebook', ?, ?, ?, ?)",
+      )
+      .run(notebookVersionId, created.id, "概要", "概要本文", "[]", new Date().toISOString());
+
+    expect(restoreNoteVersion(notebookVersionId)).toBeNull();
   });
 
   it("returns null for an unknown version id", () => {
