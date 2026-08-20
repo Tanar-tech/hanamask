@@ -86,6 +86,8 @@ T36 での実績（2026-08-08）: ノート15件・タスク7件・リンク2件
 
 T42 での実績（2026-08-10）: ノート20件・タスク12件・リンク2件が保持され、`tags` 列が追加、`integrity_check: ok`。
 
+T54 での実績（2026-08-20）: ノート（ページ）32件・タスク14件・リンク2件・編集履歴6件・埋め込み41件が保持され、`notebooks` 表と `notes.notebook_id`・`note_versions.entity_type` が追加。全ページが無所属（`notebook_id` NULL）のまま、既存の版は全件 `entity_type='note'`、包みノートの自動生成なし（notebooks 0件）、`integrity_check: ok`。
+
 ## 7. 手順のまとめ
 
 1. `schema.sql` を新しい形に更新する

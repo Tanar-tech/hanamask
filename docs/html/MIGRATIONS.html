@@ -128,6 +128,7 @@ src.backup(dst); dst.close()
 <p>T36 での実績（2026-08-08）: ノート15件・タスク7件・リンク2件・編集履歴1件が保持され、<code>body</code> 列が追加、NULL行ゼロ、<code>integrity_check: ok</code>。</p>
 
 <p>T42 での実績（2026-08-10）: ノート20件・タスク12件・リンク2件が保持され、<code>tags</code> 列が追加、<code>integrity_check: ok</code>。</p>
+<p>T54 での実績（2026-08-20）: ノート（ページ）32件・タスク14件・リンク2件・編集履歴6件・埋め込み41件が保持され、<code>notebooks</code> 表と <code>notes.notebook_id</code>・<code>note_versions.entity_type</code> が追加。全ページが無所属（<code>notebook_id</code> NULL）のまま、既存の版は全件 <code>entity_type='note'</code>、包みノートの自動生成なし（notebooks 0件）、<code>integrity_check: ok</code>。</p>
 
 <h2 id="steps">7. 手順のまとめ</h2>
 
