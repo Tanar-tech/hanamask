@@ -16,8 +16,7 @@ const TOOL_DEFINITION = /\n {4}name: "([a-z_]+)",/g;
 const TOOLS_DIR = "src/main/mcp/tools";
 const README_PATH = "README.md";
 
-// T57のセットB/Cで40本まで増える。B/C完了後に35へ上げる。
-const MINIMUM_EXPECTED_TOOLS = 20;
+const MINIMUM_EXPECTED_TOOLS = 35;
 
 const namesIn = (text, pattern) => [...text.matchAll(pattern)].map((match) => match[1]);
 

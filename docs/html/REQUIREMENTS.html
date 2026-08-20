@@ -381,7 +381,7 @@ erDiagram
 </tbody>
 </table>
 
-<h3>7.3 ノート/ページ再編で新設するツール（v2.1.0、<strong>未実装</strong>）</h3>
+<h3>7.3 ノート/ページ再編で新設するツール（v2.1.0）</h3>
 <p><a href="#4-9">§4.9</a>で導入する。<strong>未実装</strong>（<a href="TASKS-notebooks.html">TASKS-notebooks.html</a> で起票済み）。<code>*_page</code> は上表の対応する <code>*_note</code> と同じ操作を新しい呼び方で提供するもので、挙動を分けない。</p>
 <table>
 <thead><tr><th>ツール名</th><th>何をするか</th></tr></thead>
@@ -399,7 +399,7 @@ erDiagram
 <tr><td><code>update_notebook</code></td><td>ノートの概要を書き換える。実行前の内容は履歴として保存される</td></tr>
 <tr><td><code>get_notebook</code></td><td>1件のノートを取得する（概要と所属ページの一覧）</td></tr>
 <tr><td><code>list_notebooks</code></td><td>ノートを一覧・検索する（削除済みはデフォルトで除外）</td></tr>
-<tr><td><code>delete_notebook</code></td><td>ノートをソフトデリートする。<code>confirm: true</code>が必須。所属ページの扱い（無所属化するか道連れにするか）は実装時に確定する</td></tr>
+<tr><td><code>delete_notebook</code></td><td>ノートをソフトデリートする。<code>confirm: true</code>が必須。所属ページは道連れにしない（§4.9: ゴミ箱中は所属保持のまま無所属扱い、パージ時に所属を外す）</td></tr>
 <tr><td><code>restore_notebook</code></td><td>ソフトデリートしたノートを復元する</td></tr>
 </tbody>
 </table>
