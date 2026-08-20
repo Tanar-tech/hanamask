@@ -138,6 +138,20 @@ const clickButton = async (name: string): Promise<void> => {
   });
 };
 
+// ツリーは全セクションで左列に出たままなので、ページ名のボタンは Main View 側と二重にヒットする。
+// どちらの経路を押したかが分かるよう、主部に絞る。
+const mainView = (): HTMLElement => screen.getByRole("main");
+
+const findMainButton = (name: string): Promise<HTMLElement> =>
+  within(mainView()).findByRole("button", { name });
+
+const clickMainButton = async (name: string): Promise<void> => {
+  const button = await findMainButton(name);
+  await act(async () => {
+    button.click();
+  });
+};
+
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -150,7 +164,7 @@ describe("App のナビゲーション", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
+    expect(await findMainButton("設計メモ")).toBeTruthy();
     expect(screen.getByRole("button", { name: "MCPサーバーを実装する" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "最近のページ" })).toBeTruthy();
   });
@@ -159,14 +173,14 @@ describe("App のナビゲーション", () => {
     mockHanamask();
 
     render(<App />);
-    await clickButton("設計メモ");
+    await clickMainButton("設計メモ");
 
     expect(await screen.findByText("MCPサーバーの設計についてのメモ本文")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "最近のページ" })).toBeNull();
 
     await clickButton("戻る");
 
-    expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
+    expect(await findMainButton("設計メモ")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "最近のページ" })).toBeTruthy();
   });
 
@@ -177,11 +191,11 @@ describe("App のナビゲーション", () => {
     await clickButton("MCPサーバーを実装する");
 
     expect(await screen.findByRole("combobox", { name: "ステータス" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "設計メモ" })).toBeNull();
+    expect(within(mainView()).queryByRole("button", { name: "設計メモ" })).toBeNull();
 
     await clickButton("戻る");
 
-    expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
+    expect(await findMainButton("設計メモ")).toBeTruthy();
     expect(screen.queryByRole("combobox", { name: "ステータス" })).toBeNull();
   });
 
@@ -189,7 +203,7 @@ describe("App のナビゲーション", () => {
     mockHanamask();
 
     render(<App />);
-    await clickButton("設計メモ");
+    await clickMainButton("設計メモ");
 
     await screen.findByText("MCPサーバーの設計についてのメモ本文");
     expect(window.hanamask.getNote).toHaveBeenCalledWith("note-1");
@@ -381,17 +395,28 @@ describe("App のノート（Explorerナビ）", () => {
     window.hanamask.getNote = vi.fn(async () => pageInNotebook);
   };
 
-  it("「ノート」でナビを左レールの隣に出し、ホームでは出さない", async () => {
+  it("ツリーはホームでもタスクでも左列に出したままにする", async () => {
     mockWithNotebook();
 
     render(<App />);
     await screen.findByRole("heading", { name: "最近のページ" });
-    expect(screen.queryByRole("list", { name: "ノート・ページ" })).toBeNull();
-
-    await clickButton("ノート");
-
     const nav = await screen.findByRole("list", { name: "ノート・ページ" });
     expect(within(nav).getByRole("button", { name: NOTEBOOK_ROW })).toBeTruthy();
+
+    await clickButton("タスク");
+
+    expect(screen.getByRole("list", { name: "ノート・ページ" })).toBeTruthy();
+  });
+
+  it("ホームからツリーのノートを選ぶとノートのMain Viewへ遷移する", async () => {
+    mockWithNotebook();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "最近のページ" });
+
+    await clickButton(NOTEBOOK_ROW);
+
+    expect(await screen.findByRole("heading", { name: notebook.title })).toBeTruthy();
   });
 
   it("ナビのノートを選ぶとサブペインとノートのMain Viewを出し、ページ一覧は出さない", async () => {
@@ -464,7 +489,7 @@ describe("App のゴミ箱画面", () => {
 
     await clickButton("戻る");
 
-    expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
+    expect(await findMainButton("設計メモ")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "最近のページ" })).toBeTruthy();
   });
 });
@@ -474,7 +499,7 @@ describe("App のMCP経由の画面遷移", () => {
     mockHanamask();
 
     render(<App />);
-    await screen.findByRole("button", { name: "設計メモ" });
+    await findMainButton("設計メモ");
     await emitNavigate({ kind: "note", id: "note-1" });
 
     expect(await screen.findByText("MCPサーバーの設計についてのメモ本文")).toBeTruthy();
@@ -485,7 +510,7 @@ describe("App のMCP経由の画面遷移", () => {
     mockHanamask();
 
     render(<App />);
-    await screen.findByRole("button", { name: "設計メモ" });
+    await findMainButton("設計メモ");
     await emitNavigate({ kind: "task", id: "task-1" });
 
     expect(await screen.findByRole("combobox", { name: "ステータス" })).toBeTruthy();
@@ -496,7 +521,7 @@ describe("App のMCP経由の画面遷移", () => {
     mockHanamask();
 
     render(<App />);
-    await screen.findByRole("button", { name: "設計メモ" });
+    await findMainButton("設計メモ");
     await emitNavigate({ kind: "search", query: "設計" });
 
     expect(await screen.findByRole("heading", { name: "「設計」の検索結果" })).toBeTruthy();
@@ -509,7 +534,7 @@ describe("App のMCP経由の画面遷移", () => {
 
     render(<App />);
     await emitNavigate({ kind: "search", query: "設計" });
-    await clickButton("設計メモ");
+    await clickMainButton("設計メモ");
 
     expect(await screen.findByText("MCPサーバーの設計についてのメモ本文")).toBeTruthy();
   });
@@ -529,7 +554,7 @@ describe("App のMCP経由の画面遷移", () => {
     mockHanamask();
 
     const { unmount } = render(<App />);
-    await screen.findByRole("button", { name: "設計メモ" });
+    await findMainButton("設計メモ");
     unmount();
 
     expect(unsubscribeNavigate).toHaveBeenCalledTimes(1);
@@ -579,7 +604,7 @@ describe("App のノート切替時の復元レース", () => {
     vi.stubGlobal("confirm", vi.fn(() => true));
 
     render(<App />);
-    await clickButton("設計メモ");
+    await clickMainButton("設計メモ");
     await screen.findByText("MCPサーバーの設計についてのメモ本文");
     await clickButton("このバージョンに戻す");
 
