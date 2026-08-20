@@ -4,13 +4,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { closeDb, getDb, openDb } from "../../../src/main/db/db";
-import { createNote, listNoteVersions, updateNote } from "../../../src/main/db/notes-repo";
+import {
+  createNote,
+  listNoteVersions,
+  softDeleteNote,
+  updateNote,
+} from "../../../src/main/db/notes-repo";
 import {
   createNotebook,
   getNotebook,
   listDeletedNotebooks,
   listNotebookVersions,
   listNotebooks,
+  listNotesInNotebook,
   restoreNotebook,
   restoreNotebookVersion,
   softDeleteNotebook,
@@ -185,5 +191,51 @@ describe("notebooks repo", () => {
     softDeleteNotebook(notebook.id);
 
     expect(readNotebookIdOfNote(note.id)).toBe(notebook.id);
+  });
+
+  describe("listNotesInNotebook", () => {
+    const attach = (noteTitle: string, notebookId: string): string => {
+      const note = createNote({ title: noteTitle, body: "本文", tags: [] });
+      getDb().prepare("UPDATE notes SET notebook_id = ? WHERE id = ?").run(notebookId, note.id);
+      return note.id;
+    };
+
+    it("lists only the pages that belong to the notebook", () => {
+      const notebook = createNotebook({ title: "束", summary: "", tags: [] });
+      const other = createNotebook({ title: "別の束", summary: "", tags: [] });
+      attach("所属ページ", notebook.id);
+      attach("別の束のページ", other.id);
+      createNote({ title: "無所属ページ", body: "本文", tags: [] });
+
+      expect(listNotesInNotebook(notebook.id).map((note) => note.title)).toEqual(["所属ページ"]);
+    });
+
+    it("excludes soft deleted pages", () => {
+      const notebook = createNotebook({ title: "束", summary: "", tags: [] });
+      const deletedId = attach("消したページ", notebook.id);
+      attach("残るページ", notebook.id);
+      softDeleteNote(deletedId);
+
+      expect(listNotesInNotebook(notebook.id).map((note) => note.title)).toEqual(["残るページ"]);
+    });
+
+    it("returns an empty list for a notebook without pages", () => {
+      const notebook = createNotebook({ title: "空の束", summary: "", tags: [] });
+
+      expect(listNotesInNotebook(notebook.id)).toEqual([]);
+    });
+
+    it("lists the most recently updated page first", () => {
+      vi.useFakeTimers();
+      const notebook = createNotebook({ title: "束", summary: "", tags: [] });
+      const firstId = attach("先", notebook.id);
+      vi.advanceTimersByTime(1);
+      attach("後", notebook.id);
+      vi.advanceTimersByTime(1);
+      updateNote(firstId, { body: "更新" });
+      vi.useRealTimers();
+
+      expect(listNotesInNotebook(notebook.id).map((note) => note.title)).toEqual(["先", "後"]);
+    });
   });
 });

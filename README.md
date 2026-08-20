@@ -196,6 +196,21 @@ Mermaid図は専用ツールを持たず、ページ本文へのインライン�
 | `list_note_versions` | `list_page_versions` と同じ |
 | `restore_note_version` | `restore_page_version` と同じ |
 
+### ノート（束）
+
+ノート（束）は、ページ（1件のノート）をまとめる入れ物。タグが横断的な目印なのに対し、束は「どこに置いてあるか」を表す。
+
+| ツール | 内容 |
+|---|---|
+| `create_notebook` | ノート（束）を作成する（`title`, `summary`, 任意の `tags`） |
+| `get_notebook` | idで1件取得する（所属ページの一覧付き。存在しない・ゴミ箱の中なら `null`） |
+| `list_notebooks` | ノート（束）の一覧を取得する（ソフトデリート済みは除外） |
+| `update_notebook` | タイトル・概要・タグを更新する（省略した項目は据え置き） |
+| `delete_notebook` | ソフトデリートする（`confirm: true` 必須。所属ページは消えず、束に付いたまま残る） |
+| `restore_notebook` | ソフトデリートしたノート（束）を復元する（所属ページごと戻る） |
+
+`summary` は `semantic_search_notes` が束を探すときの手がかりになるので、束に何を集めているかを書いておく。
+
 ### タスク
 
 | ツール | 内容 |
