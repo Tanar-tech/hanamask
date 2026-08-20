@@ -17,6 +17,15 @@ interface NoteRow {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  notebook_id: string | null;
+}
+
+/*
+ * 所属ノート付きのページ。Note（共有コントラクト）に足すと一覧・検索の戻りまで
+ * 形が変わるため、1件を引くところだけで使う派生型として分けている。
+ */
+export interface NoteWithNotebook extends Note {
+  notebookId: string | null;
 }
 
 interface NoteVersionRow {
@@ -44,7 +53,8 @@ const isNoteRow = (value: unknown): value is NoteRow => {
     typeof row.tags === "string" &&
     (row.deleted_at === null || typeof row.deleted_at === "string") &&
     typeof row.created_at === "string" &&
-    typeof row.updated_at === "string"
+    typeof row.updated_at === "string" &&
+    (row.notebook_id === null || typeof row.notebook_id === "string")
   );
 };
 
@@ -71,6 +81,11 @@ const toNote = (row: NoteRow): Note => ({
   updatedAt: row.updated_at,
 });
 
+const toNoteWithNotebook = (row: NoteRow): NoteWithNotebook => ({
+  ...toNote(row),
+  notebookId: row.notebook_id,
+});
+
 const toNoteVersion = (row: NoteVersionRow): NoteVersion => ({
   id: row.id,
   noteId: row.note_id,
@@ -90,19 +105,23 @@ const toLikePattern = (query: string): string => {
   return `%${escaped}%`;
 };
 
-export const createNote = (input: NoteInput): Note => {
+export const createNote = (
+  input: NoteInput,
+  notebookId: string | null = null,
+): NoteWithNotebook => {
   const timestamp = new Date().toISOString();
-  const note: Note = {
+  const note: NoteWithNotebook = {
     id: randomUUID(),
     title: input.title,
     body: input.body,
     tags: input.tags,
     createdAt: timestamp,
     updatedAt: timestamp,
+    notebookId,
   };
   getDb()
     .prepare(
-      "INSERT INTO notes (id, title, body, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO notes (id, title, body, tags, created_at, updated_at, notebook_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .run(
       note.id,
@@ -111,11 +130,12 @@ export const createNote = (input: NoteInput): Note => {
       serializeTags(note.tags),
       note.createdAt,
       note.updatedAt,
+      note.notebookId,
     );
   return note;
 };
 
-export const getNote = (id: string): Note | null => {
+export const getNote = (id: string): NoteWithNotebook | null => {
   const row: unknown = getDb()
     .prepare("SELECT * FROM notes WHERE id = ?")
     .get(id);
@@ -123,18 +143,35 @@ export const getNote = (id: string): Note | null => {
   if (!isNoteRow(row)) {
     throw new Error(`Unexpected notes row shape for id ${id}`);
   }
-  return toNote(row);
+  return toNoteWithNotebook(row);
 };
 
-export const searchNotes = (query: string): Note[] => {
+export const moveNoteToNotebook = (
+  noteId: string,
+  notebookId: string | null,
+): NoteWithNotebook | null => {
+  const result = getDb()
+    .prepare("UPDATE notes SET notebook_id = ? WHERE id = ? AND deleted_at IS NULL")
+    .run(notebookId, noteId);
+  if (result.changes === 0) return null;
+  return getNote(noteId);
+};
+
+export const searchNotes = (query: string, notebookId?: string): Note[] => {
   const rows: unknown[] = getDb()
     .prepare(
       `SELECT * FROM notes
        WHERE deleted_at IS NULL
          AND (title LIKE ? ESCAPE '${LIKE_ESCAPE_CHAR}' OR body LIKE ? ESCAPE '${LIKE_ESCAPE_CHAR}')
+         AND (? IS NULL OR notebook_id = ?)
        ORDER BY created_at DESC`,
     )
-    .all(toLikePattern(query), toLikePattern(query));
+    .all(
+      toLikePattern(query),
+      toLikePattern(query),
+      notebookId ?? null,
+      notebookId ?? null,
+    );
   return rows.map((row) => {
     if (!isNoteRow(row)) {
       throw new Error("Unexpected notes row shape in search results");

@@ -163,22 +163,38 @@ Mermaid図は ```` ```mermaid ```` のコードフェンスとして書く。
 ## 実装済みのMCPツール
 
 
-### ノート
+### ページ
 
 | ツール | 内容 |
 |---|---|
-| `create_note` | ノートを作成する（`title`, `body`, 任意の `tags`） |
-| `get_note` | idで1件取得する（存在しなければ `null`） |
-| `search_notes` | タイトル・本文の部分一致検索（空文字で全件） |
-| `semantic_search_notes` | 意味の近いノート・ノート（束）・タスクを探す（言葉が一致しなくても内容が近ければ出る。ノート（束）は概要で近さを測る。モデルが準備できていなければ空の結果と理由を返す） |
-| `update_note` | タイトル・本文・タグを更新する（省略した項目は据え置き） |
-| `delete_note` | ソフトデリートする（`confirm: true` 必須） |
-| `restore_note` | ソフトデリートしたノートを復元する |
-| `list_note_versions` | 編集履歴を新しい順に取得する |
-| `restore_note_version` | 過去バージョンに戻す（戻す操作自体も履歴に積まれる） |
-| `attach_image` | Base64の画像をノートに添付する（png/jpeg/gif/webp、10MBまで） |
+| `create_page` | ページを作成する（`title`, `body`, 任意の `tags`・`notebook_id`） |
+| `get_page` | idで1件取得する（所属ノートの `notebookId` 付き。存在しなければ `null`） |
+| `search_pages` | タイトル・本文の部分一致検索（空文字で全件。`notebook_id` で1つのノート内に絞れる） |
+| `semantic_search_notes` | 意味の近いページ・ノート（束）・タスクを探す（言葉が一致しなくても内容が近ければ出る。ノート（束）は概要で近さを測る。モデルが準備できていなければ空の結果と理由を返す） |
+| `update_page` | タイトル・本文・タグを更新する（省略した項目は据え置き） |
+| `move_page` | ページをノートへ入れる・別のノートへ移す・`notebook_id: null` で無所属に戻す |
+| `delete_page` | ソフトデリートする（`confirm: true` 必須） |
+| `restore_page` | ソフトデリートしたページを復元する |
+| `list_page_versions` | 編集履歴を新しい順に取得する |
+| `restore_page_version` | 過去バージョンに戻す（戻す操作自体も履歴に積まれる） |
+| `attach_image` | Base64の画像をページに添付する（png/jpeg/gif/webp、10MBまで） |
 
-Mermaid図は専用ツールを持たず、ノート本文へのインライン記述として `update_note` で追加・更新する。
+Mermaid図は専用ツールを持たず、ページ本文へのインライン記述として `update_page` で追加・更新する。
+
+#### 互換名（`*_note`）
+
+以前の名前も同じ処理を指す別名としてそのまま使える。引数・戻り値は上の表の対応するツールと同じ（`create_note` は `notebook_id` を、`search_notes` は絞り込みを説明文に載せていないだけで、渡せば同じように働く）。
+
+| ツール | 内容 |
+|---|---|
+| `create_note` | `create_page` と同じ |
+| `get_note` | `get_page` と同じ |
+| `search_notes` | `search_pages` と同じ |
+| `update_note` | `update_page` と同じ |
+| `delete_note` | `delete_page` と同じ |
+| `restore_note` | `restore_page` と同じ |
+| `list_note_versions` | `list_page_versions` と同じ |
+| `restore_note_version` | `restore_page_version` と同じ |
 
 ### タスク
 

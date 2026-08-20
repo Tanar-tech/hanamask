@@ -194,14 +194,23 @@ describe("mcp note tools", () => {
     expect(noteTools.map((tool) => tool.definition.name).sort()).toEqual([
       "attach_image",
       "create_note",
+      "create_page",
       "delete_note",
+      "delete_page",
       "get_note",
+      "get_page",
       "list_note_versions",
+      "list_page_versions",
+      "move_page",
       "restore_note",
       "restore_note_version",
+      "restore_page",
+      "restore_page_version",
       "search_notes",
+      "search_pages",
       "semantic_search_notes",
       "update_note",
+      "update_page",
     ]);
   });
 
