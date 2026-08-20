@@ -1,115 +1,85 @@
-# SPEC: ノート/ページ(1) DB基盤と既存データの移行（T54）
+# SPEC: ノート/ページ(2) リンク・変更通知・タグ・ゴミ箱をノートへ広げる（T55）
 
 ## Part 1: 利用者向け
 
 ### 何を・なぜ
 
-v2.1.0 の「ノート／ページ再編」（`docs/REQUIREMENTS.md` §4.9）の1本目です。ページを束ねる**ノート**という新しい入れ物を、まずデータベースの中に用意します。
+T54 で用意した「ノート」の器を、既存の横断機能に対等に参加させます（`docs/REQUIREMENTS.md` §4.9「ノートとページは並列の存在」）。このタスクが終わると、ノートは次のことができるようになります。
 
-このタスクでは**見た目も操作も何も変わりません**。画面・MCPツール・意味検索は従来どおり動きます。変わるのはデータの器だけで、後続のタスク（ツール追加・Explorerナビ）がこの器の上に乗ります。
+1. **リンクの端点になれる**: ノート⇔ページ、ノート⇔タスク、ノート⇔ノートの相互リンクを作成・解除・一覧できる（この段階ではテストと既存のリンクツール経由。ノート専用の操作ツール・画面は後続タスク）
+2. **タグで引ける**: ノートに付けたタグが、既存のタグ一覧（`list_tags` と画面のタグ絞り込み）の集計に乗る
+3. **変更が伝わる**: ノートの作成・更新・削除が、開いている画面への自動反映と OS 通知に乗る（フォーカスが無いときだけ通知される既存の条件はそのまま）
+4. **ゴミ箱に並ぶ**: 削除したノートがゴミ箱画面の第3のセクションに出て、復元でき、「あと N 日」表示と30日パージの対象になる（パージの仕組み自体は T54 で実装済み。ここで画面に出す）
 
-- 既存の記録は**1件も変わりません**。ID・本文・タグ・編集履歴・ゴミ箱の中身・意味検索の索引はそのまま。全件が「どのノートにも属さないページ（無所属ページ）」として引き継がれます
-- 「未分類」のような包みノートは**作りません**
-- v2.0.x で作ったバックアップ（zip）も従来どおり取り込めます
+既存のページ・タスクの挙動は変わりません。
+
+### 画面イメージ・操作フロー
+
+- **ゴミ箱画面**: 現在の「ノート」「タスク」2セクションに「**ノート（束）**」のセクションが加わり、削除済みノートのタイトル・残り日数・復元ボタンが並ぶ 📸
+- **OS通知**: ノートの変更も「ノートを作成しました」のように通知される。**通知をクリックしたときはウィンドウを前面に出すだけ**（ノート詳細画面は T58 で作るため。ページ・タスクの通知クリックは従来どおり該当画面が開く）
+- 文言について: 通知やゴミ箱では、当面ページも「ノート」と表示されたままです（アプリ全体の呼び替えは T58 でまとめて行うため、この期間はどちらも「ノート」と出る場面があります）
 
 ### 受け入れ条件
 
-- [ ] v2.0.x のDBをこの版で開くと、既存のページ（旧ノート）・タスク・リンク・編集履歴・画像・索引がすべて残っている
-- [ ] 既存のページはすべて無所属のまま（勝手にノートへ入れられていない。包みノートも作られていない）
-- [ ] 何度開き直しても壊れない（マイグレーションが繰り返し実行されても安全）
-- [ ] 新規インストール（まっさらなDB）とアップグレード（旧DB＋マイグレーション）で、最終的なDBの形が一致する
-- [ ] ノートを作成・更新・削除・復元できる（この段階ではテスト経由。画面・ツールは後続タスク）
-- [ ] ノートの概要を更新すると編集履歴が残り、過去の版に戻せる
-- [ ] ノートをゴミ箱に入れても所属ページは消えず読める。ノートを復元すると束が戻る。30日パージでノートが完全削除された時点でページは正式に無所属になる
-- [ ] `notebooks` を含まない古い形式のバックアップzipが取り込め、取り込み後の再オープンで器が追いつく
-- [ ] 画面・MCPツール・意味検索の挙動が一切変わっていない（既存テストが全部そのまま緑）
+- [ ] ノート⇔ページ／ノート⇔タスク／ノート⇔ノートのリンクを作成・解除・一覧できる（既存の `link_entities` / `unlink_entities` / `list_links` で `"notebook"` が使える）
+- [ ] 存在しないノートIDへのリンクは今までどおり弾かれる
+- [ ] ノートのタグが `list_tags` の件数に乗る（ノート3・ページ2 に同じタグなら合算される）
+- [ ] ノートを作成・更新・削除すると、開いている画面に手動リロードなしで変更が伝わる仕組み（変更イベント）が飛ぶ
+- [ ] フォーカスが無いときだけ OS 通知される既存条件が、ノートでも保たれる
+- [ ] ノートの通知をクリックするとウィンドウが前面に出る（何も起きない、が無い）
+- [ ] ゴミ箱にノートのセクションが出て、復元できる。「あと N 日」表示がある
+- [ ] 削除済みノートに属していたページの見え方が T54 の方針どおり（ページは読める・復元で束が戻る）
+- [ ] 既存のページ・タスクのリンク・タグ・通知・ゴミ箱の挙動が変わらない（既存テストが全て緑）
+- [ ] 意味検索の索引がノートの変更イベントに**反応しない**（索引のノート対応は T56。誤って混ざらないこと）
 
 ### 未決定・要確認事項
 
-なし（要求定義の未決はすべて 2026-08-20 に確定済み。版管理の持ち方は Part 2 で「`note_versions` に `entity_type` を足す」方式に決めた——別表方式との比較は Part 2 冒頭に記載。表の作り直しを伴うマイグレーションは**本タスクでは発生しない**）。
+1. **タグの名前空間は共通とする（提案）**: ノートのタグとページ・タスクのタグを同じ一つの集合として扱う（`list_tags` は合算）。タグの役割は「案件で束ねる」ことで、既にノートとタスクを横断しているため。別名前空間にする理由が出てきたら将来分ける。→ この提案で良いか（T55 の停止条件）
 
 ---
 
 ## Part 2: AI用（実装セット定義）
 
-### 設計判断: ノート概要の版管理は `note_versions` の拡張で行う
+### 設計の骨子
 
-| | 案a: `note_versions` に `entity_type` 列を追加（採用） | 案b: `notebook_versions` 別表 |
-|---|---|---|
-| マイグレーション | `addColumnMigration("note_versions","entity_type","TEXT NOT NULL DEFAULT 'note'")` — 既存ヘルパで書け、既存行は DEFAULT で埋まる | `createTableMigration` で書ける |
-| 実装 | `snapshotNote` 系を entity_type 付きに一般化。読み出しは `WHERE note_id = ? AND entity_type = ?` | 版管理ロジック（snapshot/list/restore）を二重に持つ |
-| 将来 | T55 以降「どちらにも付きうる」対称性の方針に沿う。UI（`NoteVersionHistory`）の流用が容易 | 表が増え、restore の分岐が増える |
-
-案a を採用する。`note_id` 列は名前を変えない（列名変更は表の作り直しになるため。「対象エンティティのID」の意味で使い、コメントで明記）。
-
-### 前提となる既存実装（読み取りのみ）
-
-| 場所 | 使い方 |
-|---|---|
-| `src/main/db/schema.sql` | notes(1-10)・note_versions(12-20)・tasks・images・links・embeddings。`CREATE TABLE IF NOT EXISTS` |
-| `src/main/db/migrations.ts` | `MIGRATIONS` 追記のみ。`addColumnMigration`(29-38)・`createTableMigration`(47-56)・`tableExists`(41)。embeddings の DDL 二重記載には触れない |
-| `src/main/db/notes-repo.ts` | `isNoteRow` 型ガード、`snapshotNote`(146)、`softDeleteNote`/`restoreNote`、`parseTags` |
-| `src/main/db/purge.ts` | `purgeTable("notes"\|"tasks")`＋`deleteOrphanEmbeddings`。パージ時の孤児掃除の前例 |
-| `src/main/db/tasks-repo.ts` | ソフトデリート対称の書き方 |
-| `src/main/backup/import-backup.ts` | `REQUIRED_TABLE_NAMES`（**変更禁止**）。`export-backup.ts` は DB ファイルごと zip |
-| `src/shared/preload-api.ts` | `Note`/`Task`/`NoteVersion` 型の並び |
-| `tests/main/db/migrations.test.ts` | 旧DDLでDBを作ってから openDb する型。`docs/MIGRATIONS.md` §5 の4点（旧DBから開く・2回開く・apply単体・外すと落ちる） |
-| `docs/MIGRATIONS.md` | §2 絶対規則（schema.sql と migrations の両方・冪等）・§5 テスト・§6 実績追記 |
-
-### スキーマ（このSPECが正）
-
-```sql
--- ページを束ねるノート（v2.1.0 §4.9）。summary が「概要」。
-CREATE TABLE IF NOT EXISTS notebooks (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  summary TEXT NOT NULL,
-  tags TEXT NOT NULL,
-  deleted_at TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
--- notes への追加列（NULL = 無所属ページ）
---   notebook_id は notebooks.id を指すが FK は張らない（links 等の既存方針に合わせる）
-ALTER TABLE notes ADD COLUMN notebook_id TEXT;          -- addColumnMigration
-ALTER TABLE note_versions ADD COLUMN entity_type TEXT NOT NULL DEFAULT 'note';  -- addColumnMigration
-```
-
-- `note_versions.entity_type` は `'note'`（＝ページ。既存行）と `'notebook'` の2値。ノート概要の版は `note_id` 列にノートIDを入れ、`body` に summary を保存する（`title`/`tags` も同様にスナップショット）。
-- **削除の意味論（§4.9 確定）**: `softDeleteNotebook` は notebooks の `deleted_at` を立てるだけで、**所属ページの `notebook_id` は触らない**。読み出し側（T55以降のUI/ツール）が「所属ノートが削除済みなら無所属として表示」を担う。本タスクでは repo 関数 `listNotes` 等の挙動は変えない。**パージ**: `purgeSoftDeletedRecords` が notebooks を物理削除するとき、`UPDATE notes SET notebook_id = NULL WHERE notebook_id IN (消したID)` で正式に無所属化する。
-- `PurgeResult` に `notebooksPurged` を追加（既存2フィールドは不変）。
+- **共有 `EntityType`**: `src/shared/preload-api.ts` の `EntityType`（links の端点型）に `"notebook"` を追加。直書きリテラル禁止（漏れは型エラーで出す）。
+- **変更イベントは専用チャンネル `notebooks:changed`**: `notes:changed` に乗せると **embedding-indexer（`subscribeNotes`）がノートIDをページとして索引しようとして誤動作する**ため、`change-emitter.ts` に `emitNotebooksChanged`/`onNotebooksChanged` を新設する。`EntityChange.entity` に `"notebook"` を追加（`keepLatestPerEntity` のキーは entity+id なので既存ロジックはそのまま効く）。
+- **OS通知**: `ENTITY_LABELS` に `notebook: "ノート"` を追加（note の表示も当面「ノート」のまま。呼び替えは T58）。クリック時の遷移は `NavigateTarget` に `"notebook"` が無いため、**単一変更が notebook のときは集約時と同じ「ウィンドウ前面」フォールバック**にする（`NavigateTarget` はこのタスクでは変えない。T58 で `{kind:"notebook"}` を足すときにこのフォールバックを外す）。
+- **タグ**: `tags-repo.ts` の `readTagColumn` を `"notebooks"` も受けるよう拡張し、`listTagsInUse` で合算（未決1の提案どおり共通名前空間）。
+- **ゴミ箱**: preload API に `listDeletedNotebooks()` / `restoreNotebook(id)` を追加（IPC 3点セット）。`TrashView` に第3セクション「ノート（束）」（`TrashItem` 構造は共通なので流用）。残り日数は既存の `TRASH_RETENTION_DAYS` 共通定数。
+- links-repo: `ENTITY_TYPES` に `"notebook"`、`TABLE_OF` に `notebook: "notebooks"`。`assertEndpointExists` は既存のまま効く。
+- `EntityLinks.tsx` の `TYPE_LABELS`/`ENTITY_TYPES` にも `"notebook"`（Record 型なので型エラーで露出）。表示ラベルは「ノート（束）」。
 
 ### 実装セット
 
-**セット A: スキーマとマイグレーション**
-- 目的: 受け入れ条件「既存データが残る」「繰り返し安全」「新規=アップグレード一致」
-- 触ってよいファイル: `src/main/db/schema.sql`、`src/main/db/migrations.ts`、`tests/main/db/migrations.test.ts`（追記）
-- テスト（`docs/MIGRATIONS.md` §5 の4点をこの順で）: v2.0.x 相当の旧DDL＋実データ入りDBを開くと `notebooks`・`notes.notebook_id`・`note_versions.entity_type`（既存行は 'note'）が揃い既存行が全て残る／2回開いても落ちない／`apply` 単体を適用済みDBに実行しても落ちない／各マイグレーションを外すと該当テストが落ちることを実測。新規 `schema.sql` DB とアップグレード DB の `PRAGMA table_info` 一致
+**セット A: リンクとタグ**
+- 目的: 受け入れ条件 1・2・タグ合算
+- 触ってよいファイル: `src/shared/preload-api.ts`（`EntityType` への追加**のみ**）、`src/main/db/links-repo.ts`、`src/main/db/tags-repo.ts`、`src/renderer/components/EntityLinks.tsx`（ラベル追加のみ）、`tests/main/db/links-repo.test.ts`（追記）、`tests/main/db/tags-repo.test.ts`（追記）、`tests/main/mcp/link-tools.test.ts`（notebook 端点の追記）、`tests/renderer/EntityLinks.test.tsx`（追記）
+- テスト: 3組み合わせのリンク往復／存在しない notebook id が弾かれる／削除済み notebook へのリンクの扱いが既存の note と同じ／タグ合算（ノートのみのタグ・合算・削除済み除外）
 
-**セット B: notebooks リポジトリと版管理の一般化**
-- 目的: 受け入れ条件「ノートのCRUD・ソフトデリート」「概要の版と復元」
-- 触ってよいファイル: `src/main/db/notebooks-repo.ts`（新規: `createNotebook`/`getNotebook`/`listNotebooks`/`updateNotebook`/`softDeleteNotebook`/`restoreNotebook`/`listDeletedNotebooks`。`updateNotebook` は実行前スナップショット）、`src/main/db/notes-repo.ts`（`snapshotNote` の entity_type 対応と、版の読み出しに `entity_type='note'` 条件を足す**だけ**。公開シグネチャ不変）、`src/shared/preload-api.ts`（`Notebook` 型と `NoteVersion.entityType` の追加のみ。API 追加はしない）、`tests/main/db/notebooks-repo.test.ts`（新規）、`tests/main/db/note-versions.test.ts`（entity_type の既定が効くことを追記）
-- 依存（読み取りのみ）: セットA のスキーマ（契約は本SPECのDDL）
-- テスト: CRUD往復・ソフトデリートと復元・削除済みが一覧に出ない・概要更新で版が積まれ復元できる・**ページの版一覧にノートの版が混ざらない（entity_type で分離）**
+**セット B: 変更イベントと OS 通知**
+- 目的: 受け入れ条件 3〜6・11
+- 触ってよいファイル: `src/main/mcp/change-emitter.ts`、`src/main/notify/change-notifier.ts`、`tests/main/notify/change-notifier.test.ts`（追記）、`tests/main/mcp/change-emitter.test.ts`（あれば追記、無ければ新規）
+- テスト: notebook 変更で通知が組み立てられる／単一 notebook 変更のクリックが navigate ではなく「前面に出す」経路に入る／note・task のクリック遷移は不変／`notebooks:changed` が `notes:changed` の購読者に届かない（＝indexer が反応しない。受け入れ条件11）
 
-**セット C: パージと後方互換**
-- 目的: 受け入れ条件「ゴミ箱・パージの意味論」「古いzipの取り込み」
-- 触ってよいファイル: `src/main/db/purge.ts`（notebooks のパージ＋所属解除）、`tests/main/db/purge.test.ts`（追記）、`tests/main/backup/`（既存の import テストの隣に「notebooks を含まない旧形式 zip が取り込め、再オープンでマイグレーションが追いつく」を追加）
-- 依存（読み取りのみ）: セットA/B
-- テスト: 30日超の notebooks が消え、所属ページの `notebook_id` が NULL になり**ページ本体は残る**／30日以内は消えない／`REQUIRED_TABLE_NAMES` が不変であることの明示的アサーション
+**セット C: ゴミ箱UI**
+- 目的: 受け入れ条件 7・8
+- 触ってよいファイル: `src/renderer/components/TrashView.tsx`、`tests/renderer/TrashView.test.tsx`（追記）、`tests/renderer/hanamask-stub.ts`（新API 2本のスタブ）
+- 契約: `window.hanamask.listDeletedNotebooks(): Promise<DeletedNotebook[]>` / `restoreNotebook(id): Promise<boolean>`（preload/IPC の実体は Phase 4）
+- テスト: 第3セクションの表示・復元ボタン・残り日数・空のとき出さない（既存セクションの流儀に合わせる）
 
 ### Phase 4 統合ゲートでのみ編集するファイル
-- `docs/MIGRATIONS.md` §6（実績追記）、`docs/TASKS-notebooks.md`（進捗）
-- 全体テスト・lint・typecheck・E2E（挙動不変の確認）
+- `src/shared/preload-api.ts`（API 2本の型追加）、`src/preload/index.ts`、`src/main/index.ts`（IPC 2本、`onNotebooksChanged` 購読→broadcast・notifier への配線）
+- `tests/e2e/`（1本: MCP の `link_entities` で notebook 端点が通ること。notebook 作成ツールが無いため DB 直接投入 or 追加を見送って unit で足りると判断したら理由を記録）
+- `docs/TASKS-notebooks.md` 進捗
 
 ### 並列グループ宣言
 
 | グループ | セット | 同時実行 |
 |---|---|---|
-| 1 | A, B（Bは本SPECのDDLを契約として先行可）| **可**（`notes-repo.ts`/`schema.sql` はAとBで重複しない: Aはスキーマ・マイグレーションのみ、Bはリポジトリのみ） |
-| 2 | C | A/B 完了後 |
+| 1 | A, B, C | **可**（ファイル重複なし。`preload-api.ts` は A が `EntityType` 1行のみ、C は触らない） |
 
 ### 完了条件
-- `npm test` / `npm run lint` / `npm run typecheck` / `npm run build` 緑。`npm run test:e2e` 緑（挙動不変）
-- **壊して確認**: 各マイグレーションを外すと落ちる／パージの所属解除を消すと落ちる／entity_type 分離を外すと「混ざらない」テストが落ちる
-- PR は `feature/notebooks` を base に1本
+- `npm test` / lint / typecheck / build / E2E 緑（既存挙動不変）
+- 壊して確認: `TABLE_OF` の notebook を外すとリンクのテストが落ちる／専用チャンネルを `notes:changed` に戻すと受け入れ条件11のテストが落ちる
+- PR は `feature/notebooks` base に1本
