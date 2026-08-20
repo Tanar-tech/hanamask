@@ -5,6 +5,19 @@ CREATE TABLE IF NOT EXISTS notes (
   tags TEXT NOT NULL,
   deleted_at TEXT,
   created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  -- NULL は「どのノートにも属さないページ」。notebooks.id を指すが FK は張らない（links と同じ方針）。
+  notebook_id TEXT
+);
+
+-- ページを束ねるノート（docs/REQUIREMENTS.md §4.9）。summary が利用者から見た「概要」。
+CREATE TABLE IF NOT EXISTS notebooks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  tags TEXT NOT NULL,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 
@@ -12,11 +25,14 @@ CREATE TABLE IF NOT EXISTS notes (
 -- updated or trimmed, so the table doubles as the note's edit history.
 CREATE TABLE IF NOT EXISTS note_versions (
   id TEXT PRIMARY KEY,
+  -- 対象エンティティのID。entity_type が 'notebook' のときは notebooks.id が入る
+  -- （列名を entity_id へ改名すると表の作り直しになるため、名前は据え置いている）。
   note_id TEXT NOT NULL,
   title TEXT NOT NULL,
   body TEXT NOT NULL,
   tags TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  entity_type TEXT NOT NULL DEFAULT 'note'
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
