@@ -185,6 +185,38 @@ describe("change notifier", () => {
     expect(showWindow).toHaveBeenCalledTimes(1);
   });
 
+  it("ノート（束）の変更も通知する", () => {
+    const { notifier, showNotification } = setup(false);
+
+    notifier.recordChange({
+      entity: "notebook",
+      action: "created",
+      id: "notebook-1",
+      title: "案件A",
+    });
+    vi.advanceTimersByTime(CHANGE_NOTIFICATION_WINDOW_MS);
+
+    expect(lastNotification(showNotification).title).toBe("ノートを作成しました");
+    expect(lastNotification(showNotification).body).toBe("案件A");
+  });
+
+  // NavigateTarget に notebook が無い間も「クリックしても何も起きない」を作らない（受け入れ条件6）。
+  it("ノート（束）1件の通知をクリックしたときはウィンドウを前面に出すだけにする", () => {
+    const { notifier, showNotification, navigate, showWindow } = setup(false);
+
+    notifier.recordChange({
+      entity: "notebook",
+      action: "updated",
+      id: "notebook-9",
+      title: "案件A",
+    });
+    vi.advanceTimersByTime(CHANGE_NOTIFICATION_WINDOW_MS);
+    lastNotification(showNotification).onClick();
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(showWindow).toHaveBeenCalledTimes(1);
+  });
+
   it("集約された通知をクリックしたときはウィンドウを前面に出すだけにする", () => {
     const { notifier, showNotification, navigate, showWindow } = setup(false);
 
