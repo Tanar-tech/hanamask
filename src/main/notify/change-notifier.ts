@@ -8,9 +8,8 @@ export const CHANGE_NOTIFICATION_WINDOW_MS = 2000;
 const MAX_LISTED_TITLES = 3;
 
 const ENTITY_LABELS: Record<EntityChange["entity"], string> = {
-  note: "ノート",
+  note: "ページ",
   task: "タスク",
-  // ページを「ノート」と呼んだままなので、束も当面は同じ表記になる。呼び替えは T58。
   notebook: "ノート",
 };
 
@@ -70,8 +69,6 @@ const buildBody = (changes: readonly EntityChange[]): string => {
 const toNavigateTarget = (change: EntityChange): NavigateTarget | undefined => {
   // 削除されたものは開けない。
   if (change.action === "deleted") return undefined;
-  // NavigateTarget に notebook を足すのは T58。それまで束はウィンドウを出すだけにする。
-  if (change.entity === "notebook") return undefined;
   return { kind: change.entity, id: change.id };
 };
 

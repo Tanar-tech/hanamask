@@ -130,7 +130,7 @@ describe("App のナビゲーション", () => {
 
     expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "MCPサーバーを実装する" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "最近のノート" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "最近のページ" })).toBeTruthy();
   });
 
   it("ノートタイトルをクリックすると詳細画面に遷移し、戻るでホームに戻る", async () => {
@@ -140,12 +140,12 @@ describe("App のナビゲーション", () => {
     await clickButton("設計メモ");
 
     expect(await screen.findByText("MCPサーバーの設計についてのメモ本文")).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "最近のページ" })).toBeNull();
 
     await clickButton("戻る");
 
     expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "最近のノート" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "最近のページ" })).toBeTruthy();
   });
 
   it("タスクタイトルをクリックするとタスク詳細画面に遷移し、戻るでホームに戻る", async () => {
@@ -249,8 +249,8 @@ describe("App の左レール", () => {
     render(<App />);
     await clickButton("ノート");
 
-    expect(await screen.findByRole("list", { name: "ノート一覧" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+    expect(await screen.findByRole("list", { name: "ページ一覧" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "最近のページ" })).toBeNull();
   });
 
   it("「タスク」でタスク一覧とカンバンを開く", async () => {
@@ -261,7 +261,7 @@ describe("App の左レール", () => {
 
     expect(await screen.findByRole("list", { name: "タスク一覧" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "進行中" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "最近のページ" })).toBeNull();
   });
 
   /*
@@ -287,9 +287,9 @@ describe("App の左レール", () => {
     mockHanamask();
 
     render(<App />);
-    await screen.findByRole("heading", { name: "最近のノート" });
+    await screen.findByRole("heading", { name: "最近のページ" });
 
-    expect(screen.queryByRole("list", { name: "ノート一覧" })).toBeNull();
+    expect(screen.queryByRole("list", { name: "ページ一覧" })).toBeNull();
     expect(screen.queryByRole("list", { name: "タスク一覧" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "進行中" })).toBeNull();
   });
@@ -299,9 +299,9 @@ describe("App の左レール", () => {
 
     render(<App />);
     await clickButton("ノート");
-    await screen.findByRole("list", { name: "ノート一覧" });
+    await screen.findByRole("list", { name: "ページ一覧" });
 
-    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "最近のページ" })).toBeNull();
     expect(screen.queryByRole("heading", { name: "進行中のタスク" })).toBeNull();
     expect(screen.queryByRole("list", { name: "タスク一覧" })).toBeNull();
   });
@@ -312,20 +312,20 @@ describe("App の左レール", () => {
     window.hanamask.listTasks = vi.fn(async () => []);
 
     render(<App />);
-    await screen.findByRole("heading", { name: "最近のノート" });
+    await screen.findByRole("heading", { name: "最近のページ" });
 
-    expect(screen.getAllByText("ノートはまだありません")).toHaveLength(1);
+    expect(screen.getAllByText("ページはまだありません")).toHaveLength(1);
     expect(screen.getAllByText("タスクはまだありません")).toHaveLength(1);
 
     await clickButton("ノート");
 
-    expect(screen.getAllByText("ノートはまだありません")).toHaveLength(1);
+    expect(screen.getAllByText("ページはまだありません")).toHaveLength(1);
     expect(screen.queryByText("タスクはまだありません")).toBeNull();
 
     await clickButton("タスク");
 
     expect(screen.getAllByText("タスクはまだありません")).toHaveLength(1);
-    expect(screen.queryByText("ノートはまだありません")).toBeNull();
+    expect(screen.queryByText("ページはまだありません")).toBeNull();
   });
 
   it("ノート一覧から詳細を開いて戻ると、ホームではなくノート一覧に戻る", async () => {
@@ -338,8 +338,8 @@ describe("App の左レール", () => {
 
     await clickButton("戻る");
 
-    expect(await screen.findByRole("list", { name: "ノート一覧" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+    expect(await screen.findByRole("list", { name: "ページ一覧" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "最近のページ" })).toBeNull();
   });
 });
 
@@ -351,13 +351,13 @@ describe("App のゴミ箱画面", () => {
     await clickButton("ゴミ箱");
 
     expect(await screen.findByText("消したメモ")).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "最近のページ" })).toBeNull();
     expect(screen.getByRole("button", { name: "ゴミ箱" }).getAttribute("aria-current")).toBe("page");
 
     await clickButton("戻る");
 
     expect(await screen.findByRole("button", { name: "設計メモ" })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "最近のノート" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "最近のページ" })).toBeTruthy();
   });
 });
 
@@ -393,7 +393,7 @@ describe("App のMCP経由の画面遷移", () => {
 
     expect(await screen.findByRole("heading", { name: "「設計」の検索結果" })).toBeTruthy();
     expect(window.hanamask.searchNotes).toHaveBeenCalledWith("設計");
-    expect(screen.queryByRole("heading", { name: "最近のノート" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "最近のページ" })).toBeNull();
   });
 
   it("検索結果画面からノートを選ぶとノート詳細を開く", async () => {
@@ -414,7 +414,7 @@ describe("App のMCP経由の画面遷移", () => {
     await screen.findByText("MCPサーバーの設計についてのメモ本文");
     await emitNavigate({ kind: "list" });
 
-    expect(await screen.findByRole("heading", { name: "最近のノート" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "最近のページ" })).toBeTruthy();
   });
 
   it("アンマウント時に遷移指示の購読を解除する", async () => {

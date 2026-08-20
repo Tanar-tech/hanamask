@@ -95,7 +95,7 @@ export const createNoteViaMcp = async (
 
 // Several views render a <ul>, so scope note locators by NoteList's own accessible name
 // to keep them unambiguous under Playwright's strict mode.
-export const noteListOf = (window: Page) => window.getByRole("list", { name: "ノート一覧" });
+export const noteListOf = (window: Page) => window.getByRole("list", { name: "ページ一覧" });
 
 export const taskListOf = (window: Page) => window.getByRole("list", { name: "タスク一覧" });
 

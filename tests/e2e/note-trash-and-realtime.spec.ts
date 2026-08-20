@@ -50,7 +50,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
 
   it("deletes a note from the list into the trash view and brings it back on restore", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     await createNoteViaMcp(E2E_MCP_PORT, {
       title: "ゴミ箱往復ノート",
@@ -60,7 +60,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     await noteListOf(window).getByRole("button", { name: "ゴミ箱往復ノート" }).waitFor();
 
     await noteListOf(window).getByRole("button", { name: "削除" }).click();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-01-deleted-from-list.png") });
 
     await window.getByRole("button", { name: "ゴミ箱" }).click();
@@ -69,7 +69,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-02-in-trash.png") });
 
     await window.getByRole("button", { name: "復元" }).click();
-    await window.getByText("削除済みのノート・タスク・ノート（束）はありません").waitFor();
+    await window.getByText("削除済みのページ・タスク・ノートはありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-03-restored.png") });
 
     await window.getByRole("button", { name: "戻る" }).click();
@@ -79,7 +79,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
 
   it("refreshes the open detail view when update_note changes title, body and tags", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     const noteId = await createNoteViaMcp(E2E_MCP_PORT, {
       title: "反映前タイトル",
@@ -107,7 +107,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
 
   it("keeps the draft and shows a notice when update_note arrives while editing", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     const noteId = await createNoteViaMcp(E2E_MCP_PORT, {
       title: "編集中ノート",

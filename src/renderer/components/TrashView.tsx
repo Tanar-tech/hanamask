@@ -13,15 +13,15 @@ interface TrashViewProps {
 }
 
 const HEADING = "ゴミ箱";
-const EMPTY_MESSAGE = "削除済みのノート・タスク・ノート（束）はありません";
+const EMPTY_MESSAGE = "削除済みのページ・タスク・ノートはありません";
 const RESTORE_LABEL = "復元";
 const BACK_LABEL = "戻る";
-const NOTE_MISSING_MESSAGE = "対象のノートが見つかりません";
+const NOTE_MISSING_MESSAGE = "対象のページが見つかりません";
 const TASK_MISSING_MESSAGE = "対象のタスクが見つかりません";
-const NOTEBOOK_MISSING_MESSAGE = "対象のノート（束）が見つかりません";
-const NOTE_LIST_LABEL = "削除済みノート";
+const NOTEBOOK_MISSING_MESSAGE = "対象のノートが見つかりません";
+const NOTE_LIST_LABEL = "削除済みページ";
 const TASK_LIST_LABEL = "削除済みタスク";
-const NOTEBOOK_LIST_LABEL = "削除済みノート（束）";
+const NOTEBOOK_LIST_LABEL = "削除済みノート";
 const BODY_PREVIEW_MAX_LENGTH = 80;
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
@@ -43,7 +43,7 @@ const remainingDaysOf = (deletedAt: string, nowMs: number): number =>
 const toBodyPreview = (body: string): string =>
   body.length <= BODY_PREVIEW_MAX_LENGTH ? body : `${body.slice(0, BODY_PREVIEW_MAX_LENGTH)}…`;
 
-/** ノートとタスクで共通に見せる項目。ゴミ箱ではこの4つしか使わない。 */
+/** ページとタスクで共通に見せる項目。ゴミ箱ではこの4つしか使わない。 */
 interface TrashItem {
   id: string;
   title: string;
@@ -149,9 +149,9 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
       if (notebookResult.status === "fulfilled") setNotebooks(notebookResult.value);
       setNowMs(Date.now());
       setError(
-        loadErrorOf(noteResult, "ノート") ??
+        loadErrorOf(noteResult, "ページ") ??
           loadErrorOf(taskResult, "タスク") ??
-          loadErrorOf(notebookResult, "ノート（束）"),
+          loadErrorOf(notebookResult, "ノート"),
       );
     };
     void load();
@@ -214,7 +214,7 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
       restore: async () => (await window.hanamask.restoreNote(id)) !== null,
       reload: reloadNotes,
       missingMessage: NOTE_MISSING_MESSAGE,
-      failureMessage: "ノートの復元に失敗しました",
+      failureMessage: "ページの復元に失敗しました",
     });
   };
 
@@ -232,7 +232,7 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
       restore: () => window.hanamask.restoreNotebook(id),
       reload: reloadNotebooks,
       missingMessage: NOTEBOOK_MISSING_MESSAGE,
-      failureMessage: "ノート（束）の復元に失敗しました",
+      failureMessage: "ノートの復元に失敗しました",
     });
   };
 

@@ -32,7 +32,7 @@ describe("note flow (Electron app + MCP server + renderer)", () => {
     await window.waitForLoadState();
 
     expect(await window.title()).toBe("hanamask");
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "01-empty.png") });
 
     await createNoteViaMcp(E2E_MCP_PORT, {
@@ -74,7 +74,7 @@ describe("note flow (Electron app + MCP server + renderer)", () => {
     await expect
       .poll(() => window.getByText("削除復元テストノート").count())
       .toBe(0);
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "04-note-deleted.png") });
 
     await callMcpTool(E2E_MCP_PORT, "restore_note", { id });

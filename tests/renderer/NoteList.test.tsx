@@ -96,7 +96,7 @@ afterEach(() => {
 });
 
 describe("NoteList", () => {
-  it("初期表示でノート一覧をレンダリングする", async () => {
+  it("初期表示でページ一覧をレンダリングする", async () => {
     mockHanamask([
       [makeNote(), makeNote({ id: "note-2", title: "TODO整理", body: "積み残しタスクの一覧" })],
     ]);
@@ -114,13 +114,13 @@ describe("NoteList", () => {
 
     render(<NoteList onSelectNote={vi.fn()} />);
 
-    expect(await screen.findByRole("list", { name: "ノート一覧" })).toBeTruthy();
+    expect(await screen.findByRole("list", { name: "ページ一覧" })).toBeTruthy();
   });
 
-  it("onNotesChangedのコールバックでノート一覧を再取得して更新する", async () => {
+  it("onNotesChangedのコールバックでページ一覧を再取得して更新する", async () => {
     const { listNotes, listeners } = mockHanamask([
       [makeNote()],
-      [makeNote(), makeNote({ id: "note-2", title: "追加されたノート" })],
+      [makeNote(), makeNote({ id: "note-2", title: "追加されたページ" })],
     ]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
@@ -132,18 +132,18 @@ describe("NoteList", () => {
     });
 
     expect(listNotes).toHaveBeenCalledTimes(2);
-    expect(await screen.findByText("追加されたノート")).toBeTruthy();
+    expect(await screen.findByText("追加されたページ")).toBeTruthy();
   });
 
-  it("ノートが0件のとき空状態メッセージを表示する", async () => {
+  it("ページが0件のとき空状態メッセージを表示する", async () => {
     mockHanamask([[]]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
 
-    expect(await screen.findByText("ノートはまだありません")).toBeTruthy();
+    expect(await screen.findByText("ページはまだありません")).toBeTruthy();
   });
 
-  it("削除ボタンで確認してOKするとそのノートを削除する", async () => {
+  it("削除ボタンで確認してOKするとそのページを削除する", async () => {
     const { deleteNote } = mockHanamask([[makeNote(), makeNote({ id: "note-2", title: "TODO整理" })]]);
     vi.spyOn(window, "confirm").mockReturnValue(true);
 
@@ -154,7 +154,7 @@ describe("NoteList", () => {
     expect(deleteNote).toHaveBeenCalledWith("note-2");
   });
 
-  it("削除後のonNotesChangedで削除したノートが一覧から消える", async () => {
+  it("削除後のonNotesChangedで削除したページが一覧から消える", async () => {
     const { deleteNote, listeners } = mockHanamask([
       [makeNote(), makeNote({ id: "note-2", title: "TODO整理" })],
       [makeNote()],
@@ -194,7 +194,7 @@ describe("NoteList", () => {
     expect(await screen.findByRole("alert")).toBeTruthy();
   });
 
-  it("本文があるノートはMarkdownの記号を落とした抜粋を表示する", async () => {
+  it("本文があるページはMarkdownの記号を落とした抜粋を表示する", async () => {
     mockHanamask([[makeNote({ body: "# 見出し\n- 箇条書き" })]]);
 
     const { container } = render(<NoteList onSelectNote={vi.fn()} />);
@@ -214,7 +214,7 @@ describe("NoteList", () => {
     expect(screen.queryByText(/flowchart/)).toBeNull();
   });
 
-  it("本文が空のノートでは抜粋を描画しない", async () => {
+  it("本文が空のページでは抜粋を描画しない", async () => {
     mockHanamask([
       [
         makeNote({ body: "" }),
@@ -226,7 +226,7 @@ describe("NoteList", () => {
     await screen.findByText("抜粋される本文");
 
     // タグも <li> なので、カードは一覧の直下だけを数える。
-    const cards = container.querySelectorAll('ul[aria-label="ノート一覧"] > li');
+    const cards = container.querySelectorAll('ul[aria-label="ページ一覧"] > li');
     expect(cards).toHaveLength(2);
     // 抜粋を出すカードだけが段落を持つ。
     expect(cards[0]?.querySelectorAll("p")).toHaveLength(0);
@@ -249,21 +249,21 @@ describe("NoteList", () => {
    * その正しさは useNewlyArrived.test.tsx で網羅している（誤実装で落ちることも実測済み）。
    * ここでは NoteList がその判定を実際に使って描画できていること（＝結線）を確かめる。
    */
-  it("ノートが増えても一覧が壊れない", async () => {
-    const existing = makeNote({ id: "note-1", title: "元からあるノート" });
-    const arrived = makeNote({ id: "note-2", title: "いま増えたノート" });
+  it("ページが増えても一覧が壊れない", async () => {
+    const existing = makeNote({ id: "note-1", title: "元からあるページ" });
+    const arrived = makeNote({ id: "note-2", title: "いま増えたページ" });
     const { listeners } = mockHanamask([[existing], [arrived, existing]]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
-    await screen.findByText("元からあるノート");
+    await screen.findByText("元からあるページ");
     await act(async () => {
       listeners.forEach((listener) => listener());
     });
 
-    expect(await screen.findByText("いま増えたノート")).toBeTruthy();
-    expect(screen.getByText("元からあるノート")).toBeTruthy();
-    // タグも listitem なので、ノート一覧に属するものだけを数える。
-    expect(within(screen.getByRole("list", { name: "ノート一覧" })).getAllByRole("listitem").filter((item) => item.parentElement?.getAttribute("aria-label") === "ノート一覧")).toHaveLength(2);
+    expect(await screen.findByText("いま増えたページ")).toBeTruthy();
+    expect(screen.getByText("元からあるページ")).toBeTruthy();
+    // タグも listitem なので、ページ一覧に属するものだけを数える。
+    expect(within(screen.getByRole("list", { name: "ページ一覧" })).getAllByRole("listitem").filter((item) => item.parentElement?.getAttribute("aria-label") === "ページ一覧")).toHaveLength(2);
   });
 
   /*
@@ -280,7 +280,7 @@ describe("NoteList", () => {
     expect(within(card!).getByText("設計")).toBeTruthy();
   });
 
-  it("タグが無いノートにはタグ欄を出さない", async () => {
+  it("タグが無いページにはタグ欄を出さない", async () => {
     mockHanamask([[makeNote({ title: "タグなし", tags: [] })]]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
@@ -290,40 +290,40 @@ describe("NoteList", () => {
   });
 
   /*
-   * この機能の目的そのもの。「あるノートがプロジェクトAに所属し、プロジェクトBには
+   * この機能の目的そのもの。「あるページがプロジェクトAに所属し、プロジェクトBには
    * 所属していない」ことを、利用者が選ぶだけで判別できること。
    */
-  it("タグを選ぶと、そのタグを持たないノートが消える", async () => {
+  it("タグを選ぶと、そのタグを持たないページが消える", async () => {
     mockHanamask([
       [
-        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
-        makeNote({ id: "b", title: "Bのノート", tags: ["プロジェクトB"] }),
+        makeNote({ id: "a", title: "Aのページ", tags: ["プロジェクトA"] }),
+        makeNote({ id: "b", title: "Bのページ", tags: ["プロジェクトB"] }),
       ],
     ]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
-    await screen.findByText("Aのノート");
+    await screen.findByText("Aのページ");
 
     const filter = screen.getByRole("group", { name: "タグで絞り込む" });
     await act(async () => {
       within(filter).getByRole("button", { name: "プロジェクトA" }).click();
     });
 
-    expect(screen.getByText("Aのノート")).toBeTruthy();
-    expect(screen.queryByText("Bのノート")).toBeNull();
+    expect(screen.getByText("Aのページ")).toBeTruthy();
+    expect(screen.queryByText("Bのページ")).toBeNull();
   });
 
-  it("複数のタグを選ぶと、どれかに一致するノートが残る", async () => {
+  it("複数のタグを選ぶと、どれかに一致するページが残る", async () => {
     mockHanamask([
       [
-        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
-        makeNote({ id: "b", title: "Bのノート", tags: ["プロジェクトB"] }),
-        makeNote({ id: "c", title: "Cのノート", tags: ["その他"] }),
+        makeNote({ id: "a", title: "Aのページ", tags: ["プロジェクトA"] }),
+        makeNote({ id: "b", title: "Bのページ", tags: ["プロジェクトB"] }),
+        makeNote({ id: "c", title: "Cのページ", tags: ["その他"] }),
       ],
     ]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
-    await screen.findByText("Aのノート");
+    await screen.findByText("Aのページ");
     const filter = screen.getByRole("group", { name: "タグで絞り込む" });
 
     await act(async () => {
@@ -333,21 +333,21 @@ describe("NoteList", () => {
       within(filter).getByRole("button", { name: "プロジェクトB" }).click();
     });
 
-    expect(screen.getByText("Aのノート")).toBeTruthy();
-    expect(screen.getByText("Bのノート")).toBeTruthy();
-    expect(screen.queryByText("Cのノート")).toBeNull();
+    expect(screen.getByText("Aのページ")).toBeTruthy();
+    expect(screen.getByText("Bのページ")).toBeTruthy();
+    expect(screen.queryByText("Cのページ")).toBeNull();
   });
 
   it("「すべて」で絞り込みを解除できる", async () => {
     mockHanamask([
       [
-        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
-        makeNote({ id: "b", title: "Bのノート", tags: ["プロジェクトB"] }),
+        makeNote({ id: "a", title: "Aのページ", tags: ["プロジェクトA"] }),
+        makeNote({ id: "b", title: "Bのページ", tags: ["プロジェクトB"] }),
       ],
     ]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
-    await screen.findByText("Aのノート");
+    await screen.findByText("Aのページ");
     const filter = screen.getByRole("group", { name: "タグで絞り込む" });
 
     await act(async () => {
@@ -357,7 +357,7 @@ describe("NoteList", () => {
       within(filter).getByRole("button", { name: "すべて" }).click();
     });
 
-    expect(screen.getByText("Bのノート")).toBeTruthy();
+    expect(screen.getByText("Bのページ")).toBeTruthy();
   });
 
   it("タグが1つも無いときは絞り込みを出さない", async () => {
@@ -371,34 +371,34 @@ describe("NoteList", () => {
 
   /*
    * 絞り込みは「1つの案件だけ見る」ための道具。案件をまたいで全体を眺めたいときは、
-   * 分けて並べた方が早い。同じノートが複数のタグを持つなら、両方の見出しの下に出る。
+   * 分けて並べた方が早い。同じページが複数のタグを持つなら、両方の見出しの下に出る。
    */
   it("タグごとに分けて並べられる", async () => {
     mockHanamask([
       [
-        makeNote({ id: "a", title: "Aのノート", tags: ["プロジェクトA"] }),
-        makeNote({ id: "ab", title: "AとBのノート", tags: ["プロジェクトA", "プロジェクトB"] }),
-        makeNote({ id: "none", title: "タグなしノート", tags: [] }),
+        makeNote({ id: "a", title: "Aのページ", tags: ["プロジェクトA"] }),
+        makeNote({ id: "ab", title: "AとBのページ", tags: ["プロジェクトA", "プロジェクトB"] }),
+        makeNote({ id: "none", title: "タグなしページ", tags: [] }),
       ],
     ]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
-    await screen.findByText("Aのノート");
+    await screen.findByText("Aのページ");
 
     await act(async () => {
       screen.getByRole("button", { name: "タグごとに分ける" }).click();
     });
 
     const groupA = screen.getByRole("region", { name: "プロジェクトA" });
-    expect(within(groupA).getByText("Aのノート")).toBeTruthy();
-    expect(within(groupA).getByText("AとBのノート")).toBeTruthy();
+    expect(within(groupA).getByText("Aのページ")).toBeTruthy();
+    expect(within(groupA).getByText("AとBのページ")).toBeTruthy();
 
     const groupB = screen.getByRole("region", { name: "プロジェクトB" });
-    expect(within(groupB).getByText("AとBのノート")).toBeTruthy();
-    expect(within(groupB).queryByText("Aのノート")).toBeNull();
+    expect(within(groupB).getByText("AとBのページ")).toBeTruthy();
+    expect(within(groupB).queryByText("Aのページ")).toBeNull();
 
     // タグが無いものも取りこぼさない。
-    expect(within(screen.getByRole("region", { name: "タグなし" })).getByText("タグなしノート")).toBeTruthy();
+    expect(within(screen.getByRole("region", { name: "タグなし" })).getByText("タグなしページ")).toBeTruthy();
   });
 
   /*
@@ -407,31 +407,31 @@ describe("NoteList", () => {
    */
   const manyNotes = (count: number, tags: string[] = []) =>
     Array.from({ length: count }, (_, index) =>
-      makeNote({ id: `n${index}`, title: `ノート${String(index).padStart(2, "0")}`, tags }),
+      makeNote({ id: `n${index}`, title: `ページ${String(index).padStart(2, "0")}`, tags }),
     );
 
   it("20件を超えると区切って出し、次へで続きが見える", async () => {
     mockHanamask([manyNotes(25)]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
-    await screen.findByText("ノート00");
+    await screen.findByText("ページ00");
 
     expect(screen.getByText("25件中 1–20件")).toBeTruthy();
-    expect(screen.queryByText("ノート20")).toBeNull();
+    expect(screen.queryByText("ページ20")).toBeNull();
 
     await act(async () => {
       screen.getByRole("button", { name: "次へ" }).click();
     });
 
-    expect(screen.getByText("ノート20")).toBeTruthy();
-    expect(screen.queryByText("ノート00")).toBeNull();
+    expect(screen.getByText("ページ20")).toBeTruthy();
+    expect(screen.queryByText("ページ00")).toBeNull();
   });
 
   it("20件以内なら操作列を出さない", async () => {
     mockHanamask([manyNotes(20)]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
-    await screen.findByText("ノート00");
+    await screen.findByText("ページ00");
 
     expect(screen.queryByRole("button", { name: "次へ" })).toBeNull();
   });
@@ -446,7 +446,7 @@ describe("NoteList", () => {
     mockHanamask([[...tagged, ...untagged]]);
 
     render(<NoteList onSelectNote={vi.fn()} />);
-    await screen.findByText("ノート00");
+    await screen.findByText("ページ00");
 
     await act(async () => {
       screen.getByRole("button", { name: "次へ" }).click();
@@ -454,7 +454,7 @@ describe("NoteList", () => {
     await act(async () => {
       screen.getByRole("button", { name: "次へ" }).click();
     });
-    expect(screen.queryByText("ノート00")).toBeNull();
+    expect(screen.queryByText("ページ00")).toBeNull();
 
     await act(async () => {
       within(screen.getByRole("group", { name: "タグで絞り込む" }))
@@ -463,7 +463,7 @@ describe("NoteList", () => {
     });
 
     // 3ページ目に留まったままだと、絞り込んだ結果の先頭が見えない。
-    expect(screen.getByText("ノート00")).toBeTruthy();
+    expect(screen.getByText("ページ00")).toBeTruthy();
     expect(screen.getByText("30件中 1–20件")).toBeTruthy();
   });
 });

@@ -82,7 +82,7 @@ afterEach(() => {
 });
 
 describe("SearchResults", () => {
-  it("クエリに一致したノートを一覧表示する", async () => {
+  it("クエリに一致したページを一覧表示する", async () => {
     const search = mockHanamask(async () => [
       makeNote(),
       makeNote({ id: "note-2", title: "議事録" }),
@@ -112,15 +112,15 @@ describe("SearchResults", () => {
     expect(await screen.findByRole("list", { name: "検索結果" })).toBeTruthy();
   });
 
-  it("一致するノートが0件なら該当なしと表示する", async () => {
+  it("一致するページが0件なら該当なしと表示する", async () => {
     mockHanamask(async () => []);
 
     render(<SearchResults query="存在しない" onSelectNote={noop} onBack={noop} />);
 
-    expect(await screen.findByText("該当するノートはありません")).toBeTruthy();
+    expect(await screen.findByText("該当するページはありません")).toBeTruthy();
   });
 
-  it("ノートのタイトルをクリックすると選択を通知する", async () => {
+  it("ページのタイトルをクリックすると選択を通知する", async () => {
     mockHanamask(async () => [makeNote()]);
     const onSelectNote = vi.fn();
 
@@ -178,7 +178,7 @@ describe("SearchResults", () => {
     expect(tags.getByText("設計")).toBeTruthy();
   });
 
-  it("タグが無いノートではタグの列を出さない", async () => {
+  it("タグが無いページではタグの列を出さない", async () => {
     mockHanamask(async () => [makeNote({ tags: [] })]);
 
     render(<SearchResults query="設計" onSelectNote={noop} onBack={noop} />);

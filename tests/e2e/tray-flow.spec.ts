@@ -33,7 +33,7 @@ describe("tray flow (window closed but MCP alive)", () => {
     app = await launchApp(dbFilePath, E2E_MCP_PORT);
     const window = await app.firstWindow();
     await window.waitForLoadState();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     await window.close();
     expect(await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length)).toBe(0);
