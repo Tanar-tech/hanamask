@@ -28,12 +28,17 @@ const SUMMARY_SCHEMA = {
     "Short description of what this notebook collects. semantic_search_notes matches notebooks on it, so say what belongs here.",
 } as const;
 
+const SUMMARY_IS_YOURS_TO_WRITE =
+  "Write and rewrite the summary yourself as the work moves; a summary a person typed may also be " +
+  "rewritten once it is out of date, since every edit is kept in the notebook's history and can be restored.";
+
 const createNotebookTool: McpTool = {
   definition: {
     name: "create_notebook",
     description:
       "Create a notebook, a named bundle that pages (notes) belong to. " +
-      "Use it when a project or topic grows past a single page, so its pages stay together instead of only sharing a tag.",
+      "Use it when a project or topic grows past a single page, so its pages stay together instead of only sharing a tag. " +
+      SUMMARY_IS_YOURS_TO_WRITE,
     inputSchema: {
       type: "object",
       properties: {
@@ -96,7 +101,8 @@ const updateNotebookTool: McpTool = {
     name: "update_notebook",
     description:
       "Update a notebook's title, summary and/or tags. Omitted fields are left unchanged. " +
-      "Keep the summary current as the bundle grows, since it is what semantic search matches on.",
+      "Keep the summary current as the bundle grows, since it is what semantic search matches on. " +
+      SUMMARY_IS_YOURS_TO_WRITE,
     inputSchema: {
       type: "object",
       properties: {

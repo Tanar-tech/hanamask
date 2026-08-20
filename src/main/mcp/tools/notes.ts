@@ -44,6 +44,10 @@ const NOTEBOOK_ID_SCHEMA = {
   description: "Id (uuid) of the notebook the page belongs to",
 } as const;
 
+const KEEP_SUMMARY_CURRENT =
+  " When the page belongs to a notebook, keep that notebook's summary current with " +
+  "update_notebook at natural breakpoints, so the bundle still says where the work stands.";
+
 const readNullableString = (args: Record<string, unknown>, key: string): string | null => {
   const value = args[key];
   if (value === null || value === undefined) return null;
@@ -96,7 +100,8 @@ const createPageTool: NoteTool = {
       "Create a page in the local hanamask database. Tag it (see tags) so it can be grouped by project. " +
       "Write down what you finished, what you found out, and what is left for next time; " +
       "keep every decision in the body together with the reason why it was decided. " +
-      "Pass notebook_id to file the page into a notebook right away.",
+      "Pass notebook_id to file the page into a notebook right away." +
+      KEEP_SUMMARY_CURRENT,
     inputSchema: {
       type: "object",
       properties: {
@@ -193,6 +198,7 @@ const updateNoteTool: NoteTool = {
     name: "update_note",
     description:
       "Update a note's title, body and/or tags. Omitted fields are left unchanged." +
+      KEEP_SUMMARY_CURRENT +
       compatNote("update_page"),
     inputSchema: {
       type: "object",
@@ -223,7 +229,9 @@ const updateNoteTool: NoteTool = {
 const updatePageTool: NoteTool = {
   definition: {
     name: "update_page",
-    description: "Update a page's title, body and/or tags. Omitted fields are left unchanged.",
+    description:
+      "Update a page's title, body and/or tags. Omitted fields are left unchanged." +
+      KEEP_SUMMARY_CURRENT,
     inputSchema: {
       type: "object",
       properties: {
@@ -334,7 +342,8 @@ const movePageTool: NoteTool = {
     name: "move_page",
     description:
       "File a page into a notebook, move it to another one, or take it out. " +
-      "Pass notebook_id: null to leave the page in no notebook.",
+      "Pass notebook_id: null to leave the page in no notebook. " +
+      "Afterwards bring the summary of every notebook the move touched back in line with update_notebook.",
     inputSchema: {
       type: "object",
       properties: {
