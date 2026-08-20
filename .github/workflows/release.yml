@@ -18,6 +18,10 @@ concurrency:
 permissions:
   contents: write
 
+# ci.yml と同じ理由: node-llama-cpp はプリビルド前提で、ソース取得・ビルドを走らせない。
+env:
+  NODE_LLAMA_CPP_SKIP_DOWNLOAD: "true"
+
 jobs:
   windows-installer:
     # better-sqlite3 のネイティブビルドに Visual Studio Build Tools が要る。
@@ -60,6 +64,11 @@ jobs:
             echo "package.json を先に更新してからタグを打つこと。" >&2
             exit 1
           fi
+
+      # 同梱する埋め込みモデル(GGUF)はリポジトリに置いていない（77MB）。
+      # sources.json の固定URLから取得し、sha256 を検証してから同梱する。
+      - name: 埋め込みモデルを取得する
+        run: npm run fetch:model
 
       # --publish never を明示する。electron-builder.yml に publish 設定があるため、
       # CI上でタグを検出すると electron-builder 自身がアップロードを試みる。

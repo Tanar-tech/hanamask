@@ -29,9 +29,11 @@
 **ノート詳細画面**（リンク一覧の下）
 
 > **関連するノート**
-> - WSLからWindowsのMCPサーバーへ接続する（T31）
-> - E2Eの固定ポートを並列実行に耐える形にする
+> - WSLからWindowsのMCPサーバーへ接続する（T31）　　更新 2026-08-10
+> - E2Eの固定ポートを並列実行に耐える形にする　　更新 2026-08-07
 > - （表示は最大5件。いま開いているノート自身と、ゴミ箱の中身は出ません）
+
+各行には**更新日を併記**します（2026-08-20 管理者指示。その記録がいつのものかは、開くかどうかを決める材料になるため）。「意味が近い記録」欄も同様です。
 
 - モデルが**まだ準備中**（初回起動直後、あるいは大量のノートを取り込んだ直後）のときは、欄に「準備中です」と出ます。数秒〜数十秒で埋まります。
 - モデルが**使えない**（読み込み失敗など）ときは、欄そのものが出ません。他の画面・検索・MCPは通常通り動きます。`semantic_search_notes` は空の結果と理由を返します。
@@ -66,6 +68,7 @@
 - [ ] ノートを作成・更新した後、数秒以内に（手動操作なしで）そのノートが意味検索の対象になる
 - [ ] 検索結果画面に「意味が近い記録」の欄が出て、クリックで開ける
 - [ ] ノート詳細に「関連するノート」の欄が出て、自分自身とゴミ箱の中身は出ず、クリックで開ける
+- [ ] 「意味が近い記録」「関連するノート」の各行に更新日が併記される
 - [ ] モデルが準備中のとき、欄に「準備中」が出る。準備ができたら手動リロードなしで結果に変わる
 - [ ] モデルが読み込めない状態でも、アプリ起動・既存の検索・他のMCPツールが通常通り動き、`semantic_search_notes` は空の結果と理由を返す
 - [ ] 記録の内容がネットワークへ送られない（外部通信が発生しない）
@@ -123,13 +126,16 @@
   "id": "ruri-v3-70m-q8_0",
   "file": "ruri-v3-70m-q8_0.gguf",
   "dimensions": 384,
-  "contextSize": 8192,
+  "contextSize": 2048,
+  "batchSize": 2048,
   "queryPrefix": "検索クエリ: ",
   "documentPrefix": "検索文書: ",
   "license": { "name": "Apache-2.0", "file": "ruri-v3-70m.LICENSE" }
 }
 ```
 モデルの差し替えはこのファイルと GGUF の差し替えのみで済むこと（e5 なら `query: ` / `passage: `、512、384）。
+
+**セット0の検証結果による確定事項（2026-08-19）**: Ruri v3 70m 合格（Node vs HF cos min 0.99986）。実装上の必須対処: ① node-llama-cpp 3.20 は UGM 語彙で BOS を付けない → `getEmbeddingFor` には文字列でなく `[bos, ...tokenize(text), eos]` の**トークン配列**を渡す。② `batchSize` を `contextSize` と同値にする（既定 512 だと超過分の pooling が壊れる）。③ 長文はプロバイダ側で**トークン数**で切る（`contextSize - 2` にスライスしてから BOS/EOS）。文字数の切り詰め（`maxCharsForContext`）はその手前の粗い上限。④ `contextSize` はモデル上限 8192 ではなく **2048** にする（batchSize 分のメモリと、1554トークンで 2.7 秒かかる速度のため。SPEC 未決定5「長文は先頭のみ」と整合）。⑤ 公開 GGUF は使わず、自前変換版（sha256 `5d1c83a92cf277e141819ef2403c5eab7fb2f71c5c48cb7e5a19044989f0a8a9`）を hanamask の GitHub Release アセットとして配布する。変換パッチと検証スクリプトはリポジトリに保存し、node-llama-cpp 更新時の回帰確認に使う。
 
 **推論層のインターフェース**（`src/main/llm/embedding-provider.ts`、Set B）:
 ```ts
@@ -163,7 +169,7 @@ CREATE TABLE IF NOT EXISTS embeddings (
 
 **検索**（`src/main/llm/semantic-search.ts`、Set B）— `rankBySimilarity(query: Float32Array, candidates: StoredEmbedding[], limit): Ranked[]` は**純粋関数**（コサイン=正規化済みなので内積）。上位 `limit`（既定 10、詳細画面は 5）。自分自身の除外は呼び出し側。
 
-**索引更新**（`src/main/llm/embedding-indexer.ts`、Set C）— `createEmbeddingIndexer(deps)` DI。`onNotesChanged`/`onTasksChanged` を購読、`change.action === "deleted"` は行削除（ソフトデリートでも消して良い: 復元時は updated で再計算される）、それ以外はキューに積んで 2 秒デバウンス後に直列で埋め込み。`change === undefined` と起動時は `listStaleEntities` で差分埋め。文書テキストは `${title}\n${body}` を contextSize に収まる長さ（**文字数で保守的に切る**: contextSize×1.5 文字を上限。トークン超過で throw したら半分に切って1回だけ再試行）。状態 `ready|loading|unavailable` と「未処理件数」を `getStatus()` で返し、変化時に `onStatusChanged` を発火する（UI の「準備中」表示用）。
+**索引更新**（`src/main/llm/embedding-indexer.ts`、Set C）— `createEmbeddingIndexer(deps)` DI。`onNotesChanged`/`onTasksChanged` を購読、`change.action === "deleted"` は**何もしない**（ソフトデリートなので検索は `deleted_at IS NULL` の JOIN で除外され、復元時は content_hash 一致で再計算も起きない。物理削除で残った行は purge の孤児掃除が落とす）、それ以外はキューに積んで 2 秒デバウンス後に直列で埋め込み。`change === undefined` と起動時は `listStaleEntities` で差分埋め。文書テキストは `${title}\n${body}` を contextSize に収まる長さ（**文字数で保守的に切る**: contextSize×1.5 文字を上限。確実な打ち切りは確定事項③のとおりプロバイダ側がトークン数で行うため、索引側での再試行はしない）。状態 `ready|loading|unavailable` と「未処理件数」を `getStatus()` で返し、変化時に `onStatusChanged` を発火する（UI の「準備中」表示用）。
 
 **MCPツール**（Set D）— `McpTool.handler` の戻り値を `CallToolResult | Promise<CallToolResult>` に広げ、`server.ts` と `agent-loop.ts` の呼び出しを `await` にする（既存の同期ハンドラは無変更で通る）。`semantic_search_notes { query: string, limit?: number }` → `{ notes: [{...Note, score}], tasks: [{...Task, score}] }`。unavailable/loading のときは `{ notes: [], tasks: [], unavailable: reason }`（`isError` は立てない）。
 
@@ -171,13 +177,28 @@ CREATE TABLE IF NOT EXISTS embeddings (
 
 **同梱**（Set F）— `node-llama-cpp@^3.20.0` を dependencies に追加。`scripts/fetch-embedding-model.mjs` が Hugging Face から GGUF＋LICENSE を `resources/models/` に取得（URL・sha256 は `resources/models/embedding.json` の隣の `sources.json` に固定。`resources/models/*.gguf` は .gitignore）。`electron-builder.yml`: `extraResources: [{from: resources/models, to: models}]`、`asarUnpack` に `**/node_modules/@node-llama-cpp/**` と `**/node_modules/node-llama-cpp/bins/**`、`files` に `!node_modules/@node-llama-cpp/win-x64-cuda*/**`・`!node_modules/@node-llama-cpp/win-x64-vulkan/**`・`!node_modules/node-llama-cpp/llama/gitRelease.bundle`。実行時のモデルディレクトリは `app.isPackaged ? join(process.resourcesPath, "models") : join(repoRoot, "resources/models")`（`HANAMASK_MODELS_DIR` で上書き可、E2E 用）。CI に `NODE_LLAMA_CPP_SKIP_DOWNLOAD=true`。`docs/PACKAGING.md` にモデル取得手順とサイズ実績を追記。
 
+### セキュリティ要件（管理者指示 2026-08-19。該当セット／Phase 4 で必ず満たす）
+
+| # | 要件 | 担当 |
+|---|---|---|
+| S1 | モデル取得は **HTTPS の固定URL**（`sources.json`）に限定し、**sha256 検証必須**。不一致は破棄し部分ファイルを残さない。利用者が任意URL・任意パスを入れる口を作らない | F |
+| S2 | `node-llama-cpp` と `@node-llama-cpp/*` は **lockfile で同一バージョン固定**（GGUF パーサ脆弱性への追随は Dependabot 本番グループで行う）。ハッシュ検証済みの GGUF 以外を読まない | F |
+| S3 | **外部通信が発生しない**（モデル取得はビルド時のみ）。実行時コード（`src/main/llm/`）に fetch/http を置かない。テストで `llama-embedding-provider.ts` 等が `node:http(s)`/`fetch` を import・呼び出ししないことを固定する | B（済: 通信なし）/ Phase 4 でテスト追加 |
+| S4 | ログ・エラーメッセージ・`unavailable.reason` に**ノート本文・埋め込み対象テキストを載せない**（ファイルパスやモデルIDまで） | B/C/D（レビューで確認） |
+| S5 | モデルロード失敗・推論例外は必ず `unavailable` に畳み、アプリ本体・MCPサーバーを道連れにしない。`contextSize` はマニフェスト固定（`auto` 禁止）。長文は文字数で切る | B/C（済） |
+| S6 | node-llama-cpp は **main プロセス専用**。レンダラーは IPC 経由のみ。IPC 引数（`query`, `limit`, `noteId`）は型ガードで検証する。モデルパスは `process.resourcesPath` / userData 配下に固定し、レンダラー・MCP からパスを指定できる API を作らない | Phase 4 / D |
+| S7 | ベクトルは本文と同等に扱う（バックアップ・書き出しに乗る。別扱いの緩和はしない） | A（済） |
+| S8 | CPU版のみ同梱（CUDA/Vulkan を入れない）— 攻撃面を増やさない | F |
+
+T49 以降（プロンプトインジェクション、利用者持ち込み GGUF の可否、ローカルモデルへの書き込み系ツール制限）は `docs/TASKS-local-llm.md` の T49/T50 に記載。
+
 ### 実装セット
 
 **セット 0: モデル検証スパイク（Phase 3 の前に単独で実施、成果はドキュメントのみ）**
 - 目的: 未決定事項1の判断材料。Ruri v3 70m を SPM 語彙で GGUF に変換（`ModernBertModel.set_vocab` を `_set_vocab_sentencepiece()` に差し替える1行パッチ）し、node-llama-cpp 3.20 で読み込めること・`pooling_type` が mean で入っていること・sentence-transformers の出力とのコサイン類似 ≥ 0.999 を確認する。濁点を含む日本語文で劣化が無いこと。
 - 触ってよいファイル: `docs/local-llm/embedding-model-verification.md`（新規、結果と手順）。リポジトリのコードは触らない。作業は scratchpad で行う。
 - 失敗時: multilingual-e5-small（`cstr/multilingual-e5-small-GGUF` Q8_0）に切り替え、その GGUF に `pooling_type` が入っていることだけ確認して同じ文書に記録する。
-- 判定を管理者に報告してから Set F のマニフェスト値を確定する。
+- 判定を管理者に報告してから Set F のマニフェスト値を確定する。**結果: 合格（上記「確定事項」参照）。報告書は `docs/local-llm/embedding-model-verification.md` に Set F が保存する。**
 
 **セット A: 埋め込みの保存**
 - 目的: 受け入れ条件「既存DBを開いても失われず索引が作られる」「ゴミ箱を含めない」の土台

@@ -33,6 +33,13 @@ const createLegacyDbFile = (dbFilePath: string): void => {
   legacy.close();
 };
 
+const tableExists = (table: string): boolean => {
+  const rows: unknown[] = getDb()
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .all(table);
+  return rows.length > 0;
+};
+
 const columnNames = (table: string): string[] => {
   const rows: unknown[] = getDb().prepare("SELECT name FROM pragma_table_info(?)").all(table);
   return rows.map((row) => {
@@ -97,6 +104,29 @@ describe("migrations", () => {
     expect(row).toMatchObject({ id: LEGACY_TASK_ID, title: "旧タスク", tags: "[]" });
   });
 
+  it("embeddingsテーブルを持たない既存DBを開くと作られる", () => {
+    createLegacyDbFile(dbFilePath);
+
+    openDb(dbFilePath);
+
+    expect(tableExists("embeddings")).toBe(true);
+  });
+
+  it("embeddingsテーブルの追加で既存のタスク行が失われない", () => {
+    createLegacyDbFile(dbFilePath);
+
+    openDb(dbFilePath);
+    const row: unknown = getDb().prepare("SELECT * FROM tasks WHERE id = ?").get(LEGACY_TASK_ID);
+
+    expect(row).toMatchObject({ id: LEGACY_TASK_ID, title: "旧タスク" });
+  });
+
+  it("新規DBでもembeddingsテーブルが存在する", () => {
+    openDb(dbFilePath);
+
+    expect(tableExists("embeddings")).toBe(true);
+  });
+
   it("同じDBを二度開いてもマイグレーションは失敗しない", () => {
     createLegacyDbFile(dbFilePath);
 
@@ -105,6 +135,7 @@ describe("migrations", () => {
 
     expect(() => openDb(dbFilePath)).not.toThrow();
     expect(columnNames("tasks")).toContain("body");
+    expect(tableExists("embeddings")).toBe(true);
   });
 
   it("新規DBでもtasks.bodyが存在する", () => {

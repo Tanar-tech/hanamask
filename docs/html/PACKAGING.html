@@ -63,6 +63,11 @@
 <pre><code>npm ci</code></pre>
 <p><code>better-sqlite3</code> の Windows 向けバイナリはこの時点で取得・ビルドされる。</p>
 </li>
+<li>意味検索に使う埋め込みモデル（GGUF、約77MB）を取得する。<strong>1回取得すれば以降はスキップされる</strong>（既にあるファイルの sha256 を照合する）。
+<pre><code>npm run fetch:model</code></pre>
+<p>実体は <code>scripts/fetch-embedding-model.mjs</code>。<code>resources/models/sources.json</code> に固定した HTTPS の URL からダウンロードし、sha256 が一致したときだけ <code>resources/models/</code> へ保存する（一致しなければ部分ファイルを消して失敗する）。取得先を差し替える口は用意していない。リリースのワークフロー（<code>.github/workflows/release.yml</code>）でも <code>Build installer</code> の前にこれを実行している。</p>
+<p><strong>モデルが無くてもインストーラーのビルド自体は通る。</strong>その場合、意味検索の欄が出ないだけで他の機能は通常どおり動く。</p>
+</li>
 <li>インストーラーをビルドする。
 <pre><code>npm run package:win</code></pre>
 <p><code>package:win</code> は <code>package.json</code> に定義されており、実体は <code>npm run build &amp;&amp; electron-builder --win</code>。<code>build</code> はさらに次の2段階に分かれる。</p>
@@ -76,7 +81,8 @@
 
 <pre class="mermaid">
 flowchart LR
-  A["npm ci<br/>(better-sqlite3 の<br/>Windowsバイナリ取得)"] --> B["npm run package:win"]
+  A["npm ci<br/>(better-sqlite3 の<br/>Windowsバイナリ取得)"] --> M["npm run fetch:model<br/>(GGUF取得 + sha256検証)"]
+  M --> B["npm run package:win"]
   B --> C["build:renderer<br/>vite build"]
   B --> D["build:main<br/>tsc main / preload"]
   D --> E["copy-main-assets.mjs<br/>schema.sql 複製<br/>preload を .cjs 化"]
@@ -106,12 +112,48 @@ flowchart LR
 
 <p>その上で <code>react</code> / <code>react-dom</code> / <code>mermaid</code> を <code>!node_modules/...</code> で除外している。これらはレンダラーのバンドル（<code>dist/renderer</code>）に取り込み済みで実行時に <code>node_modules</code> から解決されることがなく、そのまま同梱するとインストーラーサイズを無駄に増やすだけであるため。</p>
 
+<p><code>node-llama-cpp</code> についても、使わない部分を同じ形で除外している。</p>
+
+<ul>
+<li><code>@node-llama-cpp/win-x64-cuda*</code> / <code>@node-llama-cpp/win-x64-vulkan</code>: GPU版の推論バイナリ。hanamask は <code>getLlama({ gpu: false })</code> で CPU 版しか使わない。使わないネイティブコードを配布物に持ち込むと攻撃面が広がるだけになる。</li>
+<li><code>node-llama-cpp/llama/gitRelease.bundle</code>: llama.cpp のソースを丸ごと含む git bundle。ソースからビルドし直すときにしか使わない。</li>
+</ul>
+
 <h3 id="3-asarunpack"><code>asarUnpack</code></h3>
 
 <pre><code>asarUnpack:
-  - "**/node_modules/better-sqlite3/**"</code></pre>
+  - "**/node_modules/better-sqlite3/**"
+  - "**/node_modules/@node-llama-cpp/**"
+  - "**/node_modules/node-llama-cpp/bins/**"</code></pre>
 
-<p>Electron は既定でアプリのファイルを <code>app.asar</code> という単一アーカイブにまとめるが、ネイティブアドオンの <code>.node</code> はアーカイブ内から <code>dlopen</code> できない。<code>better-sqlite3</code> を <code>asarUnpack</code> で <code>app.asar.unpacked/</code> 側に展開して同梱することで、パッケージ後も SQLite が読み込める状態にしている。</p>
+<p>Electron は既定でアプリのファイルを <code>app.asar</code> という単一アーカイブにまとめるが、ネイティブアドオンの <code>.node</code> はアーカイブ内から <code>dlopen</code> できない。<code>better-sqlite3</code> と <code>node-llama-cpp</code> のプリビルドバイナリを <code>asarUnpack</code> で <code>app.asar.unpacked/</code> 側に展開して同梱することで、パッケージ後も SQLite と埋め込みモデルの推論が読み込める状態にしている。</p>
+
+<h3 id="3-extraresources"><code>extraResources</code>（埋め込みモデル）</h3>
+
+<pre><code>extraResources:
+  - from: resources/models
+    to: models
+    filter: [embedding.json, "*.gguf", "*.LICENSE"]</code></pre>
+
+<p>GGUF も asar 内からは mmap できないため、asar の外（インストール先の <code>resources/models/</code>）へ置く。同梱するのは3種類だけで、取得元を書いた <code>sources.json</code> は配布物に入れない（実行時に通信しないので不要）。</p>
+
+<p><code>resources/models/</code> の中身:</p>
+
+<table>
+<thead>
+<tr><th>ファイル</th><th>追跡</th><th>役割</th></tr>
+</thead>
+<tbody>
+<tr><td><code>embedding.json</code></td><td>Git</td><td>モデルのマニフェスト（ファイル名・次元数・<code>contextSize</code>/<code>batchSize</code>・プレフィックス・ライセンス）。モデルの差し替えはこのファイルと GGUF の差し替えだけで済む。</td></tr>
+<tr><td><code>sources.json</code></td><td>Git</td><td><code>npm run fetch:model</code> の取得元（固定URL・sha256・サイズ）。配布物には入らない。</td></tr>
+<tr><td><code>ruri-v3-70m.LICENSE</code></td><td>Git</td><td>同梱モデルの帰属表示と Apache-2.0 全文。<code>NOTICE</code> からも参照している。</td></tr>
+<tr><td><code>ruri-v3-70m-q8_0.gguf</code></td><td><strong>無し</strong>（<code>.gitignore</code>）</td><td>モデル本体。約77MB あるためリポジトリには置かず、<code>npm run fetch:model</code> で取得する。</td></tr>
+</tbody>
+</table>
+
+<h3 id="3-size">インストーラーサイズへの影響</h3>
+
+<p>意味検索の同梱でインストーラーは <strong>約 90MB 増える</strong>見込み。内訳は GGUF が約 77MB（76,963,424 bytes）、<code>@node-llama-cpp/win-x64</code> のプリビルドバイナリが約 10MB、<code>node-llama-cpp</code> 本体の JS が数MB。実測は §5 に追記する。</p>
 
 <h3 id="3-nsis"><code>nsis</code></h3>
 
@@ -161,6 +203,22 @@ release/win-unpacked/</code></pre>
 <li>パッケージ後の状態で SQLite（<code>better-sqlite3</code>）が正しく読み込まれ、ノートの作成・参照ができること（<code>asarUnpack</code> 設定が効いているかの確認）</li>
 <li>MCPサーバーがパッケージ後も起動し、外部AIエージェントから接続できること</li>
 <li>コード署名が無いため、初回起動時に SmartScreen の警告が出る想定。その挙動の確認</li>
+</ul>
+
+<h3>検証済み（2026-08-19、T48 意味検索）</h3>
+<p>WSL から Windows 側ツールチェーン（Node v24.15.0）で <code>impl/t48</code>（<code>fa293c9</code>）をビルド・実行して確認した。</p>
+<ul>
+<li><code>npm run fetch:model</code>: 取得済み GGUF の sha256 一致でスキップすることを確認（ダウンロード経路はリリースアセット公開後に確認）</li>
+<li><code>npm test</code> 951件、<code>npm run test:e2e</code> 29件（意味検索1本含む）が Windows でも緑。<code>@node-llama-cpp/win-x64</code> のプリビルドで実モデルが動く</li>
+<li><code>npm run package:win</code>: 約16分。生成物 <code>release/hanamask-Setup-1.0.0.exe</code> = <strong>205,510,811 bytes（約196 MiB）</strong>。0.3.0（126 MB）比 <strong>+79 MB</strong>（モデル 73 MiB ＋ エンジン）</li>
+<li>パッケージ後: <code>resources/models/</code> に GGUF・<code>embedding.json</code>・<code>.LICENSE</code> が置かれ、<code>app.asar.unpacked/node_modules/@node-llama-cpp/</code> は <code>win-x64</code> のみ（cuda/vulkan/arm64 なし）。<code>win-unpacked/hanamask.exe</code> を一時DBで起動し、MCP の <code>semantic_search_notes</code> が <code>unavailable</code> なしで近いノートを返すことを確認</li>
+</ul>
+
+<p>埋め込みモデルの同梱（T48）について、Windows 実機で未確認のもの。</p>
+
+<ul>
+<li>リリースアセット公開後、GGUF が無い状態から <code>npm run fetch:model</code> のダウンロード経路が完走すること</li>
+<li>インストーラーでの実インストール（署名なしの SmartScreen 挙動含む）</li>
 </ul>
 
 <p>確認手順は <code>.claude/skills/e2e-runner/SKILL.md</code> の方針に従い手動で行う（インストーラー検証の自動化は行わない）。</p>

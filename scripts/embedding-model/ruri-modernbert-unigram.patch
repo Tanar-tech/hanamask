@@ -1,0 +1,65 @@
+diff --git a/conversion/bert.py b/conversion/bert.py
+index 0d25d0d..a0fa34e 100644
+--- a/conversion/bert.py
++++ b/conversion/bert.py
+@@ -595,8 +595,60 @@ class ModernBertModel(BertModel):
+         self.gguf_writer.add_add_bos_token(True)
+         self.gguf_writer.add_add_eos_token(True)
+         self.gguf_writer.add_add_sep_token(True)
++        if (self.dir_model / "tokenizer.model").is_file():
++            # ModernBERT-Ja derivatives (cl-nagoya/ruri-v3-*) ship a SentencePiece
++            # Unigram tokenizer instead of the BPE one the original ModernBERT uses.
++            return self._modernbert_unigram_set_vocab()
+         self._set_vocab_gpt2()
+ 
++    def _modernbert_unigram_set_vocab(self) -> None:
++        os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
++        from sentencepiece import SentencePieceProcessor
++        from sentencepiece import sentencepiece_model_pb2 as model
++
++        tokenizer_path = self.dir_model / "tokenizer.model"
++        sentencepiece_model = model.ModelProto()  # pyright: ignore[reportAttributeAccessIssue] # ty: ignore[unresolved-attribute]
++        sentencepiece_model.ParseFromString(open(tokenizer_path, "rb").read())
++        if sentencepiece_model.trainer_spec.model_type != 1:
++            raise NotImplementedError("ModernBert SentencePiece vocab must be UNIGRAM")
++
++        tokenizer = SentencePieceProcessor()
++        tokenizer.LoadFromFile(str(tokenizer_path))
++
++        vocab_size = max(self.hparams.get("vocab_size", 0), tokenizer.vocab_size())
++        tokens: list[bytes] = [f"[PAD{i}]".encode("utf-8") for i in range(vocab_size)]
++        scores: list[float] = [-10000.0] * vocab_size
++        toktypes: list[int] = [SentencePieceTokenTypes.UNUSED] * vocab_size
++
++        for token_id in range(tokenizer.vocab_size()):
++            toktype = SentencePieceTokenTypes.NORMAL
++            if tokenizer.IsUnknown(token_id):
++                toktype = SentencePieceTokenTypes.UNKNOWN
++            elif tokenizer.IsControl(token_id):
++                toktype = SentencePieceTokenTypes.CONTROL
++            elif tokenizer.IsUnused(token_id):
++                toktype = SentencePieceTokenTypes.UNUSED
++            elif tokenizer.IsByte(token_id):
++                toktype = SentencePieceTokenTypes.BYTE
++
++            tokens[token_id] = tokenizer.IdToPiece(token_id).encode("utf-8")
++            scores[token_id] = tokenizer.GetScore(token_id)
++            toktypes[token_id] = toktype
++
++        self.gguf_writer.add_tokenizer_model("t5")
++        self.gguf_writer.add_tokenizer_pre("default")
++        self.gguf_writer.add_token_list(tokens)
++        self.gguf_writer.add_token_scores(scores)
++        self.gguf_writer.add_token_types(toktypes)
++        self.gguf_writer.add_add_space_prefix(sentencepiece_model.normalizer_spec.add_dummy_prefix)
++        self.gguf_writer.add_remove_extra_whitespaces(sentencepiece_model.normalizer_spec.remove_extra_whitespaces)
++        self.gguf_writer.add_token_type_count(self.hparams.get("type_vocab_size", 1))
++        if precompiled_charsmap := sentencepiece_model.normalizer_spec.precompiled_charsmap:
++            self.gguf_writer.add_precompiled_charsmap(precompiled_charsmap)
++
++        special_vocab = gguf.SpecialVocab(self.dir_model, n_vocab=len(tokens))
++        special_vocab.add_to_gguf(self.gguf_writer)
++
+     def set_gguf_parameters(self):
+         super().set_gguf_parameters()
+         self.gguf_writer.add_sliding_window(self.hparams["local_attention"])

@@ -1,5 +1,9 @@
 import { vi } from "vitest";
-import type { AppSettings, HanamaskPreloadApi } from "../../src/shared/preload-api";
+import type {
+  AppSettings,
+  EmbeddingStatus,
+  HanamaskPreloadApi,
+} from "../../src/shared/preload-api";
 
 const CHAT_SETTINGS = { apiKeyMask: null, model: "claude-sonnet-4-5" };
 
@@ -7,9 +11,11 @@ const notStubbed = (name: string) => (): never => {
   throw new Error(`${name} is not stubbed`);
 };
 
+const UNAVAILABLE_STATUS: EmbeddingStatus = { state: "unavailable", pending: 0 };
+
 /** 何もしない既定のpreload API。関心のある口だけを差し替えて使う。 */
 export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
-  window.hanamask = {
+  const base: HanamaskPreloadApi = {
     deleteTask: vi.fn(async () => {}),
     listDeletedTasks: vi.fn(async () => []),
     restoreTask: vi.fn(async () => null),
@@ -48,6 +54,10 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     onLinksChanged: vi.fn(() => () => {}),
     exportBackup: vi.fn(notStubbed("exportBackup")),
     importBackup: vi.fn(notStubbed("importBackup")),
-    ...overrides,
+    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [] })),
+    relatedNotes: vi.fn(async () => ({ notes: [] })),
+    readEmbeddingStatus: vi.fn(async () => UNAVAILABLE_STATUS),
+    onEmbeddingStatusChanged: vi.fn(() => () => {}),
   };
+  window.hanamask = { ...base, ...overrides };
 };

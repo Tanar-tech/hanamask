@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
-import type { ChatEvent, ChatMessage, HanamaskPreloadApi, NavigateTarget } from "../shared/preload-api.js";
+import type {
+  ChatEvent,
+  ChatMessage,
+  EmbeddingStatus,
+  HanamaskPreloadApi,
+  NavigateTarget,
+} from "../shared/preload-api.js";
 
 const NOTES_CHANGED_CHANNEL = "notes:changed";
 const NOTES_LIST_CHANNEL = "notes:list";
@@ -39,12 +45,28 @@ const LINKS_DELETE_CHANNEL = "links:delete";
 const LINKS_CHANGED_CHANNEL = "links:changed";
 const BACKUP_EXPORT_CHANNEL = "backup:export";
 const BACKUP_IMPORT_CHANNEL = "backup:import";
+const EMBEDDING_SEARCH_CHANNEL = "embedding:search";
+const EMBEDDING_RELATED_NOTES_CHANNEL = "embedding:related-notes";
+const EMBEDDING_STATUS_READ_CHANNEL = "embedding:read-status";
+const EMBEDDING_STATUS_CHANGED_CHANNEL = "embedding:status-changed";
 
 const subscribe = (channel: string, callback: () => void): (() => void) => {
   const listener = (): void => callback();
   ipcRenderer.on(channel, listener);
   return () => {
     ipcRenderer.removeListener(channel, listener);
+  };
+};
+
+const subscribeEmbeddingStatus = (
+  callback: (status: EmbeddingStatus) => void,
+): (() => void) => {
+  const listener = (_event: IpcRendererEvent, status: EmbeddingStatus): void => {
+    callback(status);
+  };
+  ipcRenderer.on(EMBEDDING_STATUS_CHANGED_CHANNEL, listener);
+  return () => {
+    ipcRenderer.removeListener(EMBEDDING_STATUS_CHANGED_CHANNEL, listener);
   };
 };
 
@@ -107,6 +129,11 @@ const api: HanamaskPreloadApi = {
   onLinksChanged: (callback) => subscribe(LINKS_CHANGED_CHANNEL, callback),
   exportBackup: () => ipcRenderer.invoke(BACKUP_EXPORT_CHANNEL),
   importBackup: () => ipcRenderer.invoke(BACKUP_IMPORT_CHANNEL),
+  semanticSearch: (query, limit) => ipcRenderer.invoke(EMBEDDING_SEARCH_CHANNEL, query, limit),
+  relatedNotes: (noteId, limit) =>
+    ipcRenderer.invoke(EMBEDDING_RELATED_NOTES_CHANNEL, noteId, limit),
+  readEmbeddingStatus: () => ipcRenderer.invoke(EMBEDDING_STATUS_READ_CHANNEL),
+  onEmbeddingStatusChanged: (callback) => subscribeEmbeddingStatus(callback),
 };
 
 contextBridge.exposeInMainWorld("hanamask", api);

@@ -154,3 +154,6 @@ tests/e2e/.artifacts/
 # Claude Code の個人用設定（端末固有の許可ルール等）
 .claude/settings.local.json
 .preload-build/
+
+# hanamask: 同梱する埋め込みモデル本体（npm run fetch:model で取得する。大きいのでリポジトリには置かない）
+resources/models/*.gguf

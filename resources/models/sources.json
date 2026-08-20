@@ -1,0 +1,7 @@
+{
+  "ruri-v3-70m-q8_0.gguf": {
+    "url": "https://github.com/Tanar-tech/hanamask/releases/download/embedding-model-ruri-v3-70m-q8_0-v1/ruri-v3-70m-q8_0.gguf",
+    "sha256": "5d1c83a92cf277e141819ef2403c5eab7fb2f71c5c48cb7e5a19044989f0a8a9",
+    "sizeBytes": 76963424
+  }
+}
