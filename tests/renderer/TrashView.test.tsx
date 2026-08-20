@@ -134,7 +134,7 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
     listLinks: vi.fn(async () => []),
     createLink: vi.fn(),
     deleteLink: vi.fn(async () => true),
-    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [] })),
+    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [], notebooks: [] })),
     relatedNotes: vi.fn(async () => ({ notes: [] })),
     readEmbeddingStatus: vi.fn(async () => ({
       state: "unavailable" as const,
