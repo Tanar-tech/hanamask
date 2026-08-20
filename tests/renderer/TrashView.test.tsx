@@ -79,6 +79,9 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
   window.hanamask = {
     deleteTask: vi.fn(async () => {}),
     listDeletedTasks,
+    listNotebooks: vi.fn(async () => []),
+    getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
+    updateNotebook: vi.fn(async () => null),
     restoreTask,
     listNotes: vi.fn(async () => []),
     searchNotes: vi.fn(async () => []),
