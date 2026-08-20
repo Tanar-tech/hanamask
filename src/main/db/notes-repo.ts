@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
-import { parseTags } from "./tags.js";
-import type { DeletedNote, Note, NoteInput, NoteVersion } from "../../shared/preload-api.js";
+import { parseTags, serializeTags } from "./tags.js";
+import type {
+  DeletedNote,
+  Note,
+  NoteInput,
+  NoteVersion,
+  VersionEntityType,
+} from "../../shared/preload-api.js";
 
 interface NoteRow {
   id: string;
@@ -16,6 +22,7 @@ interface NoteRow {
 interface NoteVersionRow {
   id: string;
   note_id: string;
+  entity_type: VersionEntityType;
   title: string;
   body: string;
   tags: string;
@@ -23,6 +30,9 @@ interface NoteVersionRow {
 }
 
 const LIKE_ESCAPE_CHAR = "\\";
+
+// note_versions はページとノートの版を同居させるので、ページ側は必ずこの値で絞る。
+const NOTE_ENTITY_TYPE = "note";
 
 const isNoteRow = (value: unknown): value is NoteRow => {
   if (typeof value !== "object" || value === null) return false;
@@ -44,6 +54,7 @@ const isNoteVersionRow = (value: unknown): value is NoteVersionRow => {
   return (
     typeof row.id === "string" &&
     typeof row.note_id === "string" &&
+    (row.entity_type === "note" || row.entity_type === "notebook") &&
     typeof row.title === "string" &&
     typeof row.body === "string" &&
     typeof row.tags === "string" &&
@@ -63,6 +74,7 @@ const toNote = (row: NoteRow): Note => ({
 const toNoteVersion = (row: NoteVersionRow): NoteVersion => ({
   id: row.id,
   noteId: row.note_id,
+  entityType: row.entity_type,
   title: row.title,
   body: row.body,
   tags: parseTags(row.tags),
@@ -71,7 +83,10 @@ const toNoteVersion = (row: NoteVersionRow): NoteVersion => ({
 
 // LIKE treats % and _ as wildcards, so a user query containing them must be escaped.
 const toLikePattern = (query: string): string => {
-  const escaped = query.replace(/[\\%_]/g, (character) => `${LIKE_ESCAPE_CHAR}${character}`);
+  const escaped = query.replace(
+    /[\\%_]/g,
+    (character) => `${LIKE_ESCAPE_CHAR}${character}`,
+  );
   return `%${escaped}%`;
 };
 
@@ -89,12 +104,21 @@ export const createNote = (input: NoteInput): Note => {
     .prepare(
       "INSERT INTO notes (id, title, body, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
     )
-    .run(note.id, note.title, note.body, JSON.stringify(note.tags), note.createdAt, note.updatedAt);
+    .run(
+      note.id,
+      note.title,
+      note.body,
+      serializeTags(note.tags),
+      note.createdAt,
+      note.updatedAt,
+    );
   return note;
 };
 
 export const getNote = (id: string): Note | null => {
-  const row: unknown = getDb().prepare("SELECT * FROM notes WHERE id = ?").get(id);
+  const row: unknown = getDb()
+    .prepare("SELECT * FROM notes WHERE id = ?")
+    .get(id);
   if (row === undefined) return null;
   if (!isNoteRow(row)) {
     throw new Error(`Unexpected notes row shape for id ${id}`);
@@ -146,14 +170,15 @@ export interface NoteUpdateInput {
 const snapshotNote = (note: Note): void => {
   getDb()
     .prepare(
-      "INSERT INTO note_versions (id, note_id, title, body, tags, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+      "INSERT INTO note_versions (id, note_id, entity_type, title, body, tags, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
     )
     .run(
       randomUUID(),
       note.id,
+      NOTE_ENTITY_TYPE,
       note.title,
       note.body,
-      JSON.stringify(note.tags),
+      serializeTags(note.tags),
       new Date().toISOString(),
     );
 };
@@ -170,8 +195,10 @@ export const updateNote = (id: string, input: NoteUpdateInput): Note | null => {
   const tags = input.tags ?? existing.tags;
 
   getDb()
-    .prepare("UPDATE notes SET title = ?, body = ?, tags = ?, updated_at = ? WHERE id = ?")
-    .run(title, body, JSON.stringify(tags), updatedAt, id);
+    .prepare(
+      "UPDATE notes SET title = ?, body = ?, tags = ?, updated_at = ? WHERE id = ?",
+    )
+    .run(title, body, serializeTags(tags), updatedAt, id);
 
   return { ...existing, title, body, tags, updatedAt };
 };
@@ -180,9 +207,9 @@ export const listNoteVersions = (noteId: string): NoteVersion[] => {
   const rows: unknown[] = getDb()
     .prepare(
       // Two snapshots can share a millisecond, so rowid breaks the tie by insertion order.
-      "SELECT * FROM note_versions WHERE note_id = ? ORDER BY created_at DESC, rowid DESC",
+      "SELECT * FROM note_versions WHERE note_id = ? AND entity_type = ? ORDER BY created_at DESC, rowid DESC",
     )
-    .all(noteId);
+    .all(noteId, NOTE_ENTITY_TYPE);
   return rows.map((row) => {
     if (!isNoteVersionRow(row)) {
       throw new Error(`Unexpected note_versions row shape for note ${noteId}`);
@@ -192,7 +219,9 @@ export const listNoteVersions = (noteId: string): NoteVersion[] => {
 };
 
 const getNoteVersion = (versionId: string): NoteVersion | null => {
-  const row: unknown = getDb().prepare("SELECT * FROM note_versions WHERE id = ?").get(versionId);
+  const row: unknown = getDb()
+    .prepare("SELECT * FROM note_versions WHERE id = ? AND entity_type = ?")
+    .get(versionId, NOTE_ENTITY_TYPE);
   if (row === undefined) return null;
   if (!isNoteVersionRow(row)) {
     throw new Error(`Unexpected note_versions row shape for id ${versionId}`);
@@ -215,14 +244,18 @@ export const restoreNoteVersion = (versionId: string): Note | null => {
 export const softDeleteNote = (id: string): boolean => {
   const deletedAt = new Date().toISOString();
   const result = getDb()
-    .prepare("UPDATE notes SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
+    .prepare(
+      "UPDATE notes SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
+    )
     .run(deletedAt, id);
   return result.changes > 0;
 };
 
 export const restoreNote = (id: string): Note | null => {
   const result = getDb()
-    .prepare("UPDATE notes SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL")
+    .prepare(
+      "UPDATE notes SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL",
+    )
     .run(id);
   if (result.changes === 0) return null;
   return getNote(id);

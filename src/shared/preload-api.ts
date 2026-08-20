@@ -84,9 +84,32 @@ export interface NoteInput {
   tags: string[];
 }
 
+/*
+ * ページを束ねるノート（docs/REQUIREMENTS.md §4.9）。summary が「概要」で、
+ * ページ側の body にあたる。所属ページは notes.notebook_id が指す。
+ */
+export interface Notebook {
+  id: string;
+  title: string;
+  summary: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** DeletedNote と同じ理由で、ゴミ箱でだけ使う派生型として分けている。 */
+export interface DeletedNotebook extends Notebook {
+  deletedAt: string;
+}
+
+/** 版の対象。ページとノートの版は同じ表に entity_type で同居する。 */
+export type VersionEntityType = "note" | "notebook";
+
 export interface NoteVersion {
   id: string;
+  /** 対象エンティティのID。entityType が 'notebook' ならノートのID。 */
   noteId: string;
+  entityType: VersionEntityType;
   title: string;
   body: string;
   tags: string[];

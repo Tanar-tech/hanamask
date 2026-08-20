@@ -55,6 +55,29 @@ describe("note versions", () => {
     expect(new Date(version?.createdAt ?? "").toISOString()).toBe(version?.createdAt);
   });
 
+  it("marks a page snapshot as a note version", () => {
+    const created = createNote({ title: "v1", body: "本文1", tags: [] });
+
+    updateNote(created.id, { body: "本文2" });
+
+    expect(listNoteVersions(created.id)[0]?.entityType).toBe("note");
+  });
+
+  it("hides rows of another entity type from the page history", () => {
+    const created = createNote({ title: "v1", body: "本文1", tags: [] });
+    updateNote(created.id, { body: "本文2" });
+    getDb()
+      .prepare(
+        "INSERT INTO note_versions (id, note_id, entity_type, title, body, tags, created_at) VALUES (?, ?, 'notebook', ?, ?, ?, ?)",
+      )
+      .run(randomUUID(), created.id, "概要", "概要本文", "[]", new Date().toISOString());
+
+    const versions = listNoteVersions(created.id);
+
+    expect(versions).toHaveLength(1);
+    expect(versions[0]?.body).toBe("本文1");
+  });
+
   it("lists versions newest first", () => {
     // Two updates can land in the same millisecond on a fast runner, which would make the
     // ISO timestamps identical; advance the clock so the ordering is unambiguous.
@@ -109,6 +132,18 @@ describe("note versions", () => {
     const versions = listNoteVersions(created.id);
     expect(versions).toHaveLength(2);
     expect(versions[0]?.body).toBe("本文2");
+  });
+
+  it("refuses to restore a version belonging to another entity type", () => {
+    const created = createNote({ title: "v1", body: "本文1", tags: [] });
+    const notebookVersionId = randomUUID();
+    getDb()
+      .prepare(
+        "INSERT INTO note_versions (id, note_id, entity_type, title, body, tags, created_at) VALUES (?, ?, 'notebook', ?, ?, ?, ?)",
+      )
+      .run(notebookVersionId, created.id, "概要", "概要本文", "[]", new Date().toISOString());
+
+    expect(restoreNoteVersion(notebookVersionId)).toBeNull();
   });
 
   it("returns null for an unknown version id", () => {

@@ -9,7 +9,14 @@ vi.mock("better-sqlite3", () => ({
     return {
       close,
       exec,
-      prepare: () => ({ all: (): unknown[] => [{ name: "body" }, { name: "tags" }] }),
+      prepare: () => ({
+        all: (): unknown[] => [
+          { name: "body" },
+          { name: "tags" },
+          { name: "notebook_id" },
+          { name: "entity_type" },
+        ],
+      }),
     };
   }),
 }));

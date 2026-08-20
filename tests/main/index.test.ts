@@ -254,6 +254,7 @@ const sampleNote: Note = {
 const sampleNoteVersion: NoteVersion = {
   id: "version-1",
   noteId: "note-1",
+  entityType: "note",
   title: "古いタイトル",
   body: "古い本文",
   tags: ["a"],
