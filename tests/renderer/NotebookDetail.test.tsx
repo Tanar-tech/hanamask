@@ -44,15 +44,25 @@ const mockHanamask = ({ notebook, notes, updated }: NotebookApiOverrides = {}) =
     listeners.push(callback);
     return () => {};
   });
-  stubHanamask({ getNotebook, updateNotebook, onNotebooksChanged });
-  const emitChange = async (): Promise<void> => {
+  const noteListeners: Array<() => void> = [];
+  const onNotesChanged = vi.fn((callback: () => void) => {
+    noteListeners.push(callback);
+    return () => {};
+  });
+  stubHanamask({ getNotebook, updateNotebook, onNotebooksChanged, onNotesChanged });
+  const emitTo = (targets: Array<() => void>) => async (): Promise<void> => {
     await act(async () => {
-      listeners.forEach((listener) => {
+      targets.forEach((listener) => {
         listener();
       });
     });
   };
-  return { getNotebook, updateNotebook, emitChange };
+  return {
+    getNotebook,
+    updateNotebook,
+    emitChange: emitTo(listeners),
+    emitNotesChange: emitTo(noteListeners),
+  };
 };
 
 const renderDetail = (onSelectPage = vi.fn()) => {
@@ -231,6 +241,23 @@ describe("NotebookDetail", () => {
 
     expect(await screen.findByRole("alert")).toBeTruthy();
     expect(screen.getByRole("heading", { name: "MCPサーバー設計" })).toBeTruthy();
+  });
+
+  // create_page はページ側の変更（notes:changed）しか流さないため、ノート側の通知だけを
+  // 見ていると件数とプレビューが取り残される。
+  it("所属ページが増えたときもプレビューと件数を取り直す", async () => {
+    const { getNotebook, emitNotesChange } = mockHanamask();
+    renderDetail();
+    await screen.findByRole("heading", { name: "MCPサーバー設計" });
+    expect(screen.getByText("ページはありません")).toBeTruthy();
+
+    getNotebook.mockResolvedValue({
+      notebook: makeNotebook(),
+      notes: [makeNote({ title: "あとから来たページ" })],
+    });
+    await emitNotesChange();
+
+    expect(await screen.findByRole("button", { name: /あとから来たページ/ })).toBeTruthy();
   });
 
   it("編集していなければ外部の更新をそのまま反映する", async () => {

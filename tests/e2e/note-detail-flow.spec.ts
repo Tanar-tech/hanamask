@@ -59,18 +59,19 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
     await noteListOf(window).getByRole("button", { name: "編集前タイトル" }).waitFor();
 
     await openNoteDetail(window, "編集前タイトル");
-    await window.getByRole("button", { name: "編集" }).click();
+    // 詳細を開いてもナビは残るため、「編集」を含むページ名と部分一致しないよう厳密に指す。
+    await window.getByRole("button", { name: "編集", exact: true }).click();
 
-    await window.getByLabel("タイトル").fill("編集後タイトル");
-    await window.getByLabel("本文").fill("編集後の本文");
-    await window.getByLabel("タグ").fill("after, e2e");
+    await window.getByLabel("タイトル", { exact: true }).fill("編集後タイトル");
+    await window.getByLabel("本文", { exact: true }).fill("編集後の本文");
+    await window.getByLabel("タグ", { exact: true }).fill("after, e2e");
     await window.screenshot({ path: join(SCREENSHOT_DIR, "detail-01-editing.png") });
 
     await window.getByRole("button", { name: "保存" }).click();
 
     // Back in view mode: the edit form's inputs are gone and the new content is shown.
     await window.getByRole("heading", { name: "編集後タイトル" }).waitFor();
-    await expect.poll(() => window.getByLabel("タイトル").count()).toBe(0);
+    await expect.poll(() => window.getByLabel("タイトル", { exact: true }).count()).toBe(0);
     await window.getByText("編集後の本文").waitFor();
     await window.getByText("after", { exact: true }).waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "detail-02-saved.png") });

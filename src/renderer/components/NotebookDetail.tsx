@@ -319,15 +319,21 @@ export const NotebookDetail = ({
   }, [notebookId]);
 
   // MCPツール経由の更新は同じ画面を開いたまま起きるため、変更通知で取り直す。
-  useEffect(
-    () =>
-      window.hanamask.onNotebooksChanged(() => {
-        void reload().catch((cause: unknown) => {
-          setReloadError(`最新の内容の取得に失敗しました: ${String(cause)}`);
-        });
-      }),
-    [reload],
-  );
+  // create_page / move_page はページ側の通知しか流さないので、両方を購読しないと
+  // 件数と「最近更新されたページ」だけが古いまま残る。
+  useEffect(() => {
+    const refresh = (): void => {
+      void reload().catch((cause: unknown) => {
+        setReloadError(`最新の内容の取得に失敗しました: ${String(cause)}`);
+      });
+    };
+    const stopNotebooks = window.hanamask.onNotebooksChanged(refresh);
+    const stopNotes = window.hanamask.onNotesChanged(refresh);
+    return () => {
+      stopNotebooks();
+      stopNotes();
+    };
+  }, [reload]);
 
   const discardDraft = (): void => {
     if (external !== null) setLoaded(external);

@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { App } from "../../src/renderer/App";
-import type { AppSettings, DeletedNote, Image, NavigateTarget, Note, NoteVersion, Task } from "../../src/shared/preload-api";
+import type { AppSettings, DeletedNote, Image, NavigateTarget, Note, Notebook, NoteVersion, Task } from "../../src/shared/preload-api";
 
 const stubImage: Image = {
   id: "image-1",
@@ -29,6 +29,25 @@ const deletedNote: DeletedNote = {
   createdAt: "2026-08-03T00:00:00.000Z",
   updatedAt: "2026-08-03T00:00:00.000Z",
   deletedAt: "2026-08-03T12:00:00.000Z",
+};
+
+const notebook: Notebook = {
+  id: "notebook-1",
+  title: "ローカルLLM組み込み",
+  summary: "推論エンジンをアプリに同梱する案件",
+  tags: ["ローカルLLM"],
+  createdAt: "2026-08-03T00:00:00.000Z",
+  updatedAt: "2026-08-03T00:00:00.000Z",
+};
+
+const pageInNotebook: Note = {
+  id: "note-3",
+  title: "埋め込みモデル選定",
+  body: "埋め込みモデルの本文",
+  tags: [],
+  notebookId: notebook.id,
+  createdAt: "2026-08-03T00:00:00.000Z",
+  updatedAt: "2026-08-03T00:00:00.000Z",
 };
 
 const task: Task = {
@@ -336,13 +355,99 @@ describe("App の左レール", () => {
 
     render(<App />);
     await clickButton("ノート");
-    await clickButton("設計メモ");
+    // ナビにも同じページが並ぶため、どちらの経路かが分かるよう一覧側に絞る。
+    const list = await screen.findByRole("list", { name: "ページ一覧" });
+    await act(async () => {
+      within(list).getByRole("button", { name: note.title }).click();
+    });
     await screen.findByText("MCPサーバーの設計についてのメモ本文");
 
     await clickButton("戻る");
 
     expect(await screen.findByRole("list", { name: "ページ一覧" })).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "最近のページ" })).toBeNull();
+  });
+});
+
+describe("App のノート（Explorerナビ）", () => {
+  const NOTEBOOK_ROW = "ローカルLLM組み込み（ページ1件）";
+  const SUB_PANE = "ローカルLLM組み込み のページ";
+
+  const mockWithNotebook = (): void => {
+    mockHanamask();
+    window.hanamask.listNotes = vi.fn(async () => [note, pageInNotebook]);
+    window.hanamask.listNotebooks = vi.fn(async () => [notebook]);
+    window.hanamask.getNotebook = vi.fn(async () => ({ notebook, notes: [pageInNotebook] }));
+    window.hanamask.getNote = vi.fn(async () => pageInNotebook);
+  };
+
+  it("「ノート」でナビを左レールの隣に出し、ホームでは出さない", async () => {
+    mockWithNotebook();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "最近のページ" });
+    expect(screen.queryByRole("list", { name: "ノート・ページ" })).toBeNull();
+
+    await clickButton("ノート");
+
+    const nav = await screen.findByRole("list", { name: "ノート・ページ" });
+    expect(within(nav).getByRole("button", { name: NOTEBOOK_ROW })).toBeTruthy();
+  });
+
+  it("ナビのノートを選ぶとサブペインとノートのMain Viewを出し、ページ一覧は出さない", async () => {
+    mockWithNotebook();
+
+    render(<App />);
+    await clickButton("ノート");
+    await clickButton(NOTEBOOK_ROW);
+
+    expect(await screen.findByRole("heading", { name: notebook.title })).toBeTruthy();
+    expect(screen.getByRole("list", { name: SUB_PANE })).toBeTruthy();
+    expect(window.hanamask.getNotebook).toHaveBeenCalledWith(notebook.id);
+    // 案1: ページ一覧はナビ側だけが持つ。Main View に重ねて出さない。
+    expect(screen.queryByRole("list", { name: "ページ一覧" })).toBeNull();
+  });
+
+  it("サブペインのページを選ぶとページ詳細を開く", async () => {
+    mockWithNotebook();
+
+    render(<App />);
+    await clickButton("ノート");
+    await clickButton(NOTEBOOK_ROW);
+    const pane = await screen.findByRole("list", { name: SUB_PANE });
+    const page = within(pane).getByRole("button", { name: new RegExp(pageInNotebook.title) });
+    await act(async () => {
+      page.click();
+    });
+
+    expect(await screen.findByText(pageInNotebook.body)).toBeTruthy();
+    expect(window.hanamask.getNote).toHaveBeenCalledWith(pageInNotebook.id);
+  });
+
+  it("ノートのMain Viewから戻るとページ一覧に戻り、ナビは残る", async () => {
+    mockWithNotebook();
+
+    render(<App />);
+    await clickButton("ノート");
+    await clickButton(NOTEBOOK_ROW);
+    await screen.findByRole("heading", { name: notebook.title });
+
+    await clickButton("戻る");
+
+    expect(await screen.findByRole("list", { name: "ページ一覧" })).toBeTruthy();
+    expect(screen.getByRole("list", { name: "ノート・ページ" })).toBeTruthy();
+  });
+
+  it("notebookの遷移指示でノートのMain Viewを開き、現在地は「ノート」になる", async () => {
+    mockWithNotebook();
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "最近のページ" });
+    await emitNavigate({ kind: "notebook", id: notebook.id });
+
+    expect(await screen.findByRole("heading", { name: notebook.title })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "ノート" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("list", { name: SUB_PANE })).toBeTruthy();
   });
 });
 
