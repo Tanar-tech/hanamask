@@ -4,8 +4,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { closeDb, getDb, openDb } from "../../../src/main/db/db";
-import { createNote, getNote, softDeleteNote } from "../../../src/main/db/notes-repo";
+import {
+  createNote,
+  getNote,
+  listNoteVersions,
+  softDeleteNote,
+  updateNote,
+} from "../../../src/main/db/notes-repo";
 import { createTask, getTask, softDeleteTask } from "../../../src/main/db/tasks-repo";
+import {
+  createNotebook,
+  getNotebook,
+  softDeleteNotebook,
+} from "../../../src/main/db/notebooks-repo";
 import { purgeSoftDeletedRecords } from "../../../src/main/db/purge";
 import { upsertEmbedding } from "../../../src/main/db/embeddings-repo";
 
@@ -58,6 +69,36 @@ const createSoftDeletedTask = (daysAgo: number): string => {
   return task.id;
 };
 
+const setNotebookDeletedAt = (id: string, deletedAt: string): void => {
+  getDb().prepare("UPDATE notebooks SET deleted_at = ? WHERE id = ?").run(deletedAt, id);
+};
+
+const createSoftDeletedNotebook = (daysAgo: number): string => {
+  const notebook = createNotebook({ title: "消したノート", summary: "概要", tags: [] });
+  softDeleteNotebook(notebook.id);
+  setNotebookDeletedAt(notebook.id, daysBeforeNow(daysAgo));
+  return notebook.id;
+};
+
+/* notebook_id は Note 型に出していないので、所属は生SQLで書いて読む。 */
+const assignNoteToNotebook = (noteId: string, notebookId: string): void => {
+  getDb().prepare("UPDATE notes SET notebook_id = ? WHERE id = ?").run(notebookId, noteId);
+};
+
+const notebookIdOf = (noteId: string): string | null => {
+  const row: unknown = getDb()
+    .prepare("SELECT notebook_id FROM notes WHERE id = ?")
+    .get(noteId);
+  if (typeof row !== "object" || row === null || !("notebook_id" in row)) {
+    throw new Error(`Unexpected notes row shape for id ${noteId}`);
+  }
+  const { notebook_id: notebookId } = row;
+  if (notebookId !== null && typeof notebookId !== "string") {
+    throw new Error(`Unexpected notebook_id shape for id ${noteId}`);
+  }
+  return notebookId;
+};
+
 describe("purgeSoftDeletedRecords", () => {
   let dbFilePath: string;
 
@@ -95,7 +136,7 @@ describe("purgeSoftDeletedRecords", () => {
 
     expect(getNote(noteId)?.id).toBe(noteId);
     expect(getTask(taskId)?.id).toBe(taskId);
-    expect(purged).toEqual({ notesPurged: 0, tasksPurged: 0 });
+    expect(purged).toEqual({ notesPurged: 0, tasksPurged: 0, notebooksPurged: 0 });
   });
 
   it("keeps a record deleted exactly 30 days ago", () => {
@@ -115,7 +156,7 @@ describe("purgeSoftDeletedRecords", () => {
 
     expect(getNote(note.id)?.id).toBe(note.id);
     expect(getTask(task.id)?.id).toBe(task.id);
-    expect(purged).toEqual({ notesPurged: 0, tasksPurged: 0 });
+    expect(purged).toEqual({ notesPurged: 0, tasksPurged: 0, notebooksPurged: 0 });
   });
 
   it("reports how many notes and tasks were purged", () => {
@@ -126,7 +167,11 @@ describe("purgeSoftDeletedRecords", () => {
     createSoftDeletedTask(1);
     createNote({ title: "生きてる", body: "", tags: [] });
 
-    expect(purgeSoftDeletedRecords(NOW)).toEqual({ notesPurged: 2, tasksPurged: 1 });
+    expect(purgeSoftDeletedRecords(NOW)).toEqual({
+      notesPurged: 2,
+      tasksPurged: 1,
+      notebooksPurged: 0,
+    });
   });
 
   it("does not depend on the wall clock, purging relative to the given time", () => {
@@ -136,6 +181,7 @@ describe("purgeSoftDeletedRecords", () => {
     expect(purgeSoftDeletedRecords(beforeTheDeletion)).toEqual({
       notesPurged: 0,
       tasksPurged: 0,
+      notebooksPurged: 0,
     });
     expect(getNote(id)?.id).toBe(id);
   });
@@ -160,5 +206,46 @@ describe("purgeSoftDeletedRecords", () => {
     purgeSoftDeletedRecords(NOW);
 
     expect(countEmbeddings()).toBe(1);
+  });
+
+  it("30日を過ぎたノートを消し、所属していたページを無所属に戻す", () => {
+    const notebookId = createSoftDeletedNotebook(31);
+    const page = createNote({ title: "所属ページ", body: "初版", tags: ["束"] });
+    updateNote(page.id, { body: "第2版" });
+    assignNoteToNotebook(page.id, notebookId);
+
+    const purged = purgeSoftDeletedRecords(NOW);
+
+    expect(getNotebook(notebookId)).toBeNull();
+    expect(purged.notebooksPurged).toBe(1);
+    expect(notebookIdOf(page.id)).toBeNull();
+    expect(getNote(page.id)?.title).toBe("所属ページ");
+    expect(getNote(page.id)?.tags).toEqual(["束"]);
+    expect(listNoteVersions(page.id)).toHaveLength(1);
+  });
+
+  it("30日以内に消したノートは残り、所属も保たれる", () => {
+    const notebookId = createSoftDeletedNotebook(29);
+    const page = createNote({ title: "所属ページ", body: "本文", tags: [] });
+    assignNoteToNotebook(page.id, notebookId);
+
+    const purged = purgeSoftDeletedRecords(NOW);
+
+    expect(getNotebook(notebookId)?.id).toBe(notebookId);
+    expect(purged.notebooksPurged).toBe(0);
+    expect(notebookIdOf(page.id)).toBe(notebookId);
+  });
+
+  it("消えたノートを参照していないページの所属は変えない", () => {
+    createSoftDeletedNotebook(31);
+    const survivor = createNotebook({ title: "生きてるノート", summary: "", tags: [] });
+    const page = createNote({ title: "所属ページ", body: "本文", tags: [] });
+    assignNoteToNotebook(page.id, survivor.id);
+    const orphan = createNote({ title: "無所属ページ", body: "本文", tags: [] });
+
+    purgeSoftDeletedRecords(NOW);
+
+    expect(notebookIdOf(page.id)).toBe(survivor.id);
+    expect(notebookIdOf(orphan.id)).toBeNull();
   });
 });
