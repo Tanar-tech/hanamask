@@ -13,7 +13,7 @@ const ACTIVE_TASK_LIMIT = 5;
 // 入りうるが、直後に画面が変わったことに気づけることの方を優先する。
 const AGENT_UPDATE_WINDOW_MS = 120_000;
 // しきい値を跨いだことに気づくまでの遅れをこの間隔以内に抑える。表示中に「更新直後」の
-// ノートが1件も無い間はタイマーを止めるので、常時動き続けることはない。
+// ページが1件も無い間はタイマーを止めるので、常時動き続けることはない。
 const AGENT_UPDATE_TICK_MS = AGENT_UPDATE_WINDOW_MS / 8;
 const BODY_PREVIEW_LENGTH = 80;
 const AGENT_UPDATE_MARK = "たった今 · エージェントが更新";
@@ -81,7 +81,7 @@ const SearchBar = ({ onSearch }: { onSearch: (query: string) => void }): JSX.Ele
   return (
     <form onSubmit={submit} className="flex flex-wrap items-center gap-2">
       <label htmlFor="home-search" className="font-body text-sm text-text-soft">
-        ノートとタスクを検索
+        ページとタスクを検索
       </label>
       <input
         id="home-search"
@@ -180,11 +180,11 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
       setNowMs(Date.now());
       setNoteError(null);
     } catch (cause) {
-      setNoteError(`ノートの読み込みに失敗しました: ${String(cause)}`);
+      setNoteError(`ページの読み込みに失敗しました: ${String(cause)}`);
     }
   }, []);
 
-  // 記録が途絶えていないかは、ノート・タスクどちらが増えても変わる。両方の通知で読み直す。
+  // 記録が途絶えていないかは、ページ・タスクどちらが増えても変わる。両方の通知で読み直す。
   const reloadActivity = useCallback(async () => {
     try {
       setActivity(await window.hanamask.readActivity());
@@ -245,7 +245,7 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
 
       <section aria-labelledby="home-notes-heading" className="flex flex-col gap-3">
         <h2 id="home-notes-heading" className={SECTION_HEADING}>
-          最近のノート
+          最近のページ
         </h2>
         {noteError !== null && (
           <p role="alert" className={`${RESET_TEXT} font-body text-sm text-crit`}>
@@ -253,7 +253,7 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
           </p>
         )}
         {noteError === null && visibleNotes.length === 0 && (
-          <p className={`${RESET_TEXT} font-body text-sm text-text-soft`}>ノートはまだありません</p>
+          <p className={`${RESET_TEXT} font-body text-sm text-text-soft`}>ページはまだありません</p>
         )}
         {noteError === null && visibleNotes.length > 0 && (
           <ul className={`${RESET_LIST} grid gap-3 sm:grid-cols-2 lg:grid-cols-3`}>

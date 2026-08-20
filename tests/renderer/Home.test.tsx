@@ -59,7 +59,7 @@ const makeNotes = (count: number): Note[] =>
   Array.from({ length: count }, (_unused, index) =>
     makeNote({
       id: `note-${String(index + 1)}`,
-      title: `ノート${String(index + 1)}`,
+      title: `ページ${String(index + 1)}`,
       updatedAt: isoAgo(60 + index),
     }),
   );
@@ -177,17 +177,17 @@ afterEach(() => {
 });
 
 describe("Home", () => {
-  it("最近のノートを新しい順に最大6件表示する", async () => {
+  it("最近のページを新しい順に最大6件表示する", async () => {
     mockHanamask([scrambled(makeNotes(8))]);
 
     renderHome();
 
-    expect(await screen.findByText("ノート1")).toBeTruthy();
-    const titles = titlesIn("最近のノート");
+    expect(await screen.findByText("ページ1")).toBeTruthy();
+    const titles = titlesIn("最近のページ");
     expect(titles).toHaveLength(6);
-    expect(titles[0]).toBe("ノート1");
-    expect(titles[5]).toBe("ノート6");
-    expect(screen.queryByText("ノート7")).toBeNull();
+    expect(titles[0]).toBe("ページ1");
+    expect(titles[5]).toBe("ページ6");
+    expect(screen.queryByText("ページ7")).toBeNull();
   });
 
   it("未完了のタスクを最大5件表示し、完了したタスクは出さない", async () => {
@@ -239,12 +239,12 @@ describe("Home", () => {
     expect(screen.getByText("進行中")).toBeTruthy();
   });
 
-  it("ノートをクリックするとonSelectNoteを呼ぶ", async () => {
-    mockHanamask([[makeNote({ id: "note-9", title: "開くノート" })]]);
+  it("ページをクリックするとonSelectNoteを呼ぶ", async () => {
+    mockHanamask([[makeNote({ id: "note-9", title: "開くページ" })]]);
     const onSelectNote = vi.fn();
 
     renderHome({ onSelectNote });
-    const noteButton = await screen.findByRole("button", { name: "開くノート" });
+    const noteButton = await screen.findByRole("button", { name: "開くページ" });
     await act(async () => {
       noteButton.click();
     });
@@ -270,7 +270,7 @@ describe("Home", () => {
     const onSearch = vi.fn();
 
     renderHome({ onSearch });
-    const input = await screen.findByLabelText("ノートとタスクを検索");
+    const input = await screen.findByLabelText("ページとタスクを検索");
     const submitButton = screen.getByRole("button", { name: "検索" });
     fireEvent.change(input, { target: { value: "設計" } });
     await act(async () => {
@@ -293,10 +293,10 @@ describe("Home", () => {
     expect(onSearch).not.toHaveBeenCalled();
   });
 
-  it("onNotesChangedの通知でノートを再取得する", async () => {
+  it("onNotesChangedの通知でページを再取得する", async () => {
     const { listNotes, noteListeners } = mockHanamask([
       [makeNote()],
-      [makeNote(), makeNote({ id: "note-2", title: "追加されたノート", updatedAt: isoAgo(90) })],
+      [makeNote(), makeNote({ id: "note-2", title: "追加されたページ", updatedAt: isoAgo(90) })],
     ]);
 
     renderHome();
@@ -308,7 +308,7 @@ describe("Home", () => {
     });
 
     expect(listNotes).toHaveBeenCalledTimes(2);
-    expect(await screen.findByText("追加されたノート")).toBeTruthy();
+    expect(await screen.findByText("追加されたページ")).toBeTruthy();
   });
 
   it("onTasksChangedの通知でタスクを再取得する", async () => {
@@ -329,11 +329,11 @@ describe("Home", () => {
     expect(await screen.findByText("追加されたタスク")).toBeTruthy();
   });
 
-  it("直近に更新されたノートだけにエージェント更新の表示を出す", async () => {
+  it("直近に更新されたページだけにエージェント更新の表示を出す", async () => {
     mockHanamask([
       [
-        makeNote({ id: "note-1", title: "いま書き換えられたノート", updatedAt: isoAgo(0) }),
-        makeNote({ id: "note-2", title: "前から在るノート", updatedAt: isoAgo(30) }),
+        makeNote({ id: "note-1", title: "いま書き換えられたページ", updatedAt: isoAgo(0) }),
+        makeNote({ id: "note-2", title: "前から在るページ", updatedAt: isoAgo(30) }),
       ],
     ]);
 
@@ -343,10 +343,10 @@ describe("Home", () => {
     expect(marks).toHaveLength(1);
     const markedItem = marks[0]?.closest("li");
     expect(markedItem).not.toBeNull();
-    expect(within(markedItem as HTMLElement).getByText("いま書き換えられたノート")).toBeTruthy();
+    expect(within(markedItem as HTMLElement).getByText("いま書き換えられたページ")).toBeTruthy();
   });
 
-  it("しきい値の直前に更新されたノートにはエージェント更新の表示を出す", async () => {
+  it("しきい値の直前に更新されたページにはエージェント更新の表示を出す", async () => {
     mockHanamask([
       [
         makeNote({
@@ -363,7 +363,7 @@ describe("Home", () => {
     expect(screen.getByText(AGENT_MARK)).toBeTruthy();
   });
 
-  it("しきい値を超えて更新されたノートにはエージェント更新の表示を出さない", async () => {
+  it("しきい値を超えて更新されたページにはエージェント更新の表示を出さない", async () => {
     mockHanamask([
       [
         makeNote({
@@ -383,7 +383,7 @@ describe("Home", () => {
   it("表示したまま時間が経つとエージェント更新の表示が消える", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     mockHanamask([
-      [makeNote({ id: "note-1", title: "いま書き換えられたノート", updatedAt: isoMsAgo(0) })],
+      [makeNote({ id: "note-1", title: "いま書き換えられたページ", updatedAt: isoMsAgo(0) })],
     ]);
 
     renderHome();
@@ -394,35 +394,35 @@ describe("Home", () => {
     });
 
     expect(screen.queryByText(AGENT_MARK)).toBeNull();
-    expect(screen.getByText("いま書き換えられたノート")).toBeTruthy();
+    expect(screen.getByText("いま書き換えられたページ")).toBeTruthy();
   });
 
-  it("更新直後のノートが無いときはタイマーを動かさない", async () => {
+  it("更新直後のページが無いときはタイマーを動かさない", async () => {
     const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
-    mockHanamask([[makeNote({ id: "note-1", title: "前から在るノート", updatedAt: isoAgo(30) })]]);
+    mockHanamask([[makeNote({ id: "note-1", title: "前から在るページ", updatedAt: isoAgo(30) })]]);
 
     renderHome();
-    expect(await screen.findByText("前から在るノート")).toBeTruthy();
+    expect(await screen.findByText("前から在るページ")).toBeTruthy();
 
     expect(tickTimerCallIndexOf(setIntervalSpy)).toBe(-1);
   });
 
-  it("ノートもタスクも無いとき空状態を表示する", async () => {
+  it("ページもタスクも無いとき空状態を表示する", async () => {
     mockHanamask([[]], [[]]);
 
     renderHome();
 
-    expect(await screen.findByText("ノートはまだありません")).toBeTruthy();
+    expect(await screen.findByText("ページはまだありません")).toBeTruthy();
     expect(screen.getByText("タスクはまだありません")).toBeTruthy();
   });
 
-  it("ノートの取得に失敗したらエラーを表示する", async () => {
+  it("ページの取得に失敗したらエラーを表示する", async () => {
     const { listNotes } = mockHanamask([[]]);
     listNotes.mockRejectedValueOnce(new Error("boom"));
 
     renderHome();
 
-    expect(await screen.findByText(/ノートの読み込みに失敗しました/)).toBeTruthy();
+    expect(await screen.findByText(/ページの読み込みに失敗しました/)).toBeTruthy();
   });
 
   it("タスクの取得に失敗したらエラーを表示する", async () => {
@@ -434,11 +434,11 @@ describe("Home", () => {
     expect(await screen.findByText(/タスクの読み込みに失敗しました/)).toBeTruthy();
   });
 
-  it("更新直後のノートを表示したままアンマウントするとタイマーを解除する", async () => {
+  it("更新直後のページを表示したままアンマウントするとタイマーを解除する", async () => {
     const setIntervalSpy = vi.spyOn(globalThis, "setInterval");
     const clearIntervalSpy = vi.spyOn(globalThis, "clearInterval");
     mockHanamask([
-      [makeNote({ id: "note-1", title: "いま書き換えられたノート", updatedAt: isoMsAgo(0) })],
+      [makeNote({ id: "note-1", title: "いま書き換えられたページ", updatedAt: isoMsAgo(0) })],
     ]);
 
     const { unmount } = renderHome();
@@ -471,15 +471,15 @@ describe("Home", () => {
   });
 
   /*
-   * ホームは「最近のノート」と「進行中のタスク」を一目で見る場所。タグが無いと、
+   * ホームは「最近のページ」と「進行中のタスク」を一目で見る場所。タグが無いと、
    * 案件Aの話と案件Bの話が並んでいても区別が付かない。
    */
-  it("最近のノートにタグを表示する", async () => {
+  it("最近のページにタグを表示する", async () => {
     mockHanamask([[makeNote({ tags: ["プロジェクトA", "設計"] })]]);
 
     render(<Home onSelectNote={vi.fn()} onSelectTask={vi.fn()} onSearch={vi.fn()} />);
 
-    await screen.findByRole("heading", { name: "最近のノート" });
+    await screen.findByRole("heading", { name: "最近のページ" });
     const tags = await screen.findByRole("list", { name: "タグ" });
     expect(within(tags).getByText("プロジェクトA")).toBeTruthy();
     expect(within(tags).getByText("設計")).toBeTruthy();

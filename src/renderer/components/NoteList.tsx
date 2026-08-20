@@ -27,7 +27,7 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
       setNotes(await window.hanamask.listNotes());
       setError(null);
     } catch (cause) {
-      setError(`ノートの読み込みに失敗しました: ${String(cause)}`);
+      setError(`ページの読み込みに失敗しました: ${String(cause)}`);
     }
   }, []);
 
@@ -35,7 +35,7 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
     try {
       await window.hanamask.deleteNote(note.id);
     } catch (cause) {
-      setError(`ノートの削除に失敗しました: ${String(cause)}`);
+      setError(`ページの削除に失敗しました: ${String(cause)}`);
     }
   }, []);
 
@@ -70,13 +70,13 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
   if (notes.length === 0) {
     return (
       <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center font-body text-sm text-text-faint">
-        ノートはまだありません
+        ページはまだありません
       </p>
     );
   }
 
   const renderList = (items: readonly Note[]): JSX.Element => (
-    <ul aria-label="ノート一覧" className="m-0 flex list-none flex-col gap-3 p-0">
+    <ul aria-label="ページ一覧" className="m-0 flex list-none flex-col gap-3 p-0">
       {items.map((note) => {
         const preview = toBodyPreview(note.body);
         return (
@@ -119,7 +119,7 @@ export const NoteList = ({ onSelectNote }: NoteListProps): JSX.Element => {
         <TagGroups groups={tagFilter.groupsOf(shown)} render={renderList} />
       ) : shown.length === 0 ? (
         <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center font-body text-sm text-text-faint">
-          このタグが付いたノートはありません
+          このタグが付いたページはありません
         </p>
       ) : (
         <>

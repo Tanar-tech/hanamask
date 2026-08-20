@@ -121,8 +121,8 @@ describe("SemanticSearchResults", () => {
     const list = await screen.findByRole("list", { name: "意味が近い記録" });
     expect(semanticSearch).toHaveBeenCalledWith("MCPの接続", 10);
     const [noteRow, notebookRow, taskRow] = within(list).getAllByRole("listitem");
-    expect(noteRow?.textContent).toContain("ノート");
-    expect(notebookRow?.textContent).toContain("ノート（束）");
+    expect(noteRow?.textContent).toContain("ページ");
+    expect(notebookRow?.textContent).toContain("ノート");
     expect(taskRow?.textContent).toContain("タスク");
 
     fireEvent.click(screen.getByRole("button", { name: NOTE_TITLE }));
@@ -131,7 +131,7 @@ describe("SemanticSearchResults", () => {
     expect(onSelectTask).toHaveBeenCalledWith("task-1");
   });
 
-  it("ノート・ノート（束）・タスクをまたいでスコアの降順に並べ、種別と更新日を添える", async () => {
+  it("ページ・ノート・タスクをまたいでスコアの降順に並べ、種別と更新日を添える", async () => {
     mockEmbeddingApi({
       readStatus: () => READY,
       readResult: () => ({
@@ -146,13 +146,13 @@ describe("SemanticSearchResults", () => {
     const list = await screen.findByRole("list", { name: "意味が近い記録" });
     const updated = toUpdatedLabel("2026-08-03T00:00:00.000Z");
     expect(within(list).getAllByRole("listitem").map((row) => row.textContent)).toEqual([
-      `${NOTEBOOK_TITLE}${updated}ノート（束）`,
+      `${NOTEBOOK_TITLE}${updated}ノート`,
       `${TASK_TITLE}${updated}タスク`,
-      `${NOTE_TITLE}${updated}ノート`,
+      `${NOTE_TITLE}${updated}ページ`,
     ]);
   });
 
-  it("ノート（束）の選択先が無いときはボタンにしない", async () => {
+  it("ノートの選択先が無いときはボタンにしない", async () => {
     mockEmbeddingApi({ readStatus: () => READY, readResult: () => FOUND });
 
     render(<SemanticSearchResults query="MCPの接続" onSelectNote={noop} />);
@@ -162,7 +162,7 @@ describe("SemanticSearchResults", () => {
     expect(screen.getByText(NOTEBOOK_TITLE)).toBeTruthy();
   });
 
-  it("ノート（束）の選択先があればクリックで通知する", async () => {
+  it("ノートの選択先があればクリックで通知する", async () => {
     mockEmbeddingApi({ readStatus: () => READY, readResult: () => FOUND });
     const onSelectNotebook = vi.fn();
 
@@ -179,11 +179,11 @@ describe("SemanticSearchResults", () => {
   });
 
   // 種別ごとにまとめず、スコアの降順で1本に並べる（近い順に読めることを優先する）。
-  it("ノートとタスクをまたいでスコアの降順に並べる", async () => {
+  it("ページとタスクをまたいでスコアの降順に並べる", async () => {
     mockEmbeddingApi({
       readStatus: () => READY,
       readResult: () => ({
-        notes: [makeNote({ score: 0.4 }), makeNote({ id: "note-2", title: "遠いノート", score: 0.1 })],
+        notes: [makeNote({ score: 0.4 }), makeNote({ id: "note-2", title: "遠いページ", score: 0.1 })],
         tasks: [makeTask({ score: 0.9 })],
         notebooks: [],
       }),
@@ -196,8 +196,8 @@ describe("SemanticSearchResults", () => {
     const updated = toUpdatedLabel("2026-08-03T00:00:00.000Z");
     expect(rows.map((row) => row.textContent)).toEqual([
       `${TASK_TITLE}${updated}タスク`,
-      `${NOTE_TITLE}${updated}ノート`,
-      `遠いノート${updated}ノート`,
+      `${NOTE_TITLE}${updated}ページ`,
+      `遠いページ${updated}ページ`,
     ]);
   });
 

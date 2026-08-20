@@ -49,7 +49,7 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
 
   it("saves title and body edits made in the detail view and reflects them in the list", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     await createNoteViaMcp(E2E_MCP_PORT, {
       title: "編集前タイトル",
@@ -85,7 +85,7 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
 
   it("renders a mermaid code fence as an SVG and shows an error instead of crashing on bad syntax", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     await createNoteViaMcp(E2E_MCP_PORT, {
       title: "Mermaid正常ノート",
@@ -118,7 +118,7 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
 
   it("shows a preview for an image attached through the attach_image MCP tool", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     const noteId = await createNoteViaMcp(E2E_MCP_PORT, {
       title: "画像添付ノート",

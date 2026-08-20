@@ -69,7 +69,7 @@ afterEach(() => {
 });
 
 describe("RelatedNotes", () => {
-  it("準備できているとき関連ノートを一覧し、クリックで選択を通知する", async () => {
+  it("準備できているとき関連ページを一覧し、クリックで選択を通知する", async () => {
     const { relatedNotes } = mockEmbeddingApi({
       readStatus: () => READY,
       readRelated: () => ({ notes: [makeNote()] }),
@@ -78,14 +78,14 @@ describe("RelatedNotes", () => {
 
     render(<RelatedNotes noteId="note-1" onSelectNote={onSelectNote} />);
 
-    expect(await screen.findByRole("list", { name: "関連するノート" })).toBeTruthy();
+    expect(await screen.findByRole("list", { name: "関連するページ" })).toBeTruthy();
     expect(relatedNotes).toHaveBeenCalledWith("note-1", 5);
     expect(screen.getByText(toUpdatedLabel("2026-08-03T00:00:00.000Z"))).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: RELATED_TITLE }));
     expect(onSelectNote).toHaveBeenCalledWith("note-2");
   });
 
-  it("いま開いているノート自身は一覧に出さない", async () => {
+  it("いま開いているページ自身は一覧に出さない", async () => {
     mockEmbeddingApi({
       readStatus: () => READY,
       readRelated: () => ({
@@ -95,7 +95,7 @@ describe("RelatedNotes", () => {
 
     render(<RelatedNotes noteId="note-1" onSelectNote={noop} />);
 
-    await screen.findByRole("list", { name: "関連するノート" });
+    await screen.findByRole("list", { name: "関連するページ" });
     expect(screen.queryByText("自分自身")).toBeNull();
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
   });

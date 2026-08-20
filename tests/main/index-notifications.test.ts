@@ -177,7 +177,7 @@ describe("main process change notifications", () => {
 
     expect(NotificationMock).toHaveBeenCalledTimes(1);
     expect(NotificationMock).toHaveBeenCalledWith({
-      title: "ノートを作成しました",
+      title: "ページを作成しました",
       body: "設計メモ",
     });
     expect(createdNotifications[0]?.show).toHaveBeenCalledTimes(1);
@@ -204,7 +204,7 @@ describe("main process change notifications", () => {
     });
   });
 
-  it("OS通知をクリックすると該当ノートを開く", () => {
+  it("OS通知をクリックすると該当ページを開く", () => {
     emitNoteChange(noteChange({ action: "updated", id: "note-7" }));
     vi.advanceTimersByTime(CHANGE_NOTIFICATION_WINDOW_MS);
 

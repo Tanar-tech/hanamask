@@ -220,6 +220,7 @@ export type NavigateTarget =
   | { kind: "list" }
   | { kind: "note"; id: string }
   | { kind: "task"; id: string }
+  | { kind: "notebook"; id: string }
   | { kind: "search"; query: string }
   | { kind: "trash" };
 
