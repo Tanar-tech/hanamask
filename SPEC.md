@@ -70,7 +70,7 @@ T54 で用意した「ノート」の器を、既存の横断機能に対等に�
 
 ### Phase 4 統合ゲートでのみ編集するファイル
 - `src/shared/preload-api.ts`（API 2本の型追加）、`src/preload/index.ts`、`src/main/index.ts`（IPC 2本、`onNotebooksChanged` 購読→broadcast・notifier への配線）
-- `tests/e2e/`（1本: MCP の `link_entities` で notebook 端点が通ること。notebook 作成ツールが無いため DB 直接投入 or 追加を見送って unit で足りると判断したら理由を記録）
+- `tests/e2e/`: **追加を見送った（記録）**。notebook を作る MCP ツールが T57 まで存在せず、E2E から端点を用意する手段が DB 直接投入しかない。リンクの往復・拒否は unit（links-repo）と MCP ツールテスト（link-tools）で実挙動をカバー済みのため、E2E は T57 のツール追加後にまとめて足す。
 - `docs/TASKS-notebooks.md` 進捗
 
 ### 並列グループ宣言

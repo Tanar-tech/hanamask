@@ -35,12 +35,21 @@ import {
   type TaskUpdateInput,
 } from "./db/tasks-repo.js";
 import { listImages } from "./db/images-repo.js";
-import { createLink, deleteLink, listLinks, type LinkInput } from "./db/links-repo.js";
+import {
+  createLink,
+  deleteLink,
+  listLinks,
+  type LinkInput,
+} from "./db/links-repo.js";
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
 import { abortChat, sendChatMessage } from "./chat/session.js";
 import { CHAT_ENABLED } from "../shared/preload-api.js";
 import type { ChatMessage } from "../shared/preload-api.js";
-import { readAppSettings, saveAppSettings, setAppSettingsPath } from "./settings/app-settings.js";
+import {
+  readAppSettings,
+  saveAppSettings,
+  setAppSettingsPath,
+} from "./settings/app-settings.js";
 import { buildMcpUrl } from "./mcp/endpoint.js";
 import { readActivity } from "./db/activity-repo.js";
 import {
@@ -89,8 +98,14 @@ import {
   emitNotebooksChanged,
   onNotebooksChanged,
 } from "./mcp/change-emitter.js";
-import { createChangeNotifier, type ChangeNotification } from "./notify/change-notifier.js";
-import { createEmbeddingIndexer, type EmbeddingIndexer } from "./llm/embedding-indexer.js";
+import {
+  createChangeNotifier,
+  type ChangeNotification,
+} from "./notify/change-notifier.js";
+import {
+  createEmbeddingIndexer,
+  type EmbeddingIndexer,
+} from "./llm/embedding-indexer.js";
 import { createEmbeddingRuntimeHolder } from "./llm/embedding-runtime-holder.js";
 import { setEmbeddingRuntime } from "./llm/index.js";
 import { loadEmbeddingProvider } from "./llm/llama-embedding-provider.js";
@@ -150,7 +165,10 @@ const BACKUPS_DIR_NAME = "backups";
 const BACKUP_EXPORT_CHANNEL = "backup:export";
 const BACKUP_IMPORT_CHANNEL = "backup:import";
 const BACKUP_FILE_EXTENSION = "zip";
-const BACKUP_FILE_FILTER = { name: "hanamask バックアップ", extensions: [BACKUP_FILE_EXTENSION] };
+const BACKUP_FILE_FILTER = {
+  name: "hanamask バックアップ",
+  extensions: [BACKUP_FILE_EXTENSION],
+};
 const BACKUP_EXPORT_DIALOG_TITLE = "ノートを書き出す";
 const BACKUP_IMPORT_DIALOG_TITLE = "ノートを取り込む";
 const CHAT_SETTINGS_FILE_NAME = "chat-settings.json";
@@ -232,9 +250,13 @@ const withDevServerSources = (devServerUrl: string): CspDirectives => {
   };
 };
 
-export const buildContentSecurityPolicy = (devServerUrl: string | undefined): string => {
+export const buildContentSecurityPolicy = (
+  devServerUrl: string | undefined,
+): string => {
   const directives =
-    devServerUrl === undefined ? PRODUCTION_DIRECTIVES : withDevServerSources(devServerUrl);
+    devServerUrl === undefined
+      ? PRODUCTION_DIRECTIVES
+      : withDevServerSources(devServerUrl);
   return Object.entries(directives)
     .map(([name, sources]) => `${name} ${sources}`)
     .join("; ");
@@ -246,7 +268,10 @@ const applyContentSecurityPolicy = (): void => {
   const policy = buildContentSecurityPolicy(devServerUrl);
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
-      responseHeaders: { ...details.responseHeaders, [CSP_HEADER_NAME]: [policy] },
+      responseHeaders: {
+        ...details.responseHeaders,
+        [CSP_HEADER_NAME]: [policy],
+      },
     });
   });
 };
@@ -277,11 +302,14 @@ export const broadcastLinksChanged = (): void => {
 
 const listNotes = (): Note[] => searchNotes("");
 
-const findNotes = (_event: IpcMainInvokeEvent, query: string): Note[] => searchNotes(query);
+const findNotes = (_event: IpcMainInvokeEvent, query: string): Note[] =>
+  searchNotes(query);
 
-const findNote = (_event: IpcMainInvokeEvent, id: string): Note | null => getNote(id);
+const findNote = (_event: IpcMainInvokeEvent, id: string): Note | null =>
+  getNote(id);
 
-const findTask = (_event: IpcMainInvokeEvent, id: string): Task | null => getTask(id);
+const findTask = (_event: IpcMainInvokeEvent, id: string): Task | null =>
+  getTask(id);
 
 // MCPツール経由の削除と同じ通知経路を通すため、broadcastではなくemitNotesChangedを呼ぶ。
 const deleteNote = (_event: IpcMainInvokeEvent, id: string): void => {
@@ -299,11 +327,16 @@ const editNote = (
   return updated;
 };
 
-const findNoteVersions = (_event: IpcMainInvokeEvent, noteId: string): NoteVersion[] =>
-  listNoteVersions(noteId);
+const findNoteVersions = (
+  _event: IpcMainInvokeEvent,
+  noteId: string,
+): NoteVersion[] => listNoteVersions(noteId);
 
 // 復元は本文の更新なので、MCPツール経由の更新と同じ通知経路（emitNotesChanged）を通す。
-const restoreVersion = (_event: IpcMainInvokeEvent, versionId: string): Note | null => {
+const restoreVersion = (
+  _event: IpcMainInvokeEvent,
+  versionId: string,
+): Note | null => {
   const restored = restoreNoteVersion(versionId);
   if (restored !== null) emitNotesChanged();
   return restored;
@@ -323,7 +356,11 @@ const undeleteNotebook = (_event: IpcMainInvokeEvent, id: string): boolean => {
 };
 
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
-const updateTaskStatus = (_event: IpcMainInvokeEvent, id: string, status: TaskStatus): void => {
+const updateTaskStatus = (
+  _event: IpcMainInvokeEvent,
+  id: string,
+  status: TaskStatus,
+): void => {
   if (updateTask(id, { status }) !== null) emitTasksChanged();
 };
 
@@ -358,7 +395,8 @@ const attachImageToNote = (
   mimeType: string,
 ): Image => attachImage({ noteId, fileName, dataBase64, mimeType });
 
-const findImages = (_event: IpcMainInvokeEvent, noteId: string): Image[] => listImages(noteId);
+const findImages = (_event: IpcMainInvokeEvent, noteId: string): Image[] =>
+  listImages(noteId);
 
 // UI操作由来の作成・削除は呼び出し元（レンダラー）が自分で取り直すため、ここでは通知しない。
 // links:changed はMCPツール経由の操作だけが出す。
@@ -368,9 +406,11 @@ const findLinks = (
   entityId: string,
 ): Link[] => listLinks(entityType, entityId);
 
-const addLink = (_event: IpcMainInvokeEvent, input: LinkInput): Link => createLink(input);
+const addLink = (_event: IpcMainInvokeEvent, input: LinkInput): Link =>
+  createLink(input);
 
-const removeLink = (_event: IpcMainInvokeEvent, id: string): boolean => deleteLink(id);
+const removeLink = (_event: IpcMainInvokeEvent, id: string): boolean =>
+  deleteLink(id);
 
 const createMainWindow = (): BrowserWindow => {
   const window = new BrowserWindow({
@@ -422,7 +462,11 @@ const navigateMainWindow = (target: NavigateTarget): void => {
 const isMainWindowFocused = (): boolean =>
   BrowserWindow.getAllWindows().some((window) => window.isFocused());
 
-const showOsNotification = ({ title, body, onClick }: ChangeNotification): void => {
+const showOsNotification = ({
+  title,
+  body,
+  onClick,
+}: ChangeNotification): void => {
   if (!Notification.isSupported()) return;
   const notification = new Notification({ title, body });
   notification.on("click", onClick);
@@ -479,7 +523,8 @@ const resolveDataDirPath = (): string => {
   return override === undefined ? app.getPath("userData") : dirname(override);
 };
 
-const resolveImagesDirPath = (): string => join(resolveDataDirPath(), IMAGES_DIR_NAME);
+const resolveImagesDirPath = (): string =>
+  join(resolveDataDirPath(), IMAGES_DIR_NAME);
 
 const resolveBackupPaths = (): ImportPaths => ({
   dbFilePath: resolveDbFilePath(),
@@ -496,7 +541,8 @@ const exportBackupToFile = async (): Promise<BackupExportResult> => {
     defaultPath: defaultBackupFileName(),
     filters: [BACKUP_FILE_FILTER],
   });
-  if (canceled || filePath === undefined || filePath === "") return { status: "cancelled" };
+  if (canceled || filePath === undefined || filePath === "")
+    return { status: "cancelled" };
   const { archive, counts } = createBackupArchive(resolveBackupPaths());
   writeFileSync(filePath, archive);
   return { status: "saved", filePath, counts };
@@ -556,7 +602,9 @@ const readEntityForEmbedding = (
   entityId: string,
 ): { title: string; body: string } | undefined => {
   const entity = entityType === "note" ? getNote(entityId) : getTask(entityId);
-  return entity === null ? undefined : { title: entity.title, body: entity.body };
+  return entity === null
+    ? undefined
+    : { title: entity.title, body: entity.body };
 };
 
 // マニフェストが読めないときはモデルが同梱されていない。索引係を作らず unavailable のままにする。
@@ -592,7 +640,9 @@ const setUpEmbeddings = (): void => {
   const modelsDir = resolveModelsDirPath();
   const contextSize = readContextSize(modelsDir);
   if (contextSize !== undefined) startEmbeddingIndexer(contextSize);
-  const apply = (availability: Parameters<typeof embeddingRuntime.setAvailability>[0]): void => {
+  const apply = (
+    availability: Parameters<typeof embeddingRuntime.setAvailability>[0],
+  ): void => {
     embeddingRuntime.setAvailability(availability);
     broadcastEmbeddingStatus(currentEmbeddingStatus());
   };
@@ -677,8 +727,8 @@ ipcMain.handle(NOTES_LIST_VERSIONS_CHANNEL, findNoteVersions);
 ipcMain.handle(NOTES_RESTORE_VERSION_CHANNEL, restoreVersion);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(NOTES_LIST_DELETED_CHANNEL, () => listDeletedNotes());
-  ipcMain.handle(NOTEBOOKS_LIST_DELETED_CHANNEL, () => listDeletedNotebooks());
-  ipcMain.handle(NOTEBOOKS_RESTORE_CHANNEL, undeleteNotebook);
+ipcMain.handle(NOTEBOOKS_LIST_DELETED_CHANNEL, () => listDeletedNotebooks());
+ipcMain.handle(NOTEBOOKS_RESTORE_CHANNEL, undeleteNotebook);
 ipcMain.handle(NOTES_RESTORE_CHANNEL, undeleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 ipcMain.handle(TASKS_UPDATE_CHANNEL, editTask);
@@ -708,18 +758,24 @@ const registerChatHandlers = (): void => {
   ipcMain.handle(CHAT_ABORT_CHANNEL, () => {
     abortChat();
   });
-  ipcMain.handle(CHAT_SETTINGS_SAVE_KEY_CHANNEL, (_event: IpcMainInvokeEvent, apiKey: string) => {
-    saveApiKey(apiKey);
-    return readChatSettings();
-  });
+  ipcMain.handle(
+    CHAT_SETTINGS_SAVE_KEY_CHANNEL,
+    (_event: IpcMainInvokeEvent, apiKey: string) => {
+      saveApiKey(apiKey);
+      return readChatSettings();
+    },
+  );
   ipcMain.handle(CHAT_SETTINGS_CLEAR_KEY_CHANNEL, () => {
     clearApiKey();
     return readChatSettings();
   });
-  ipcMain.handle(CHAT_SETTINGS_SAVE_MODEL_CHANNEL, (_event: IpcMainInvokeEvent, model: string) => {
-    saveChatModel(model);
-    return readChatSettings();
-  });
+  ipcMain.handle(
+    CHAT_SETTINGS_SAVE_MODEL_CHANNEL,
+    (_event: IpcMainInvokeEvent, model: string) => {
+      saveChatModel(model);
+      return readChatSettings();
+    },
+  );
 };
 
 if (CHAT_ENABLED) registerChatHandlers();
@@ -761,7 +817,9 @@ ipcMain.handle(MCP_ENDPOINT_READ_CHANNEL, () => {
   return { port: mcpPort, url: buildMcpUrl(mcpPort) };
 });
 ipcMain.handle(APP_SETTINGS_READ_CHANNEL, () => readAppSettings());
-ipcMain.handle(APP_SETTINGS_SAVE_CHANNEL, (_event, settings: unknown) => applyAppSettings(settings));
+ipcMain.handle(APP_SETTINGS_SAVE_CHANNEL, (_event, settings: unknown) =>
+  applyAppSettings(settings),
+);
 
 /*
  * ウィンドウを閉じてもMCPサーバーを生かしておく。閉じた瞬間にプロセスごと終われば、
@@ -778,7 +836,12 @@ app.on("window-all-closed", () => {
   }
   if (shouldAnnounceTray({ closeToTray, alreadyAnnounced: trayAnnounced })) {
     trayAnnounced = true;
-    showOsNotification({ ...TRAY_ANNOUNCEMENT, onClick: () => { showMainWindow(); } });
+    showOsNotification({
+      ...TRAY_ANNOUNCEMENT,
+      onClick: () => {
+        showMainWindow();
+      },
+    });
   }
 });
 

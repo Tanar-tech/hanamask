@@ -6,10 +6,6 @@ import {
   type DeletedTask,
 } from "../../shared/preload-api";
 
-/*
- * IPC の結線と preload-api.ts への型追加は後続のため、ここで暫定的に任意メンバーとして宣言する。
- * 結線後は preload-api.ts の HanamaskPreloadApi に必須メンバーとして移し、この宣言を消す。
- */
 
 
 interface TrashViewProps {
@@ -17,7 +13,7 @@ interface TrashViewProps {
 }
 
 const HEADING = "ゴミ箱";
-const EMPTY_MESSAGE = "削除済みのノート・タスクはありません";
+const EMPTY_MESSAGE = "削除済みのノート・タスク・ノート（束）はありません";
 const RESTORE_LABEL = "復元";
 const BACK_LABEL = "戻る";
 const NOTE_MISSING_MESSAGE = "対象のノートが見つかりません";

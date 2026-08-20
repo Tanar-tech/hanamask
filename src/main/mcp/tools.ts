@@ -588,7 +588,7 @@ const readEntityType = (args: Record<string, unknown>, key: string): EntityType 
 const linkEntitiesTool: McpTool = {
   definition: {
     name: "link_entities",
-    description: "Link two entities (notes and/or tasks) to each other.",
+    description: "Link two entities (notes, tasks and/or notebooks) to each other.",
     inputSchema: {
       type: "object",
       properties: {

@@ -38,7 +38,9 @@ export interface ChangeNotifier {
 }
 
 // 同じノートを続けて直しただけで「5件の変更」と出ると、実際より大ごとに見える。
-const keepLatestPerEntity = (changes: readonly EntityChange[]): EntityChange[] => {
+const keepLatestPerEntity = (
+  changes: readonly EntityChange[],
+): EntityChange[] => {
   const byKey = new Map<string, EntityChange>();
   changes.forEach((change) => {
     byKey.set(`${change.entity}:${change.id}`, change);
@@ -56,9 +58,13 @@ const buildTitle = (changes: readonly EntityChange[]): string => {
 
 // 載せるのはタイトルまで。本文を出すと通知を肩越しに読まれるだけで中身が漏れる。
 const buildBody = (changes: readonly EntityChange[]): string => {
-  const listed = changes.slice(0, MAX_LISTED_TITLES).map((change) => change.title);
+  const listed = changes
+    .slice(0, MAX_LISTED_TITLES)
+    .map((change) => change.title);
   const omitted = changes.length - listed.length;
-  return omitted > 0 ? `${listed.join("、")} ほか${omitted}件` : listed.join("、");
+  return omitted > 0
+    ? `${listed.join("、")} ほか${omitted}件`
+    : listed.join("、");
 };
 
 const toNavigateTarget = (change: EntityChange): NavigateTarget | undefined => {
@@ -69,7 +75,9 @@ const toNavigateTarget = (change: EntityChange): NavigateTarget | undefined => {
   return { kind: change.entity, id: change.id };
 };
 
-export const createChangeNotifier =(deps: ChangeNotifierDeps): ChangeNotifier => {
+export const createChangeNotifier = (
+  deps: ChangeNotifierDeps,
+): ChangeNotifier => {
   let pending: EntityChange[] = [];
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
 
