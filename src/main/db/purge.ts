@@ -10,9 +10,14 @@ export interface PurgeResult {
   notebooksPurged: number;
 }
 
-const purgeTable = (tableName: "notes" | "tasks" | "notebooks", cutoff: string): number =>
+const purgeTable = (
+  tableName: "notes" | "tasks" | "notebooks",
+  cutoff: string,
+): number =>
   getDb()
-    .prepare(`DELETE FROM ${tableName} WHERE deleted_at IS NOT NULL AND deleted_at < ?`)
+    .prepare(
+      `DELETE FROM ${tableName} WHERE deleted_at IS NOT NULL AND deleted_at < ?`,
+    )
     .run(cutoff).changes;
 
 const isIdRow = (value: unknown): value is { id: string } => {
@@ -23,7 +28,9 @@ const isIdRow = (value: unknown): value is { id: string } => {
 
 const notebookIdsToPurge = (cutoff: string): string[] => {
   const rows: unknown[] = getDb()
-    .prepare("SELECT id FROM notebooks WHERE deleted_at IS NOT NULL AND deleted_at < ?")
+    .prepare(
+      "SELECT id FROM notebooks WHERE deleted_at IS NOT NULL AND deleted_at < ?",
+    )
     .all(cutoff);
   return rows.filter(isIdRow).map((row) => row.id);
 };
@@ -33,16 +40,20 @@ const detachNotesFrom = (notebookIds: readonly string[]): void => {
   if (notebookIds.length === 0) return;
   const placeholders = notebookIds.map(() => "?").join(", ");
   getDb()
-    .prepare(`UPDATE notes SET notebook_id = NULL WHERE notebook_id IN (${placeholders})`)
+    .prepare(
+      `UPDATE notes SET notebook_id = NULL WHERE notebook_id IN (${placeholders})`,
+    )
     .run(...notebookIds);
 };
 
-const purgeNotebooks = (cutoff: string): number => {
-  const notebookIds = notebookIdsToPurge(cutoff);
-  const purged = purgeTable("notebooks", cutoff);
-  detachNotesFrom(notebookIds);
-  return purged;
-};
+// 削除と所属解除の間で落ちると、消えたノートを指したままのページが残る。1トランザクションで行う。
+const purgeNotebooks = (cutoff: string): number =>
+  getDb().transaction((): number => {
+    const notebookIds = notebookIdsToPurge(cutoff);
+    const purged = purgeTable("notebooks", cutoff);
+    detachNotesFrom(notebookIds);
+    return purged;
+  })();
 
 export const purgeSoftDeletedRecords = (now: Date): PurgeResult => {
   const cutoff = new Date(now.getTime() - RETENTION_MS).toISOString();

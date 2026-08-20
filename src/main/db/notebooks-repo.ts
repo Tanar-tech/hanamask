@@ -116,7 +116,9 @@ export const createNotebook = (input: NotebookInput): Notebook => {
 };
 
 export const getNotebook = (id: string): Notebook | null => {
-  const row: unknown = getDb().prepare("SELECT * FROM notebooks WHERE id = ?").get(id);
+  const row: unknown = getDb()
+    .prepare("SELECT * FROM notebooks WHERE id = ?")
+    .get(id);
   if (row === undefined) return null;
   if (!isNotebookRow(row)) {
     throw new Error(`Unexpected notebooks row shape for id ${id}`);
@@ -173,7 +175,10 @@ const snapshotNotebook = (notebook: Notebook): void => {
     );
 };
 
-export const updateNotebook = (id: string, input: NotebookUpdateInput): Notebook | null => {
+export const updateNotebook = (
+  id: string,
+  input: NotebookUpdateInput,
+): Notebook | null => {
   const existing = getNotebook(id);
   if (existing === null) return null;
 
@@ -185,7 +190,9 @@ export const updateNotebook = (id: string, input: NotebookUpdateInput): Notebook
   const tags = input.tags ?? existing.tags;
 
   getDb()
-    .prepare("UPDATE notebooks SET title = ?, summary = ?, tags = ?, updated_at = ? WHERE id = ?")
+    .prepare(
+      "UPDATE notebooks SET title = ?, summary = ?, tags = ?, updated_at = ? WHERE id = ?",
+    )
     .run(title, summary, serializeTags(tags), updatedAt, id);
 
   return { ...existing, title, summary, tags, updatedAt };
@@ -200,7 +207,9 @@ export const listNotebookVersions = (notebookId: string): NoteVersion[] => {
     .all(notebookId, NOTEBOOK_ENTITY_TYPE);
   return rows.map((row) => {
     if (!isNotebookVersionRow(row)) {
-      throw new Error(`Unexpected note_versions row shape for notebook ${notebookId}`);
+      throw new Error(
+        `Unexpected note_versions row shape for notebook ${notebookId}`,
+      );
     }
     return toNotebookVersion(row);
   });
@@ -236,14 +245,18 @@ export const restoreNotebookVersion = (versionId: string): Notebook | null => {
 export const softDeleteNotebook = (id: string): boolean => {
   const deletedAt = new Date().toISOString();
   const result = getDb()
-    .prepare("UPDATE notebooks SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
+    .prepare(
+      "UPDATE notebooks SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
+    )
     .run(deletedAt, id);
   return result.changes > 0;
 };
 
 export const restoreNotebook = (id: string): Notebook | null => {
   const result = getDb()
-    .prepare("UPDATE notebooks SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL")
+    .prepare(
+      "UPDATE notebooks SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL",
+    )
     .run(id);
   if (result.changes === 0) return null;
   return getNotebook(id);

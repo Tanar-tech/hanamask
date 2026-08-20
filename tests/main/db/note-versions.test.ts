@@ -12,10 +12,6 @@ import {
   updateNote,
 } from "../../../src/main/db/notes-repo";
 
-/*
- * entity_type 列を足すマイグレーションはセットAが並行して実装中なので、無いあいだは
- * SPEC.md の DDL をここであてる。セットA合流後はこの分岐を通らない。
- */
 describe("note versions", () => {
   let dbFilePath: string;
 

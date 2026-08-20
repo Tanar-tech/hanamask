@@ -17,10 +17,6 @@ import {
   updateNotebook,
 } from "../../../src/main/db/notebooks-repo";
 
-/*
- * schema.sql とマイグレーションはセットAが並行して実装中なので、SPEC.md の DDL を
- * ここで直接あてる。セットA合流後は列が既に存在するため、無いときだけ足す。
- */
 const isNotebookIdRow = (value: unknown): value is { notebook_id: string | null } => {
   if (typeof value !== "object" || value === null) return false;
   const row: Record<string, unknown> = { ...value };

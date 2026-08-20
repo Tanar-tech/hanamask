@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
-import { parseTags } from "./tags.js";
+import { parseTags, serializeTags } from "./tags.js";
 import type {
   DeletedNote,
   Note,
@@ -83,7 +83,10 @@ const toNoteVersion = (row: NoteVersionRow): NoteVersion => ({
 
 // LIKE treats % and _ as wildcards, so a user query containing them must be escaped.
 const toLikePattern = (query: string): string => {
-  const escaped = query.replace(/[\\%_]/g, (character) => `${LIKE_ESCAPE_CHAR}${character}`);
+  const escaped = query.replace(
+    /[\\%_]/g,
+    (character) => `${LIKE_ESCAPE_CHAR}${character}`,
+  );
   return `%${escaped}%`;
 };
 
@@ -101,12 +104,21 @@ export const createNote = (input: NoteInput): Note => {
     .prepare(
       "INSERT INTO notes (id, title, body, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
     )
-    .run(note.id, note.title, note.body, JSON.stringify(note.tags), note.createdAt, note.updatedAt);
+    .run(
+      note.id,
+      note.title,
+      note.body,
+      serializeTags(note.tags),
+      note.createdAt,
+      note.updatedAt,
+    );
   return note;
 };
 
 export const getNote = (id: string): Note | null => {
-  const row: unknown = getDb().prepare("SELECT * FROM notes WHERE id = ?").get(id);
+  const row: unknown = getDb()
+    .prepare("SELECT * FROM notes WHERE id = ?")
+    .get(id);
   if (row === undefined) return null;
   if (!isNoteRow(row)) {
     throw new Error(`Unexpected notes row shape for id ${id}`);
@@ -166,7 +178,7 @@ const snapshotNote = (note: Note): void => {
       NOTE_ENTITY_TYPE,
       note.title,
       note.body,
-      JSON.stringify(note.tags),
+      serializeTags(note.tags),
       new Date().toISOString(),
     );
 };
@@ -183,8 +195,10 @@ export const updateNote = (id: string, input: NoteUpdateInput): Note | null => {
   const tags = input.tags ?? existing.tags;
 
   getDb()
-    .prepare("UPDATE notes SET title = ?, body = ?, tags = ?, updated_at = ? WHERE id = ?")
-    .run(title, body, JSON.stringify(tags), updatedAt, id);
+    .prepare(
+      "UPDATE notes SET title = ?, body = ?, tags = ?, updated_at = ? WHERE id = ?",
+    )
+    .run(title, body, serializeTags(tags), updatedAt, id);
 
   return { ...existing, title, body, tags, updatedAt };
 };
@@ -230,14 +244,18 @@ export const restoreNoteVersion = (versionId: string): Note | null => {
 export const softDeleteNote = (id: string): boolean => {
   const deletedAt = new Date().toISOString();
   const result = getDb()
-    .prepare("UPDATE notes SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL")
+    .prepare(
+      "UPDATE notes SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL",
+    )
     .run(deletedAt, id);
   return result.changes > 0;
 };
 
 export const restoreNote = (id: string): Note | null => {
   const result = getDb()
-    .prepare("UPDATE notes SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL")
+    .prepare(
+      "UPDATE notes SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL",
+    )
     .run(id);
   if (result.changes === 0) return null;
   return getNote(id);
