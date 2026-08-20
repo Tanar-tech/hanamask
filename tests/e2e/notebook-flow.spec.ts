@@ -1,9 +1,16 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { type ElectronApplication } from "playwright";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { callMcpTool, launchApp, reserveMcpPort, type CallToolResult } from "./helpers.js";
+import {
+  SCREENSHOT_DIR,
+  callMcpTool,
+  launchApp,
+  openNoteList,
+  reserveMcpPort,
+  type CallToolResult,
+} from "./helpers.js";
 
 let E2E_MCP_PORT = 0;
 
@@ -51,6 +58,7 @@ describe("notebook flow (MCP tools for notebooks and pages)", () => {
 
   beforeAll(async () => {
     E2E_MCP_PORT = await reserveMcpPort();
+    mkdirSync(SCREENSHOT_DIR, { recursive: true });
   });
 
   afterEach(async () => {
@@ -110,6 +118,59 @@ describe("notebook flow (MCP tools for notebooks and pages)", () => {
     expect(notes).toHaveLength(1);
     expect(idOf({ note: notes[0] }, "note")).toBe(attachedId);
 
+  });
+
+  it("ナビにノートが並び、選ぶとサブペインとノートのMain Viewが開く", async () => {
+    workDir = mkdtempSync(join(tmpdir(), "hanamask-e2e-notebook-nav-"));
+    app = await launchApp(join(workDir, "hanamask.sqlite3"), E2E_MCP_PORT);
+    const window = await app.firstWindow();
+    await window.waitForLoadState();
+
+    // 移行直後（ノート0件・全て無所属ページ）でも従来どおり並ぶことを先に押さえる。
+    await callMcpTool(E2E_MCP_PORT, "create_page", {
+      title: "今日の昼食はカレー",
+      body: "近所の店で食べた。",
+      tags: [],
+    });
+    await openNoteList(window);
+    const nav = window.getByRole("list", { name: "ノート・ページ" });
+    await nav.getByRole("button", { name: "今日の昼食はカレー" }).waitFor();
+    await window.screenshot({ path: join(SCREENSHOT_DIR, "t58-03-unattached-only.png") });
+
+    const notebook = readPayload(
+      await callMcpTool(E2E_MCP_PORT, "create_notebook", {
+        title: "ローカルLLM組み込み",
+        summary: "推論エンジンと埋め込みモデルをアプリに同梱する案件",
+        tags: ["ローカルLLM"],
+      }),
+    );
+    const notebookId = idOf(notebook, "notebook");
+
+    // 手動リロードなしでナビに現れる（ページ0件のバッジ）。
+    const notebookRow = nav.getByRole("button", { name: "ローカルLLM組み込み（ページ0件）" });
+    await notebookRow.waitFor();
+    await notebookRow.click();
+
+    const subPane = window.getByRole("list", { name: "ローカルLLM組み込み のページ" });
+    await window.getByRole("heading", { name: "ローカルLLM組み込み" }).waitFor();
+    // サブペインと Main View の「最近更新されたページ」が、それぞれ空であることを示す。
+    await expect.poll(() => window.getByText("ページはありません").count()).toBe(2);
+    await window.screenshot({ path: join(SCREENSHOT_DIR, "t58-02-notebook-detail.png") });
+
+    await callMcpTool(E2E_MCP_PORT, "create_page", {
+      title: "モデル選定の比較",
+      body: "Ruri v3 70m を採用。Apache-2.0 で日本語品質が高い。",
+      tags: [],
+      notebook_id: notebookId,
+    });
+
+    const pageRow = subPane.getByRole("button", { name: /モデル選定の比較/ });
+    await pageRow.waitFor();
+    await window.screenshot({ path: join(SCREENSHOT_DIR, "t58-01-nav.png") });
+
+    await pageRow.click();
+    await window.getByRole("heading", { name: "モデル選定の比較" }).waitFor();
+    await window.getByText("Ruri v3 70m を採用。Apache-2.0 で日本語品質が高い。").waitFor();
   });
 
   it.skipIf(!hasEmbeddingModel())("意味検索でノート（束）が引ける", async () => {

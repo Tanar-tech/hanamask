@@ -21,9 +21,9 @@ const TARGET_TYPE_LABEL = "リンク先の種別";
 const TARGET_ID_LABEL = "リンク先のID";
 const LIST_LABEL = "リンク一覧";
 const TYPE_LABELS: Record<EntityType, string> = {
-  note: "ノート",
+  note: "ページ",
   task: "タスク",
-  notebook: "ノート（束）",
+  notebook: "ノート",
 };
 const ENTITY_TYPES: readonly EntityType[] = ["note", "task", "notebook"];
 const DEFAULT_TARGET_TYPE: EntityType = "note";

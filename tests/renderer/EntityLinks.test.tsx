@@ -55,6 +55,9 @@ const mockHanamask = (overrides: LinkApiOverrides = {}) => {
     onNotesChanged: vi.fn(() => () => {}),
     onNotebooksChanged: vi.fn(() => () => undefined),
     listDeletedNotebooks: vi.fn(async () => []),
+    listNotebooks: vi.fn(async () => []),
+    getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
+    updateNotebook: vi.fn(async () => null),
     restoreNotebook: vi.fn(async () => true),
     onNavigate: vi.fn(() => () => {}),
     listNoteVersions: vi.fn(async () => []),
@@ -169,21 +172,21 @@ describe("EntityLinks", () => {
 
     render(<EntityLinks entityType="task" entityId="task-1" />);
 
-    expect(await screen.findByText("ノート: note-7")).toBeTruthy();
+    expect(await screen.findByText("ページ: note-7")).toBeTruthy();
     expect(screen.queryByText(/task-1/)).toBeNull();
   });
 
-  it("ノート（束）が相手のリンクは束のラベルで表示する", async () => {
+  it("ノートが相手のリンクは束のラベルで表示する", async () => {
     mockHanamask({
       listLinks: async () => [makeLink({ toType: "notebook", toId: "notebook-3" })],
     });
 
     render(<EntityLinks entityType="note" entityId="note-1" />);
 
-    expect(await screen.findByText("ノート（束）: notebook-3")).toBeTruthy();
+    expect(await screen.findByText("ノート: notebook-3")).toBeTruthy();
   });
 
-  it("リンク先の種別にノート（束）を選べる", async () => {
+  it("リンク先の種別にノートを選べる", async () => {
     const { createLink } = mockHanamask({ listLinks: async () => [] });
 
     render(<EntityLinks entityType="note" entityId="note-1" />);

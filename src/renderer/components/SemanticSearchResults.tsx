@@ -11,9 +11,9 @@ import type { SemanticSearchResult } from "../../shared/preload-api";
 import { toUpdatedLabel } from "../text/dateLabel";
 
 const HEADING = "意味が近い記録";
-const NOTE_LABEL = "ノート";
+const NOTE_LABEL = "ページ";
 const TASK_LABEL = "タスク";
-const NOTEBOOK_LABEL = "ノート（束）";
+const NOTEBOOK_LABEL = "ノート";
 const SEMANTIC_LIMIT = 10;
 const EMPTY_RESULT: SemanticSearchResult = { notes: [], tasks: [], notebooks: [] };
 

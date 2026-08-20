@@ -1,5 +1,12 @@
+import { getActiveNotebook } from "../../db/notebooks-repo.js";
 import { navigateUi, showUiWindow } from "../../ui/navigate.js";
-import { jsonResult, readString, toToolHandler, type McpTool } from "./shared.js";
+import {
+  errorResult,
+  jsonResult,
+  readString,
+  toToolHandler,
+  type McpTool,
+} from "./shared.js";
 
 const OPENED_RESULT = { opened: true };
 
@@ -33,6 +40,30 @@ const openNoteTool: McpTool = {
   },
   handler: toToolHandler((args) => {
     navigateUi({ kind: "note", id: readString(args, "id") });
+    return jsonResult(OPENED_RESULT);
+  }),
+};
+
+const openNotebookTool: McpTool = {
+  definition: {
+    name: "open_notebook",
+    description:
+      "Open a notebook's page in the desktop UI, bringing the window to the front.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Notebook id (uuid)" },
+      },
+      required: ["id"],
+    },
+  },
+  handler: toToolHandler((args) => {
+    const id = readString(args, "id");
+    // ゴミ箱の中の束には開く画面が無いので、前面に出す前に断る。
+    if (getActiveNotebook(id) === null) {
+      return errorResult(`Notebook not found or deleted: ${id}`);
+    }
+    navigateUi({ kind: "notebook", id });
     return jsonResult(OPENED_RESULT);
   }),
 };
@@ -77,6 +108,7 @@ const openSearchTool: McpTool = {
 export const uiTools: readonly McpTool[] = [
   openAppTool,
   openNoteTool,
+  openNotebookTool,
   openTaskTool,
   openSearchTool,
 ];

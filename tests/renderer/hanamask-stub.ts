@@ -19,6 +19,8 @@ const UNAVAILABLE_STATUS: EmbeddingStatus = {
 /** 何もしない既定のpreload API。関心のある口だけを差し替えて使う。 */
 export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
   const base: HanamaskPreloadApi = {
+    listNotebooks: vi.fn(async () => []),
+    getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
     deleteTask: vi.fn(async () => {}),
     listDeletedTasks: vi.fn(async () => []),
     restoreTask: vi.fn(async () => null),
@@ -34,6 +36,7 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     listDeletedNotes: vi.fn(async () => []),
     restoreNote: vi.fn(async () => null),
     listDeletedNotebooks: vi.fn(async () => []),
+    updateNotebook: vi.fn(async () => null),
     restoreNotebook: vi.fn(async () => true),
     readActivity: vi.fn(async () => ({ lastRecordedAt: null, recentCount: 0 })),
     readMcpEndpoint: vi.fn(async () => ({
@@ -74,5 +77,6 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     readEmbeddingStatus: vi.fn(async () => UNAVAILABLE_STATUS),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
   };
-  window.hanamask = { ...base, ...overrides };
+  const api: HanamaskPreloadApi = { ...base, ...overrides };
+  window.hanamask = api;
 };

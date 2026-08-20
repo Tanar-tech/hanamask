@@ -6,6 +6,8 @@ export interface Note {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  /** 所属ノート。null/undefined は無所属ページ */
+  notebookId?: string | null;
 }
 
 /*
@@ -220,6 +222,7 @@ export type NavigateTarget =
   | { kind: "list" }
   | { kind: "note"; id: string }
   | { kind: "task"; id: string }
+  | { kind: "notebook"; id: string }
   | { kind: "search"; query: string }
   | { kind: "trash" };
 
@@ -237,6 +240,12 @@ export interface HanamaskPreloadApi {
   restoreNoteVersion(versionId: string): Promise<Note | null>;
   listDeletedNotes(): Promise<DeletedNote[]>;
   restoreNote(id: string): Promise<Note | null>;
+  listNotebooks(): Promise<Notebook[]>;
+  getNotebook(id: string): Promise<{ notebook: Notebook | null; notes: Note[] }>;
+  updateNotebook(
+    id: string,
+    input: { title?: string; summary?: string; tags?: string[] },
+  ): Promise<Notebook | null>;
   listDeletedNotebooks(): Promise<DeletedNotebook[]>;
   restoreNotebook(id: string): Promise<boolean>;
   onNotebooksChanged(callback: () => void): () => void;
