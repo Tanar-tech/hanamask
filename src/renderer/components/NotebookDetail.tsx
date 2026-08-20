@@ -288,8 +288,14 @@ export const NotebookDetail = ({
     const startedAtMutationCount = liveStateRef.current.mutationCount;
     const latest = await window.hanamask.getNotebook(notebookId);
     setReloadError(null);
-    if (latest.notebook === null) return;
     if (liveStateRef.current.mutationCount !== startedAtMutationCount) return;
+    if (latest.notebook === null) {
+      // 閲覧中に外部で削除された。編集中は入力を守り、通知バナーに任せる。
+      if (!liveStateRef.current.editing) {
+        setError(NOT_FOUND_MESSAGE);
+      }
+      return;
+    }
     // 編集中の入力を失わせないため、反映せず通知だけ出して利用者に選ばせる。
     if (liveStateRef.current.editing) setExternal(latest);
     else setLoaded(latest);

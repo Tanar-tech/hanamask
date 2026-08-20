@@ -274,4 +274,25 @@ describe("NotebookDetail", () => {
     expect(await screen.findByRole("heading", { name: "外から来た" })).toBeTruthy();
     expect(screen.queryByText("このノートは別の場所で更新されました")).toBeNull();
   });
+
+  it("閲覧中に外部で削除されると「ノートが見つかりません」を表示する", async () => {
+    let listener: (() => void) | undefined;
+    const getNotebook = vi
+      .fn()
+      .mockResolvedValueOnce({ notebook: makeNotebook(), notes: [] })
+      .mockResolvedValue({ notebook: null, notes: [] });
+    stubHanamask({
+      getNotebook,
+      onNotebooksChanged: vi.fn((callback: () => void) => {
+        listener = callback;
+        return () => undefined;
+      }),
+    });
+
+    render(<NotebookDetail notebookId="nb-1" onSelectPage={vi.fn()} onBack={vi.fn()} />);
+    await screen.findByRole("heading", { name: makeNotebook().title });
+
+    listener?.();
+    expect(await screen.findByText("ノートが見つかりません")).toBeTruthy();
+  });
 });
