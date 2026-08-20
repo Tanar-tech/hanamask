@@ -52,7 +52,7 @@ describe("tray flow (window closed but MCP alive)", () => {
     await callMcpTool(E2E_MCP_PORT, "open_app", {});
     const reopened = await app.firstWindow();
     await reopened.waitForLoadState();
-    await reopened.getByText("閉じたまま書いたノート").waitFor();
+    await reopened.getByRole("main").getByText("閉じたまま書いたノート").waitFor();
     await reopened.screenshot({ path: join(SCREENSHOT_DIR, "tray-01-reopened.png") });
   });
 

@@ -10,7 +10,6 @@ export interface NotebookPages {
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
-// 左レール（AppShell.tsx の RAIL_BUTTON）と同じ手触りにそろえる。
 const NAV_BUTTON = `${FOCUS_RING} m-0 flex w-full cursor-pointer appearance-none items-center gap-2 rounded-md border-0 border-l-2 bg-transparent px-3 py-1.5 text-left font-body text-sm transition-colors duration-[var(--duration-fast)] ease-standard`;
 const NAV_BUTTON_CURRENT = "border-l-ink-aqua bg-ink-aqua/10 font-semibold text-ink-aqua-text";
 const NAV_BUTTON_IDLE = "border-l-transparent text-text-soft hover:text-text";
