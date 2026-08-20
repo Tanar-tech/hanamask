@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { closeDb, openDb } from "../../../src/main/db/db";
 import { createNote, softDeleteNote } from "../../../src/main/db/notes-repo";
+import { createNotebook, softDeleteNotebook } from "../../../src/main/db/notebooks-repo";
 import { createTask } from "../../../src/main/db/tasks-repo";
 import { contentHashOf, upsertEmbedding } from "../../../src/main/db/embeddings-repo";
 import type { EmbeddedEntityType } from "../../../src/main/db/embeddings-repo";
 import { setEmbeddingRuntime } from "../../../src/main/llm/index";
+import { findRelatedNotes } from "../../../src/main/llm/semantic-search-service";
 import { findNoteTool } from "../../../src/main/mcp/tools";
 import { FakeEmbeddingProvider } from "../llm/fake-embedding-provider";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -89,6 +91,42 @@ describe("semantic_search_notes", () => {
     expect(idsOf(payload, "notes")).toEqual([near.id, far.id]);
     expect(idsOf(payload, "tasks")).toEqual([task.id]);
     expect(payload.unavailable).toBeUndefined();
+  });
+
+  // 索引に notebook 行が入るのは移送マイグレーション（セットA）以降。
+  it("ノート（束）も概要の近さで返す", async () => {
+    const notebook = createNotebook({ title: "aaaaa", summary: "aaaaa", tags: [] });
+    const note = createNote({ title: "aaaa", body: "aaaa", tags: [] });
+    await indexEntity("notebook", notebook.id, notebook.title, notebook.summary);
+    await indexEntity("note", note.id, note.title, note.body);
+
+    const payload = readPayload(await callTool({ query: "aaaaa\naaaaa" }));
+
+    expect(idsOf(payload, "notebooks")).toEqual([notebook.id]);
+    expect(idsOf(payload, "notes")).toEqual([note.id]);
+    expect(readEntries(payload, "notebooks")[0]?.summary).toBe("aaaaa");
+  });
+
+  it("ゴミ箱に入れたノート（束）は返さない", async () => {
+    const kept = createNotebook({ title: "残る", summary: "概要", tags: [] });
+    const trashed = createNotebook({ title: "捨てる", summary: "概要", tags: [] });
+    await indexEntity("notebook", kept.id, kept.title, kept.summary);
+    await indexEntity("notebook", trashed.id, trashed.title, trashed.summary);
+    softDeleteNotebook(trashed.id);
+
+    const payload = readPayload(await callTool({ query: "概要" }));
+
+    expect(idsOf(payload, "notebooks")).toEqual([kept.id]);
+  });
+
+  it("実体が消えたノート（束）の索引行は落とす", async () => {
+    const notebook = createNotebook({ title: "残る", summary: "概要", tags: [] });
+    await indexEntity("notebook", notebook.id, notebook.title, notebook.summary);
+    await indexEntity("notebook", "missing-notebook-id", "幽霊", "概要");
+
+    const payload = readPayload(await callTool({ query: "概要" }));
+
+    expect(idsOf(payload, "notebooks")).toEqual([notebook.id]);
   });
 
   it("スコアを添えて返し、ノート側は降順になっている", async () => {
@@ -176,7 +214,12 @@ describe("semantic_search_notes", () => {
     const payload = readPayload(result);
 
     expect(result.isError).toBeUndefined();
-    expect(payload).toEqual({ notes: [], tasks: [], unavailable: "モデルを読み込めなかった" });
+    expect(payload).toEqual({
+      notes: [],
+      tasks: [],
+      notebooks: [],
+      unavailable: "モデルを読み込めなかった",
+    });
   });
 
   it("モデルが準備中のときは準備中と伝える空の結果を返す", async () => {
@@ -188,6 +231,23 @@ describe("semantic_search_notes", () => {
     expect(result.isError).toBeUndefined();
     expect(payload.notes).toEqual([]);
     expect(payload.tasks).toEqual([]);
+    expect(payload.notebooks).toEqual([]);
     expect(payload.unavailable).toContain("準備中");
+  });
+});
+
+// 「関連するノート」欄はページ同士の関連のまま（ノート（束）を混ぜるかは T58 で決める）。
+describe("findRelatedNotes", () => {
+  it("結果にノート（束）を混ぜない", async () => {
+    const note = createNote({ title: "aaaaa", body: "aaaaa", tags: [] });
+    const other = createNote({ title: "aaaa", body: "aaaa", tags: [] });
+    const notebook = createNotebook({ title: "aaaaa", summary: "aaaaa", tags: [] });
+    await indexEntity("note", note.id, note.title, note.body);
+    await indexEntity("note", other.id, other.title, other.body);
+    await indexEntity("notebook", notebook.id, notebook.title, notebook.summary);
+
+    const related = findRelatedNotes(note.id, 10);
+
+    expect(related.notes.map((entry) => entry.id)).toEqual([other.id]);
   });
 });

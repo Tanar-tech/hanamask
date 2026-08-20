@@ -13,13 +13,18 @@ import { toUpdatedLabel } from "../text/dateLabel";
 const HEADING = "意味が近い記録";
 const NOTE_LABEL = "ノート";
 const TASK_LABEL = "タスク";
+const NOTEBOOK_LABEL = "ノート（束）";
 const SEMANTIC_LIMIT = 10;
-const EMPTY_RESULT: SemanticSearchResult = { notes: [], tasks: [] };
+const EMPTY_RESULT: SemanticSearchResult = { notes: [], tasks: [], notebooks: [] };
 
-interface SemanticSearchResultsProps {
-  query: string;
+interface SelectHandlers {
   onSelectNote: (id: string) => void;
   onSelectTask?: (id: string) => void;
+  onSelectNotebook?: (id: string) => void;
+}
+
+interface SemanticSearchResultsProps extends SelectHandlers {
+  query: string;
 }
 
 interface ResultRow {
@@ -32,31 +37,31 @@ interface ResultRow {
   onSelect: ((id: string) => void) | undefined;
 }
 
-// ノートとタスクを分けずスコアの降順で1本に並べる（近い順に読めることを優先する）。
-const toRows = (
-  result: SemanticSearchResult,
-  onSelectNote: (id: string) => void,
-  onSelectTask: ((id: string) => void) | undefined,
-): ResultRow[] =>
+interface RowSource {
+  id: string;
+  title: string;
+  score: number;
+  updatedAt: string;
+}
+
+const toRow =
+  (typeLabel: string, onSelect: ((id: string) => void) | undefined) =>
+  (source: RowSource): ResultRow => ({
+    key: `${typeLabel}-${source.id}`,
+    id: source.id,
+    title: source.title,
+    score: source.score,
+    typeLabel,
+    updatedAt: source.updatedAt,
+    onSelect,
+  });
+
+// 種別で分けずスコアの降順で1本に並べる（近い順に読めることを優先する）。
+const toRows = (result: SemanticSearchResult, handlers: SelectHandlers): ResultRow[] =>
   [
-    ...result.notes.map((note) => ({
-      key: `note-${note.id}`,
-      id: note.id,
-      title: note.title,
-      score: note.score,
-      typeLabel: NOTE_LABEL,
-      updatedAt: note.updatedAt,
-      onSelect: onSelectNote,
-    })),
-    ...result.tasks.map((task) => ({
-      key: `task-${task.id}`,
-      id: task.id,
-      title: task.title,
-      score: task.score,
-      typeLabel: TASK_LABEL,
-      updatedAt: task.updatedAt,
-      onSelect: onSelectTask,
-    })),
+    ...result.notes.map(toRow(NOTE_LABEL, handlers.onSelectNote)),
+    ...result.tasks.map(toRow(TASK_LABEL, handlers.onSelectTask)),
+    ...result.notebooks.map(toRow(NOTEBOOK_LABEL, handlers.onSelectNotebook)),
   ].sort((left, right) => right.score - left.score);
 
 const ResultTitle = ({ row }: { row: ResultRow }): JSX.Element => {
@@ -81,11 +86,12 @@ export const SemanticSearchResults = ({
   query,
   onSelectNote,
   onSelectTask,
+  onSelectNotebook,
 }: SemanticSearchResultsProps): JSX.Element | null => {
   const load = useCallback(() => window.hanamask.semanticSearch(query, SEMANTIC_LIMIT), [query]);
   const { status, result } = useSemanticSection(load, EMPTY_RESULT);
 
-  const rows = toRows(result, onSelectNote, onSelectTask);
+  const rows = toRows(result, { onSelectNote, onSelectTask, onSelectNotebook });
   if (status?.state === "ready" && rows.length === 0) return null;
 
   return (

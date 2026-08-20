@@ -69,7 +69,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-02-in-trash.png") });
 
     await window.getByRole("button", { name: "復元" }).click();
-    await window.getByText("削除済みのノート・タスクはありません").waitFor();
+    await window.getByText("削除済みのノート・タスク・ノート（束）はありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-03-restored.png") });
 
     await window.getByRole("button", { name: "戻る" }).click();

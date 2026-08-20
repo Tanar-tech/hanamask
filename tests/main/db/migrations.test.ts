@@ -70,6 +70,86 @@ CREATE TABLE links (
 const V2_0_NOTE_ID = "legacy-note-1";
 const V2_0_VERSION_ID = "legacy-version-1";
 
+/* T56 以前の embeddings。entity_type は 'note'/'task' しか受け付けない。 */
+const LEGACY_EMBEDDINGS_TABLE = `
+CREATE TABLE embeddings (
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task')),
+  entity_id   TEXT NOT NULL,
+  model_id    TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  vector      BLOB NOT NULL,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (entity_type, entity_id)
+);
+`;
+
+const LEGACY_MODEL_ID = "ruri-v3-70m-q8_0";
+
+const vectorBuffer = (values: number[]): Buffer => {
+  const vector = new Float32Array(values);
+  return Buffer.from(vector.buffer, vector.byteOffset, vector.byteLength);
+};
+
+const insertLegacyEmbeddings = (db: Database.Database): void => {
+  const insert = db.prepare(
+    "INSERT INTO embeddings (entity_type, entity_id, model_id, content_hash, vector, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+  );
+  insert.run(
+    "note",
+    V2_0_NOTE_ID,
+    LEGACY_MODEL_ID,
+    "note-hash",
+    vectorBuffer([0.5, -0.25, 0.125, 0]),
+    LEGACY_TIMESTAMP,
+  );
+  insert.run(
+    "task",
+    LEGACY_TASK_ID,
+    LEGACY_MODEL_ID,
+    "task-hash",
+    vectorBuffer([1, 2, 3.5, -4.25]),
+    LEGACY_TIMESTAMP,
+  );
+};
+
+const createDbWithLegacyEmbeddings = (dbFilePath: string): void => {
+  const legacy = new Database(dbFilePath);
+  legacy.exec(V2_0_TABLES);
+  legacy.exec(LEGACY_EMBEDDINGS_TABLE);
+  insertV2_0Rows(legacy);
+  insertLegacyEmbeddings(legacy);
+  legacy.close();
+};
+
+/* hex() でBLOBまで含めて突き合わせるので、ベクトルが1ビットでも変われば落ちる。 */
+const EMBEDDINGS_DUMP_SQL = `
+  SELECT entity_type, entity_id, model_id, content_hash, hex(vector) AS vector_hex, updated_at
+    FROM embeddings ORDER BY entity_type, entity_id`;
+
+const dumpEmbeddings = (db: Database.Database): unknown[] =>
+  db.prepare(EMBEDDINGS_DUMP_SQL).all();
+
+const dumpEmbeddingsFromFile = (dbFilePath: string): unknown[] => {
+  const db = new Database(dbFilePath);
+  try {
+    return dumpEmbeddings(db);
+  } finally {
+    db.close();
+  }
+};
+
+const tableSql = (table: string): string => {
+  const row: unknown = getDb()
+    .prepare("SELECT sql AS sql FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(table);
+  if (typeof row !== "object" || row === null || !("sql" in row)) {
+    throw new Error(`No DDL found for table ${table}`);
+  }
+  return String(row.sql);
+};
+
+const NOTEBOOK_ENTITY_CHECK = "'note','task','notebook'";
+
 const insertV2_0Rows = (db: Database.Database): void => {
   db.prepare(
     "INSERT INTO notes (id, title, body, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -293,6 +373,61 @@ describe("migrations", () => {
       openDb(dbFilePath);
 
       expect(NOTEBOOK_RELATED_TABLES.map(tableInfo)).toEqual(fresh);
+    } finally {
+      rmSync(freshDbFilePath, { force: true });
+    }
+  });
+
+  it("旧embeddingsを持つDBを開くと既存のベクトルが1件も失われずbit単位で一致する", () => {
+    createDbWithLegacyEmbeddings(dbFilePath);
+    const before = dumpEmbeddingsFromFile(dbFilePath);
+
+    openDb(dbFilePath);
+
+    expect(dumpEmbeddings(getDb())).toEqual(before);
+    expect(before).toHaveLength(2);
+  });
+
+  it("作り直し後のembeddingsはnotebookの行を受け付ける", () => {
+    createDbWithLegacyEmbeddings(dbFilePath);
+
+    openDb(dbFilePath);
+
+    expect(tableSql("embeddings")).toContain(NOTEBOOK_ENTITY_CHECK);
+    expect(() => {
+      getDb()
+        .prepare(
+          "INSERT INTO embeddings (entity_type, entity_id, model_id, content_hash, vector, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .run("notebook", "nb-1", LEGACY_MODEL_ID, "hash", vectorBuffer([1]), LEGACY_TIMESTAMP);
+    }).not.toThrow();
+  });
+
+  it("旧embeddingsを持つDBを二度開いてもベクトルが保たれる", () => {
+    createDbWithLegacyEmbeddings(dbFilePath);
+
+    openDb(dbFilePath);
+    const afterFirstOpen = dumpEmbeddings(getDb());
+    closeDb();
+
+    expect(() => openDb(dbFilePath)).not.toThrow();
+    expect(dumpEmbeddings(getDb())).toEqual(afterFirstOpen);
+  });
+
+  it("新規DBとアップグレードしたDBでembeddingsの形とCHECKが一致する", () => {
+    const freshDbFilePath = join(tmpdir(), `hanamask-migration-fresh-${randomUUID()}.sqlite3`);
+    try {
+      openDb(freshDbFilePath);
+      const freshColumns = tableInfo("embeddings");
+      const freshSql = tableSql("embeddings");
+      closeDb();
+
+      createDbWithLegacyEmbeddings(dbFilePath);
+      openDb(dbFilePath);
+
+      expect(tableInfo("embeddings")).toEqual(freshColumns);
+      expect(freshSql).toContain(NOTEBOOK_ENTITY_CHECK);
+      expect(tableSql("embeddings")).toContain(NOTEBOOK_ENTITY_CHECK);
     } finally {
       rmSync(freshDbFilePath, { force: true });
     }

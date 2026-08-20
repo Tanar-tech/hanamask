@@ -11,8 +11,14 @@ import {
 } from "../../../src/main/db/notes-repo";
 import { createTask, softDeleteTask } from "../../../src/main/db/tasks-repo";
 import {
+  createNotebook,
+  softDeleteNotebook,
+  updateNotebook,
+} from "../../../src/main/db/notebooks-repo";
+import {
   contentHashOf,
   deleteEmbedding,
+  deleteOrphanEmbeddings,
   listEmbeddings,
   listStaleEntities,
   upsertEmbedding,
@@ -268,6 +274,148 @@ describe("embeddings-repo", () => {
       softDeleteTask(task.id);
 
       expect(listStaleEntities(MODEL_ID)).toEqual([]);
+    });
+
+    it("まだ索引の無いノート（束）を概要を本文として返す", () => {
+      const notebook = createNotebook({
+        title: "ノートの題",
+        summary: "ノートの概要",
+        tags: [],
+      });
+
+      expect(listStaleEntities(MODEL_ID)).toContainEqual({
+        entityType: "notebook",
+        entityId: notebook.id,
+        title: "ノートの題",
+        body: "ノートの概要",
+      });
+    });
+
+    it("概要と一致するハッシュで索引済みのノート（束）は返さない", () => {
+      const notebook = createNotebook({
+        title: "題",
+        summary: "概要",
+        tags: [],
+      });
+      upsertEmbedding(
+        embeddingFor("notebook", notebook.id, {
+          contentHash: contentHashOf("題", "概要"),
+        }),
+      );
+
+      expect(listStaleEntities(MODEL_ID)).toEqual([]);
+    });
+
+    it("概要が変わったノート（束）を返す", () => {
+      const notebook = createNotebook({
+        title: "題",
+        summary: "概要",
+        tags: [],
+      });
+      upsertEmbedding(
+        embeddingFor("notebook", notebook.id, {
+          contentHash: contentHashOf("題", "概要"),
+        }),
+      );
+      updateNotebook(notebook.id, { summary: "書き換えた概要" });
+
+      expect(listStaleEntities(MODEL_ID)).toEqual([
+        {
+          entityType: "notebook",
+          entityId: notebook.id,
+          title: "題",
+          body: "書き換えた概要",
+        },
+      ]);
+    });
+
+    it("削除済みのノート（束）は返さない", () => {
+      const notebook = createNotebook({
+        title: "題",
+        summary: "概要",
+        tags: [],
+      });
+      softDeleteNotebook(notebook.id);
+
+      expect(listStaleEntities(MODEL_ID)).toEqual([]);
+    });
+  });
+
+  describe("notebook の埋め込み", () => {
+    it("保存したノート（束）のベクトルが読み戻せる", () => {
+      const notebook = createNotebook({
+        title: "題",
+        summary: "概要",
+        tags: [],
+      });
+      upsertEmbedding(
+        embeddingFor("notebook", notebook.id, {
+          vector: new Float32Array([1, -1]),
+        }),
+      );
+
+      const stored = onlyRow(listEmbeddings(MODEL_ID));
+
+      expect(stored).toMatchObject({
+        entityType: "notebook",
+        entityId: notebook.id,
+      });
+      expect(Array.from(stored.vector)).toEqual([1, -1]);
+    });
+
+    it("削除済みのノート（束）の埋め込みは返さない", () => {
+      const notebook = createNotebook({
+        title: "題",
+        summary: "概要",
+        tags: [],
+      });
+      upsertEmbedding(embeddingFor("notebook", notebook.id));
+      softDeleteNotebook(notebook.id);
+
+      expect(listEmbeddings(MODEL_ID)).toEqual([]);
+    });
+
+    it("対応するノート（束）が消えた孤児行は返さない", () => {
+      const notebook = createNotebook({
+        title: "題",
+        summary: "概要",
+        tags: [],
+      });
+      upsertEmbedding(embeddingFor("notebook", notebook.id));
+      getDb().prepare("DELETE FROM notebooks WHERE id = ?").run(notebook.id);
+
+      expect(listEmbeddings(MODEL_ID)).toEqual([]);
+    });
+  });
+
+  describe("deleteOrphanEmbeddings", () => {
+    it("物理削除されたノート（束）の行を消し、生きている行は残す", () => {
+      const notebook = createNotebook({
+        title: "題",
+        summary: "概要",
+        tags: [],
+      });
+      const note = createNote({ title: "題", body: "本文", tags: [] });
+      upsertEmbedding(embeddingFor("notebook", notebook.id));
+      upsertEmbedding(embeddingFor("note", note.id));
+      getDb().prepare("DELETE FROM notebooks WHERE id = ?").run(notebook.id);
+
+      expect(deleteOrphanEmbeddings()).toBe(1);
+      expect(listEmbeddings(MODEL_ID).map((row) => row.entityType)).toEqual([
+        "note",
+      ]);
+    });
+
+    it("孤児が無ければ1件も消さない", () => {
+      const notebook = createNotebook({
+        title: "題",
+        summary: "概要",
+        tags: [],
+      });
+      upsertEmbedding(embeddingFor("notebook", notebook.id));
+
+      expect(deleteOrphanEmbeddings()).toBe(0);
+      expect(listEmbeddings(MODEL_ID)).toHaveLength(1);
     });
   });
 });

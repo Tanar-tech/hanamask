@@ -349,7 +349,8 @@ const semanticSearchNotesTool: NoteTool = {
   definition: {
     name: "semantic_search_notes",
     description:
-      "Find notes and tasks whose meaning is close to a natural-language query, nearest first. " +
+      "Find notes, notebooks, and tasks whose meaning is close to a natural-language query, nearest first. " +
+      "Results are grouped into `notes`, `notebooks` (a notebook matches on its summary), and `tasks`. " +
       "Unlike search_notes (keyword match), this finds records phrased differently but about the same thing. " +
       "Use it before starting work to pull up past findings even when you do not know the exact wording. " +
       "When the embedding model is not ready it returns empty results with an `unavailable` reason; fall back to search_notes then.",

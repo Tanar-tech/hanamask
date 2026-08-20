@@ -24,7 +24,7 @@ import {
   updateNote,
   type NoteUpdateInput,
 } from "./db/notes-repo.js";
-import { listDeletedNotebooks, restoreNotebook } from "./db/notebooks-repo.js";
+import { getNotebook, listDeletedNotebooks, restoreNotebook } from "./db/notebooks-repo.js";
 import {
   getTask,
   listDeletedTasks,
@@ -601,6 +601,10 @@ const readEntityForEmbedding = (
   entityType: EmbeddedEntityType,
   entityId: string,
 ): { title: string; body: string } | undefined => {
+  if (entityType === "notebook") {
+    const notebook = getNotebook(entityId);
+    return notebook === null ? undefined : { title: notebook.title, body: notebook.summary };
+  }
   const entity = entityType === "note" ? getNote(entityId) : getTask(entityId);
   return entity === null
     ? undefined
@@ -618,6 +622,7 @@ const readContextSize = (modelsDir: string): number | undefined => {
 
 const startEmbeddingIndexer = (contextSize: number): void => {
   const indexer = createEmbeddingIndexer({
+    subscribeNotebooks: onNotebooksChanged,
     repo: { upsertEmbedding, listStaleEntities, contentHashOf },
     getAvailability: embeddingRuntime.availability,
     onAvailabilityChanged: embeddingRuntime.onAvailabilityChanged,
