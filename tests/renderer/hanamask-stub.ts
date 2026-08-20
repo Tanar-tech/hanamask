@@ -34,6 +34,9 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     listDeletedNotes: vi.fn(async () => []),
     restoreNote: vi.fn(async () => null),
     listDeletedNotebooks: vi.fn(async () => []),
+    listNotebooks: vi.fn(async () => []),
+    getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
+    updateNotebook: vi.fn(async () => null),
     restoreNotebook: vi.fn(async () => true),
     readActivity: vi.fn(async () => ({ lastRecordedAt: null, recentCount: 0 })),
     readMcpEndpoint: vi.fn(async () => ({

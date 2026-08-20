@@ -77,6 +77,9 @@ const mockHanamask = (notesByCall: Note[][]) => {
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
     onNotebooksChanged: vi.fn(() => () => undefined),
     listDeletedNotebooks: vi.fn(async () => []),
+    listNotebooks: vi.fn(async () => []),
+    getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
+    updateNotebook: vi.fn(async () => null),
     restoreNotebook: vi.fn(async () => true),
   };
   return { listNotes, onNotesChanged, deleteNote, listeners, unsubscribe };

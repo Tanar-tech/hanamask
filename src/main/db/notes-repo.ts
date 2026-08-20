@@ -79,6 +79,7 @@ const toNote = (row: NoteRow): Note => ({
   tags: parseTags(row.tags),
   createdAt: row.created_at,
   updatedAt: row.updated_at,
+  notebookId: row.notebook_id,
 });
 
 const toNoteWithNotebook = (row: NoteRow): NoteWithNotebook => ({

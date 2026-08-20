@@ -24,7 +24,15 @@ import {
   updateNote,
   type NoteUpdateInput,
 } from "./db/notes-repo.js";
-import { getNotebook, listDeletedNotebooks, restoreNotebook } from "./db/notebooks-repo.js";
+import {
+  getActiveNotebook,
+  getNotebook,
+  listDeletedNotebooks,
+  listNotebooks,
+  listNotesInNotebook,
+  restoreNotebook,
+  updateNotebook,
+} from "./db/notebooks-repo.js";
 import {
   getTask,
   listDeletedTasks,
@@ -137,6 +145,9 @@ const NOTES_UPDATE_CHANNEL = "notes:update";
 const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
 const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
 const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
+const NOTEBOOKS_LIST_CHANNEL = "notebooks:list";
+const NOTEBOOKS_GET_CHANNEL = "notebooks:get";
+const NOTEBOOKS_UPDATE_CHANNEL = "notebooks:update";
 const NOTEBOOKS_LIST_DELETED_CHANNEL = "notebooks:list-deleted";
 const NOTEBOOKS_RESTORE_CHANNEL = "notebooks:restore";
 const NOTEBOOKS_CHANGED_CHANNEL = "notebooks:changed";
@@ -347,6 +358,42 @@ const undeleteNote = (_event: IpcMainInvokeEvent, id: string): Note | null => {
   const restored = restoreNote(id);
   if (restored !== null) emitNotesChanged();
   return restored;
+};
+
+const readNotebookUpdateInput = (value: unknown): { title?: string; summary?: string; tags?: string[] } => {
+  if (typeof value !== "object" || value === null) throw new Error("update input must be an object");
+  const record: Record<string, unknown> = { ...value };
+  const input: { title?: string; summary?: string; tags?: string[] } = {};
+  if (record.title !== undefined) {
+    if (typeof record.title !== "string") throw new Error("title must be a string");
+    input.title = record.title;
+  }
+  if (record.summary !== undefined) {
+    if (typeof record.summary !== "string") throw new Error("summary must be a string");
+    input.summary = record.summary;
+  }
+  if (record.tags !== undefined) {
+    if (!Array.isArray(record.tags) || record.tags.some((tag) => typeof tag !== "string")) {
+      throw new Error("tags must be an array of strings");
+    }
+    input.tags = record.tags.filter((tag): tag is string => typeof tag === "string");
+  }
+  return input;
+};
+
+const readNotebookDetail = (_event: IpcMainInvokeEvent, id: string) => {
+  const notebook = getActiveNotebook(id);
+  if (notebook === null) return { notebook: null, notes: [] };
+  return { notebook, notes: listNotesInNotebook(id) };
+};
+
+// MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitNotebooksChangedを呼ぶ。
+const changeNotebook = (_event: IpcMainInvokeEvent, id: string, input: unknown) => {
+  const updated = updateNotebook(id, readNotebookUpdateInput(input));
+  if (updated !== null) {
+    emitNotebooksChanged({ entity: "notebook", action: "updated", id, title: updated.title });
+  }
+  return updated;
 };
 
 const undeleteNotebook = (_event: IpcMainInvokeEvent, id: string): boolean => {
@@ -732,7 +779,10 @@ ipcMain.handle(NOTES_LIST_VERSIONS_CHANNEL, findNoteVersions);
 ipcMain.handle(NOTES_RESTORE_VERSION_CHANNEL, restoreVersion);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(NOTES_LIST_DELETED_CHANNEL, () => listDeletedNotes());
-ipcMain.handle(NOTEBOOKS_LIST_DELETED_CHANNEL, () => listDeletedNotebooks());
+ipcMain.handle(NOTEBOOKS_LIST_CHANNEL, () => listNotebooks());
+  ipcMain.handle(NOTEBOOKS_GET_CHANNEL, readNotebookDetail);
+  ipcMain.handle(NOTEBOOKS_UPDATE_CHANNEL, changeNotebook);
+  ipcMain.handle(NOTEBOOKS_LIST_DELETED_CHANNEL, () => listDeletedNotebooks());
 ipcMain.handle(NOTEBOOKS_RESTORE_CHANNEL, undeleteNotebook);
 ipcMain.handle(NOTES_RESTORE_CHANNEL, undeleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
