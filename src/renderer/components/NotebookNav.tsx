@@ -2,9 +2,6 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import type { Note, Notebook } from "../../shared/preload-api";
 import { filterNavItems, type NavItem, type NavNotebook, type NavPage } from "../text/navFilter";
 
-/** Phase 4 で Note に notebookId が載るまでの受け皿。未定義は無所属として扱う。 */
-export type NavNote = Note & { notebookId?: string | null };
-
 export interface NotebookPages {
   notebook: Notebook | null;
   notes: Note[];
@@ -14,23 +11,6 @@ export interface NotebookPages {
  * ノートを読む口。Phase 4 で preload-api.ts の HanamaskPreloadApi に載るまでは
  * window.hanamask の型に無いので、ここで形を宣言し、実行時に確かめてから使う。
  */
-export interface NotebookNavApi {
-  listNotebooks(): Promise<Notebook[]>;
-  getNotebook(id: string): Promise<NotebookPages>;
-}
-
-const isNotebookNavApi = (value: unknown): value is NotebookNavApi => {
-  if (typeof value !== "object" || value === null) return false;
-  const api: Record<string, unknown> = { ...value };
-  return typeof api.listNotebooks === "function" && typeof api.getNotebook === "function";
-};
-
-export const notebookNavApi = (): NotebookNavApi => {
-  const api: unknown = window.hanamask;
-  if (!isNotebookNavApi(api)) throw new Error("ノートを読む口が用意されていません");
-  return api;
-};
-
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
 const FOCUS_RING =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow";
@@ -47,14 +27,14 @@ const FILTER_LABEL = "ノート・ページを絞り込み";
 const EMPTY_MESSAGE = "ノートもページもまだありません";
 const NO_MATCH_MESSAGE = "一致するノート・ページはありません";
 
-const countPagesByNotebook = (notes: readonly NavNote[]): Map<string, number> =>
+const countPagesByNotebook = (notes: readonly Note[]): Map<string, number> =>
   notes.reduce((counts, note) => {
     const notebookId = note.notebookId ?? null;
     if (notebookId !== null) counts.set(notebookId, (counts.get(notebookId) ?? 0) + 1);
     return counts;
   }, new Map<string, number>());
 
-const toNavItems = (notebooks: readonly Notebook[], notes: readonly NavNote[]): NavItem[] => {
+const toNavItems = (notebooks: readonly Notebook[], notes: readonly Note[]): NavItem[] => {
   const pageCounts = countPagesByNotebook(notes);
   const titleById = new Map(notebooks.map((notebook) => [notebook.id, notebook.title]));
   return [
@@ -127,14 +107,14 @@ export const NotebookNav = ({
   onSelectPage,
 }: NotebookNavProps): JSX.Element => {
   const [notebooks, setNotebooks] = useState<Notebook[]>([]);
-  const [notes, setNotes] = useState<NavNote[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
       const [loadedNotebooks, loadedNotes] = await Promise.all([
-        notebookNavApi().listNotebooks(),
+        window.hanamask.listNotebooks(),
         window.hanamask.listNotes(),
       ]);
       setNotebooks(loadedNotebooks);

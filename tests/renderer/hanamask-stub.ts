@@ -4,10 +4,6 @@ import type {
   EmbeddingStatus,
   HanamaskPreloadApi,
 } from "../../src/shared/preload-api";
-import type { NotebookNavApi } from "../../src/renderer/components/NotebookNav";
-
-/* ノートを読む口はPhase 4でpreload-api.tsに載る。載るまではナビ側の宣言を借りる。 */
-type StubbedApi = HanamaskPreloadApi & NotebookNavApi;
 
 const CHAT_SETTINGS = { apiKeyMask: null, model: "claude-sonnet-4-5" };
 
@@ -21,8 +17,8 @@ const UNAVAILABLE_STATUS: EmbeddingStatus = {
 };
 
 /** 何もしない既定のpreload API。関心のある口だけを差し替えて使う。 */
-export const stubHanamask = (overrides: Partial<StubbedApi>): void => {
-  const base: StubbedApi = {
+export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
+  const base: HanamaskPreloadApi = {
     listNotebooks: vi.fn(async () => []),
     getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
     deleteTask: vi.fn(async () => {}),
@@ -40,8 +36,6 @@ export const stubHanamask = (overrides: Partial<StubbedApi>): void => {
     listDeletedNotes: vi.fn(async () => []),
     restoreNote: vi.fn(async () => null),
     listDeletedNotebooks: vi.fn(async () => []),
-    listNotebooks: vi.fn(async () => []),
-    getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
     updateNotebook: vi.fn(async () => null),
     restoreNotebook: vi.fn(async () => true),
     readActivity: vi.fn(async () => ({ lastRecordedAt: null, recentCount: 0 })),
@@ -83,6 +77,6 @@ export const stubHanamask = (overrides: Partial<StubbedApi>): void => {
     readEmbeddingStatus: vi.fn(async () => UNAVAILABLE_STATUS),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
   };
-  const api: StubbedApi = { ...base, ...overrides };
+  const api: HanamaskPreloadApi = { ...base, ...overrides };
   window.hanamask = api;
 };

@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { NotebookNav, type NavNote } from "../../src/renderer/components/NotebookNav";
+import { NotebookNav } from "../../src/renderer/components/NotebookNav";
 import type { Note, Notebook } from "../../src/shared/preload-api";
 import { stubHanamask } from "./hanamask-stub";
 
@@ -21,7 +21,7 @@ const RELEASE: Notebook = {
   updatedAt: "2026-08-18T00:00:00.000Z",
 };
 
-const makeNote = (overrides: Partial<NavNote>): NavNote => ({
+const makeNote = (overrides: Partial<Note>): Note => ({
   id: "note-1",
   title: "WSLからMCPへ接続する手順",
   body: "",
@@ -45,7 +45,7 @@ const RELEASE_EMPTY = "リリース運用（ページ0件）";
 
 interface NavStubs {
   notebooks?: Notebook[];
-  notes?: NavNote[];
+  notes?: Note[];
 }
 
 const mockNavApi = ({ notebooks = [], notes = [] }: NavStubs) => {

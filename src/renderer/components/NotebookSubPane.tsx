@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
 import type { Note } from "../../shared/preload-api";
+import type { NotebookPages } from "./NotebookNav";
 import { toUpdatedLabel } from "../text/dateLabel";
-import { notebookNavApi, type NotebookPages } from "./NotebookNav";
+
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
 const FOCUS_RING =
@@ -28,7 +29,7 @@ export const NotebookSubPane = ({
 
   const reload = useCallback(async () => {
     try {
-      setPages(await notebookNavApi().getNotebook(notebookId));
+      setPages(await window.hanamask.getNotebook(notebookId));
       setError(null);
     } catch (cause) {
       setError(`ページの読み込みに失敗しました: ${String(cause)}`);
