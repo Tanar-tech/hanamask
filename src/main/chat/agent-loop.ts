@@ -1,7 +1,12 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 // 型はレンダラーとも共有するため、共有コントラクトを唯一の定義元にする。
 import type { ChatContentBlock, ChatEvent, ChatMessage } from "../../shared/preload-api.js";
-import { linkTools, noteTools, taskTools, uiTools, type McpTool } from "../mcp/tools.js";
+import { linkTools } from "../mcp/tools/links.js";
+import { notebookTools } from "../mcp/tools/notebooks.js";
+import { noteTools } from "../mcp/tools/notes.js";
+import type { McpTool } from "../mcp/tools/shared.js";
+import { taskTools } from "../mcp/tools/tasks.js";
+import { uiTools } from "../mcp/tools/ui.js";
 
 /*
  * チャットはhanamask独自のAIロジックを持たず、既にあるMCPツール群を
@@ -9,7 +14,13 @@ import { linkTools, noteTools, taskTools, uiTools, type McpTool } from "../mcp/t
  * ツール定義はMCPサーバーと同じ実体を使うので、CLIエージェントとチャットで
  * 呼べる操作が食い違うことがない。
  */
-const allTools: readonly McpTool[] = [...noteTools, ...taskTools, ...linkTools, ...uiTools];
+const allTools: readonly McpTool[] = [
+  ...noteTools,
+  ...notebookTools,
+  ...taskTools,
+  ...linkTools,
+  ...uiTools,
+];
 
 const SYSTEM_PROMPT = [
   "あなたはhanamaskというノート・タスク管理アプリの中で動くアシスタントです。",

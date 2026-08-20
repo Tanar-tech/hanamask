@@ -11,7 +11,12 @@ import {
   ListToolsRequestSchema,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import { linkTools, noteTools, taskTools, uiTools, type McpTool } from "./tools.js";
+import { linkTools } from "./tools/links.js";
+import { notebookTools } from "./tools/notebooks.js";
+import { noteTools } from "./tools/notes.js";
+import type { McpTool } from "./tools/shared.js";
+import { taskTools } from "./tools/tasks.js";
+import { uiTools } from "./tools/ui.js";
 import { DEFAULT_MCP_PORT, MAX_PORT } from "./endpoint.js";
 
 const HOST = "127.0.0.1";
@@ -34,7 +39,13 @@ const resolvePort = (): number => {
   return port;
 };
 
-const allTools: readonly McpTool[] = [...noteTools, ...taskTools, ...linkTools, ...uiTools];
+const allTools: readonly McpTool[] = [
+  ...noteTools,
+  ...notebookTools,
+  ...taskTools,
+  ...linkTools,
+  ...uiTools,
+];
 
 const callTool = async (name: string, args: unknown): Promise<CallToolResult> => {
   const tool = allTools.find((candidate) => candidate.definition.name === name);

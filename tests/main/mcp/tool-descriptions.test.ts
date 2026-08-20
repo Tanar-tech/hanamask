@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { linkTools, noteTools, taskTools, uiTools } from "../../../src/main/mcp/tools";
-import type { McpTool } from "../../../src/main/mcp/tools";
+import { linkTools } from "../../../src/main/mcp/tools/links";
+import { noteTools } from "../../../src/main/mcp/tools/notes";
+import type { McpTool } from "../../../src/main/mcp/tools/shared";
+import { taskTools } from "../../../src/main/mcp/tools/tasks";
+import { uiTools } from "../../../src/main/mcp/tools/ui";
 
 /*
  * 説明文は「エージェントが頼まれなくても読み書きする」ための唯一の手がかりなので、

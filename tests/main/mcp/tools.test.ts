@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { closeDb, openDb } from "../../../src/main/db/db";
 import { getNote } from "../../../src/main/db/notes-repo";
 import { onNotesChanged } from "../../../src/main/mcp/change-emitter";
-import { findNoteTool, noteTools } from "../../../src/main/mcp/tools";
+import { findNoteTool, noteTools } from "../../../src/main/mcp/tools/notes";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 const callTool = async (name: string, args: unknown): Promise<CallToolResult> => {

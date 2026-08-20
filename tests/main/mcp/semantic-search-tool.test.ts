@@ -10,7 +10,7 @@ import { contentHashOf, upsertEmbedding } from "../../../src/main/db/embeddings-
 import type { EmbeddedEntityType } from "../../../src/main/db/embeddings-repo";
 import { setEmbeddingRuntime } from "../../../src/main/llm/index";
 import { findRelatedNotes } from "../../../src/main/llm/semantic-search-service";
-import { findNoteTool } from "../../../src/main/mcp/tools";
+import { findNoteTool } from "../../../src/main/mcp/tools/notes";
 import { FakeEmbeddingProvider } from "../llm/fake-embedding-provider";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 

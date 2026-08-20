@@ -13,7 +13,7 @@ import {
   onNotesChanged,
   onTasksChanged,
 } from "../../../src/main/mcp/change-emitter";
-import { findLinkTool, linkTools } from "../../../src/main/mcp/tools";
+import { findLinkTool, linkTools } from "../../../src/main/mcp/tools/links";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 const callTool = (name: string, args: unknown): CallToolResult => {

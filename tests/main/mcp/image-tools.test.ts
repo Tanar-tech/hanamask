@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { closeDb, openDb } from "../../../src/main/db/db";
 import { listImages } from "../../../src/main/db/images-repo";
 import { setImagesDirPath } from "../../../src/main/images/attach-image";
-import { findNoteTool, noteTools } from "../../../src/main/mcp/tools";
+import { findNoteTool, noteTools } from "../../../src/main/mcp/tools/notes";
 import { onNotesChanged } from "../../../src/main/mcp/change-emitter";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
