@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hanamask ノート/ページ再編タスク（T54〜T59）</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<p class="source-note">元ファイル: <a href="../TASKS-notebooks.md">docs/TASKS-notebooks.md</a></p>
+
+<h1>hanamask ノート/ページ再編タスク（T54〜T59）</h1>
+
+<p><a href="TASKS.html">TASKS.html</a> から分離したタスク一覧。ノート/ページ再編（<a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9）は統合ブランチ <code>feature/notebooks</code> で進めるため、その進捗はこのファイルにだけ書き、<code>main</code> 側で並行するパッチ更新が触る <code>docs/TASKS.md</code> とは競合させない。書式・「依存」欄の読み方は <a href="TASKS.html">TASKS.html</a> と同じ。統合完了時に <code>docs/TASKS.md</code> へ1回だけ転記する。</p>
+
+<h2 id="background">経緯</h2>
+<p><a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9、issue #199。管理者の決定（2026-08-20）: hanamaskは<strong>ノート</strong>（ページをとりまとめる束。概要を持つ）と<strong>ページ</strong>（旧「ノート」＝記録の基本単位）の2概念を持ち、両者は<strong>並列の存在</strong>（リンク・タグ・意味検索の索引・編集履歴・ゴミ箱はどちらにも付きうる）。<strong>無所属ページを許し</strong>、既存データは<strong>全て無所属ページに移行</strong>する（IDは維持、包みノートは作らない）。MCP互換は<strong>案A</strong>（既存 <code>*_note</code> 系ツールは名前・引数・戻り値を変えずページ操作として温存し、<code>*_page</code> / <code>*_notebook</code> を新設。旧名の廃止はv3まで行わない）ため、本改定は<strong>v2.1.0（マイナー）</strong>。</p>
+<p><strong>ブランチ運用（2026-08-20、管理者指示）</strong>: v2.0.0（ローカルLLM）と同方式で、統合ブランチ <strong><code>feature/notebooks</code></strong>（<code>main</code>から分岐）を置く。T54〜T59の各PRは<code>main</code>ではなく<code>feature/notebooks</code>をbaseにする。<code>main</code>に入ったパッチ更新は、<code>main</code>→<code>feature/notebooks</code>のマージPRで随時取り込む（rebaseはしない）。全タスクが揃った時点で<code>feature/notebooks</code>→<code>main</code>のPRを1本出し、そこでマイナーバージョンを上げる。要求定義（§4.9）の改定と<code>docs/TASKS.md</code>からの参照だけは先に<code>main</code>へ入れ、<code>docs/TASKS.md</code>本体にはそれ以降触れない。</p>
+
+<h2 id="order">着手順</h2>
+<p>必須依存のみを辺としたウェーブ。同じウェーブ内は並列着手できる。</p>
+<table>
+<thead><tr><th>ウェーブ</th><th>タスク</th><th>必須依存</th></tr></thead>
+<tbody>
+<tr><td>0</td><td><a href="#t54">T54</a>（DB基盤・移行）</td><td>なし</td></tr>
+<tr><td>1</td><td><a href="#t55">T55</a>（EntityTypeの拡張）</td><td>T54</td></tr>
+<tr><td>2</td><td><a href="#t56">T56</a>（意味検索の索引）, <a href="#t57">T57</a>（MCPツール群）</td><td>T54, T55</td></tr>
+<tr><td>3</td><td><a href="#t58">T58</a>（Explorer型ナビ）</td><td>T57</td></tr>
+<tr><td>4</td><td><a href="#t59">T59</a>（ノート概要の自動生成）</td><td>T57／推奨: T56, T58</td></tr>
+</tbody>
+</table>
+
+<pre class="mermaid">
+flowchart TB
+  T54["T54 DB基盤・既存データの移行<br/>notebooks 表 / notes.notebook_id"]
+  T55["T55 リンク・変更通知・タグを<br/>ノートへ広げる（EntityType）"]
+  T56["T56 意味検索の索引<br/>（embeddings 表の作り直し＝要承認）"]
+  T57["T57 MCPツール群<br/>*_page / move_page / *_notebook"]
+  T58["T58 Explorer型ナビ<br/>（ナビ方式は要確認）"]
+  T59["T59 ノート概要の自動生成<br/>（生成主体は要確認）"]
+
+  T54 --> T55
+  T55 --> T56
+  T55 --> T57
+  T57 --> T58
+  T57 --> T59
+  T56 -.推奨.-> T59
+  T58 -.推奨.-> T59
+</pre>
+
+<h3 id="t54">T54: ノート/ページ(1) DB基盤と既存データの移行</h3>
+<ul>
+<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>優先度: <strong>高</strong>（管理者決定、2026-08-20。これが無いと後続が全て着手できない）</li>
+<li>依存: 必須: なし／推奨: なし</li>
+<li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9・§6。ページを束ねる <code>notebooks</code> 表と、ページの所属先 <code>notes.notebook_id</code>（NULL可＝無所属）を追加し、<strong>ノートの概要にも編集履歴（バージョン）が付く</strong>状態にする。既存の全レコードは <code>notebook_id</code> が NULL のまま<strong>無所属ページ</strong>として引き継がれ（IDも中身も変えない）、包みノートは作らない。<strong>呼び名の読み替えとデータの器だけをここで用意し、外から見える挙動は変えない</strong>のが後続T55〜T59の基盤になる。</li>
+<li><strong>着手前に <a href="MIGRATIONS.html">MIGRATIONS.html</a> を読むこと。</strong><code>schema.sql</code> だけを直すと新規インストールでは動き、既存利用者のDBだけが取り残される（テストは全部緑のまま壊れる）。</li>
+<li>変更範囲: <code>src/main/db/schema.sql</code>（<code>notebooks</code> 表、<code>notes.notebook_id</code>、ノート概要の版管理）、<code>src/main/db/migrations.ts</code>（<code>createTableMigration</code> / <code>addColumnMigration</code> を使う）、<code>src/main/db/*-repo.ts</code>（<code>notebooks</code> 用リポジトリの新設、<code>notes</code> 側の <code>notebook_id</code> の読み書き）、<code>src/shared/</code>（型定義）、<a href="MIGRATIONS.html">MIGRATIONS.html</a>（追記が必要なら）。</li>
+<li><strong>版管理の持ち方は設計判断</strong>: 既存の <code>note_versions</code> に対象種別（<code>entity_type</code>）を足すか、ノート概要用に別表を設けるかを SPEC で比較して決める。既存行の <code>entity_type</code> の埋め方（デフォルト値）まで含めて書くこと。</li>
+<li>禁止事項: <strong>バックアップ取り込み（import）の <code>REQUIRED_TABLE_NAMES</code> に <code>notebooks</code> を足さないこと。</strong>足すと <code>notebooks</code> を含まない古いzipが取り込めなくなる。取り込んだ後にマイグレーションで追いつかせる現在の設計を保つ。<code>BackupCounts</code> を増やす場合は <code>isBackupCounts</code> の後方互換（古いzipのメタデータに新しいキーが無い）を壊さないこと。既存レコードのIDを振り直さないこと。「未分類」等の包みノートを自動生成しないこと。1ページが複数ノートに属せる構造（中間表）にしないこと（§4.9で高々1つと決めた）。MCPツール・UI・意味検索には手を入れないこと（T56〜T58の範囲）。</li>
+<li>テスト: マイグレーションのテスト（<strong>既存行を持つDBに表・列が足され、既存のページが <code>notebook_id</code> NULL のまま全て残ること</strong>）。新規インストール（<code>schema.sql</code>）とマイグレーション後のスキーマが一致すること。<code>notebooks</code> のCRUDとソフトデリート。ノート概要の版が作られ、復元できること。<strong><code>notebooks</code> を含まない古い形式のバックアップzipが取り込めること</strong>（禁止事項の裏返しで、ここが本体）。</li>
+<li>停止条件: <strong><a href="MIGRATIONS.html">MIGRATIONS.html</a> §4に該当する操作（表の作り直しを伴うマイグレーション）が必要だと分かったら、実行せず管理者に確認する。</strong>本タスクの範囲は既存ヘルパで書ける追加のみの想定だが、想定が外れたら止まる。版管理の持ち方（既存表の拡張か別表か）で迷ったらSPECで管理者に確認する。ノートを削除したときの所属ページの扱い（無所属化するか道連れにするか）は要求定義に無いため、管理者に確認してから決める。</li>
+</ul>
+
+<h3 id="t55">T55: ノート/ページ(2) リンク・変更通知・タグをノートへ広げる</h3>
+<ul>
+<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>優先度: <strong>高</strong>（管理者決定、2026-08-20）</li>
+<li>依存: 必須: T54（<code>notebooks</code> 表が無いと参照先が無い）／推奨: なし</li>
+<li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9の「<strong>ノートとページは並列の存在</strong>」を、リンク・タグ・変更通知・ゴミ箱の各機能で成立させる。共有の <code>EntityType</code> に <code>"notebook"</code> を足し、ノートをリンクの端点にでき、タグで引け、更新がデスクトップUIとOS通知に乗り、ソフトデリート→復元→30日パージの経路に乗る状態にする。</li>
+<li><strong>調査済み（2026-08-20）</strong>: リンクはDDLの変更が要らない（<code>links-repo</code> の <code>ENTITY_TYPES</code> / <code>TABLE_OF</code> と共有の <code>EntityType</code> 型に <code>"notebook"</code> を足すだけ）。<code>change-notifier</code> の <code>ENTITY_LABELS</code> は <code>Record</code> 型なので、追加漏れは型エラーとして出る。<strong>注意点は <code>EntityChange["entity"]</code> と <code>NavigateTarget["kind"]</code> が同名で結びついていること</strong>（<code>src/main/notify/change-notifier.ts</code> 付近）。通知のクリックで開く先が増えるため、UI側の遷移先（T58）と辻褄を合わせる必要がある。ゴミ箱・パージは現在 note/task の2元対称になっており、これを3元にする。</li>
+<li>変更範囲: <code>src/shared/</code>（<code>EntityType</code>）、<code>src/main/db/links-repo.ts</code>（<code>ENTITY_TYPES</code> / <code>TABLE_OF</code>）、<code>src/main/notify/change-notifier.ts</code>（<code>ENTITY_LABELS</code>、<code>EntityChange</code>）、<code>src/main/db/</code>（タグ集計、パージ処理）、<code>src/renderer/components/TrashView.tsx</code>（3元化）、<code>src/shared/preload-api.ts</code>・IPC。</li>
+<li>禁止事項: <code>EntityType</code> を文字列リテラルの直書きで増やさないこと（共有型を1箇所で足し、漏れは型エラーで出させる）。<code>NavigateTarget</code> に対応する遷移先の実装が無いまま <code>EntityChange</code> だけ増やして、通知をクリックすると何も起きない状態を作らないこと。既存のノート（＝ページ）・タスクのリンク・通知の挙動を変えないこと。パージの30日という期間（§4.7）を変えないこと。MCPツールの新設（T57）・意味検索（T56）には手を入れないこと。</li>
+<li>テスト: ノート⇔ページ、ノート⇔タスク、ノート⇔ノートのリンク作成・解除・一覧。ノートのタグで引けること。ノートの作成・更新・削除で変更通知が飛び、<strong>フォーカスが無いときだけOS通知される</strong>既存条件が保たれること。ノートのソフトデリート→復元→30日経過でのパージ。<strong>削除済みのノートに属していたページの見え方</strong>（T54で決めた方針どおりであること）。</li>
+<li>停止条件: <code>EntityChange</code> と <code>NavigateTarget</code> の対応を崩す設計（片方だけ増やす等）が必要になったら、SPECで管理者に確認する。ノートのタグとページのタグを別の名前空間にするか共通にするかは要求定義に無いため、決める前に管理者に確認する。</li>
+</ul>
+
+<h3 id="t56">T56: ノート/ページ(3) 意味検索の索引をノートへ広げる</h3>
+<ul>
+<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>優先度: 中</li>
+<li>依存: 必須: T54, T55（<code>EntityType</code> の拡張が前提）／推奨: なし</li>
+<li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9・§4.8-1。ノートの概要も埋め込みの対象にし、<code>semantic_search_notes</code> がノート・ページ・タスクの3種を返せるようにする。<strong>「ノートも検索で引き当てられる」は§4.9の並列性の一部</strong>であり、ここが欠けるとノートは検索から見えない入れ物に留まる。</li>
+<li><strong>調査済み（2026-08-20）— 最大の障害</strong>: <code>embeddings.entity_type</code> に <strong>CHECK 制約</strong>が掛かっており、SQLiteは CHECK を ALTER で変更できない。<strong>表を作り直すマイグレーション（新表作成→データ移送→旧表削除→リネーム）が必要</strong>で、これは <a href="MIGRATIONS.html">MIGRATIONS.html</a> §4 の<strong>管理者承認対象</strong>にあたる。加えて <code>migrations.ts</code> に同じDDLが二重記載されている箇所があるため、片方だけ直して食い違わせないこと。</li>
+<li><strong>調査済み（2026-08-20）— その他</strong>: <code>embeddings-repo</code> に notes/tasks をハードコードした UNION SQL が<strong>3箇所</strong>ある。<code>indexer</code> は変更通知の subscribe が<strong>2口固定</strong>。<code>SemanticSearchResult</code> が <code>{ notes, tasks }</code> の形なので、3種目の受け皿が要る（型を変えると呼び出し側に波及する）。</li>
+<li>変更範囲: <code>src/main/db/migrations.ts</code>・<code>schema.sql</code>（<code>embeddings</code> の作り直し）、<code>src/main/db/embeddings-repo.ts</code>（UNION SQL 3箇所）、<code>src/main/llm/indexer</code>（subscribe の追加）、<code>src/shared/</code>（<code>SemanticSearchResult</code>）、<code>src/main/mcp/tools.ts</code>（<code>semantic_search_notes</code> の戻り値）、<code>src/renderer/components/</code>（関連ノート欄・検索結果の表示）。</li>
+<li>禁止事項: <strong><code>embeddings</code> の作り直しマイグレーションを、管理者の承認を得ずに実行しないこと</strong>（停止条件を参照）。CHECK 制約を外して「何でも入る」状態にして回避しないこと（種別の誤りを検出できなくなる）。UNION SQL を3箇所のうち一部だけ直して残りを放置しないこと（<strong>片方だけ直すと検索結果が種別によって欠ける</strong>）。既存の <code>search_notes</code>（キーワード検索）の挙動を変えないこと。CIで実モデルを走らせないこと（推論層はモックで検証、§4.8の制約）。記録の内容を外部へ送らないこと。</li>
+<li>テスト: <strong><code>embeddings</code> 作り直しマイグレーションで既存のベクトルが1件も失われないこと</strong>（件数と内容の突き合わせ。ここが本体）。二重記載のDDLが食い違っていないこと。ノートの概要を更新すると埋め込みが再計算されること。削除済みのノートが検索結果に出ないこと。3種混在の結果が正しく分類されて返ること。モデル未準備のときの応答が従来どおりであること。</li>
+<li>停止条件: <strong><code>embeddings</code> の表を作り直すマイグレーションは <a href="MIGRATIONS.html">MIGRATIONS.html</a> §4 の管理者承認対象。着手前に、移送するデータ量・失敗時の巻き戻し方・バックアップの要否を添えて管理者に確認する。</strong>再インデックス（全件の埋め込み再計算）が必要になる設計を選ぶ場合も、所要時間の見積もりを添えて確認する。<code>SemanticSearchResult</code> の形を変えることで既存の呼び出し側が壊れる範囲が広いと分かったら、SPECで管理者に確認する。</li>
+</ul>
+
+<h3 id="t57">T57: ノート/ページ(4) MCPツール群（<code>*_page</code> / <code>move_page</code> / <code>*_notebook</code>）</h3>
+<ul>
+<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>優先度: <strong>高</strong>（管理者決定、2026-08-20。AIがノートを扱えることが§4.9の主目的）</li>
+<li>依存: 必須: T54, T55／推奨: T56（<code>semantic_search_notes</code> の戻り値を同時に固めたい）</li>
+<li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9・§7.3。ページ用の <code>*_page</code> 群と <code>move_page</code>、ノート用の <code>create_notebook</code> / <code>update_notebook</code> / <code>get_notebook</code> / <code>list_notebooks</code> / <code>delete_notebook</code> / <code>restore_notebook</code> を新設し、<strong>外部AIエージェントが束ね方まで含めて記録を管理できる</strong>ようにする。既存の <code>*_note</code> 系は<strong>名前・引数・戻り値を変えずページ操作として温存</strong>し（案A）、説明文で新ツールを案内する。</li>
+<li><strong>調査済み（2026-08-20）</strong>: ツール定義を組み立てるファクトリは無く、23個すべてが手書き。本タスクで<strong>40前後に増える</strong>。<code>src/main/mcp/tools.ts</code> の分割を検討する場合、<code>scripts/check-readme-tools.mjs</code> が <strong><code>name:</code> のインデント4スペースを前提にしている</strong>ことと、<strong>対象パスをハードコードしている</strong>ことに注意（分割すると静かに検出漏れになる）。</li>
+<li>変更範囲: <code>src/main/mcp/tools.ts</code>（新ツール群。分割するなら <code>scripts/check-readme-tools.mjs</code> も）、<code>src/main/db/</code>（<code>move_page</code> のための所属変更）、<code>README.md</code>（ツール一覧）、<a href="REQUIREMENTS.html#7">REQUIREMENTS.html</a> §7.3（<strong>未実装</strong>印を外す。統合時にまとめてでもよい）。</li>
+<li>禁止事項: <strong>既存 <code>*_note</code> 系ツールの名前・引数・戻り値を変えないこと</strong>（接続済みのエージェントの手順を黙って壊す。廃止はv3まで行わない）。<code>*_page</code> と <code>*_note</code> で挙動を分けないこと（同じ操作の別名として実装し、内部で共通の処理を呼ぶ）。<code>delete_notebook</code> から <code>confirm: true</code> の必須を外さないこと（§4.7）。ノートの削除を物理削除にしないこと。UI（T58）・概要の自動生成（T59）には手を入れないこと。ツールを増やしたのに <code>README.md</code> を更新しないこと（<code>check-readme-tools.mjs</code> が落ちる）。</li>
+<li>テスト: 新ツール群それぞれの正常系・異常系（存在しないID、削除済みの対象、<code>confirm</code> 無しの削除）。<strong><code>*_page</code> と対応する <code>*_note</code> が同じ結果を返すこと</strong>（案Aが成立していることの確認）。<code>move_page</code> の全経路（無所属→ノート、ノート→別ノート、ノート→無所属、存在しないノートへの移動）。ツール数が増えても <code>scripts/check-readme-tools.mjs</code> が正しく全件を拾えること（<strong>分割した場合はここが落とし穴</strong>）。</li>
+<li>停止条件: <code>tools.ts</code> の分割は <code>scripts/check-readme-tools.mjs</code> の前提を崩すため、<strong>分割する判断とスクリプト側の変更は管理者に確認してから行う</strong>。既存ツールの説明文を書き換えることで外部エージェントの挙動が変わりうる範囲（例: 旧ツールを「非推奨」と書くか、「ページを操作する」とだけ書くか）は、文面を管理者に確認する。<code>delete_notebook</code> 時の所属ページの扱いはT54で決めた方針に従い、そこで未決なら管理者に確認する。</li>
+</ul>
+
+<h3 id="t58">T58: ノート/ページ(5) Explorer型ナビゲーション</h3>
+<ul>
+<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>優先度: 中</li>
+<li>依存: 必須: T57（ノートを読むIPC/リポジトリ経路が要る。T54〜T55でも足りるが、ツールと同時に画面を確認できる方が手戻りが少ない）／推奨: T56</li>
+<li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9。Main View に加えて<strong>Explorer型のナビゲーション</strong>を持ち、ノートと<strong>無所属ページ</strong>が混在して並ぶ状態にする。<strong>ノートをクリックするとそのノートに属するページの一覧（サブナビ）が出る。</strong>束ねる作業をしていない利用者が従来どおり使えること（無所属ページがそのまま並ぶこと）を崩さない。</li>
+<li><strong>調査済み（2026-08-20）</strong>: ルーティングは <code>NavigateTarget</code> を<strong>4箇所で消費</strong>しており、遷移先の追加はこの4箇所すべてに効く。左レールは静的な配列を描くだけの presentational コンポーネントで、動的なツリーを載せる構造になっていない。<strong><code>hanamask-stub.ts</code> が preload API を全網羅している</strong>ため、API を1つ足すと全 renderer テストに波及する（<strong>ただし直すのは1箇所</strong>）。</li>
+<li>変更範囲: <code>src/renderer/components/</code>（Explorer型ナビ、サブナビ、無所属ページの並び）、<code>src/renderer/</code>（ルーティング・<code>NavigateTarget</code> の消費箇所4つ）、<code>src/shared/preload-api.ts</code>・IPC（ノート一覧・所属ページ一覧の取得）、<code>tests/.../hanamask-stub.ts</code>。</li>
+<li>禁止事項: <strong>ナビ方式（サブペイン／ツリー展開）を管理者に確認せず選んで実装しないこと</strong>（停止条件）。無所属ページをナビから隠さないこと（束ねていない記録が見えなくなると、移行した既存データが全部見えなくなる）。「未分類」等の疑似ノートを作って無所属ページをそこに押し込まないこと。既存のノート一覧・検索・詳細画面の動線を壊さないこと。リアルタイム反映（§4.6）を壊さないこと（ナビもMCP経由の変更に追随する）。</li>
+<li>テスト: ノートと無所属ページが混在して並ぶこと。ノートをクリックすると所属ページのサブナビが出ること。<strong>ページが1件も無いノート</strong>、<strong>ノートが1件も無い（＝全て無所属の）状態＝移行直後</strong>の表示（空のDBで落ちないことを含む）。MCP経由でページを移動したときにナビが手動リロードなしに追随すること。<code>NavigateTarget</code> の遷移先が4箇所すべてで一貫していること。E2E（skill「e2e-runner」）でナビからページに辿り着けること。</li>
+<li>停止条件: <strong>サブナビの出し方（サブペイン方式かツリー1本展開方式か）は未決定（<a href="REQUIREMENTS.html#8">§8</a>）。SPECでモックアップを2案作って管理者に提示し、選んでもらってから実装する。</strong>ナビにタスクも並べるか、ナビでの並び順・ドラッグでの移動を入れるかは要求定義に無いため、勝手に足さず管理者に確認する。</li>
+</ul>
+
+<h3 id="t59">T59: ノート/ページ(6) ノート概要の自動生成・追従更新</h3>
+<ul>
+<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>優先度: 低</li>
+<li>依存: 必須: T57／推奨: T56, T58（生成した概要が検索・画面に出て初めて効果が見える）</li>
+<li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9。ノートの概要（何の案件か・どこまで進んだか）を所属ページの内容から<strong>自動生成し、ページの追加・更新に合わせて追従更新する</strong>。手で書かなくてもノートが読める入口になっている状態を作る。</li>
+<li><strong>§4.8-3（提案系補助）との関係</strong>: 「提案→利用者が採用」の原則に対する<strong>限定的な例外</strong>として、対象がノートの概要に限られる（ページ本文＝利用者の記録そのものは書き換えない）ことを前提に、自動更新を認める。この境界を広げない。</li>
+<li>変更範囲: 生成主体の決定（停止条件）により変わる。外部AIエージェントに任せる場合は <code>src/main/mcp/tools.ts</code>（ツールの説明文・案内）と運用ドキュメントのみ。同梱ローカルLLMで行う場合は <code>src/main/llm/</code>（生成プロンプトと構造化出力）、<code>src/main/notify/</code>（更新をトリガーにした再生成）、<code>src/renderer/components/</code>（自動生成であることの表示・手動編集との切り替え）。</li>
+<li>禁止事項: <strong>利用者が手で書いた概要を、断りなく上書きしないこと</strong>（手動編集の有無を持ち、上書きしないか確認を挟む）。ページ本文・タイトル・タグを自動で書き換えないこと（例外は概要のみ）。ページの更新のたびに無条件で推論を走らせて、アプリを重くしないこと（間引き・遅延を設計する）。概要の生成のために記録の内容を外部へ送らないこと（ローカルLLMで行う場合）。生成に失敗したときにノートの保存や他の機能を止めないこと。ログに本文を出さないこと。</li>
+<li>テスト: 推論層をモックし、概要が生成・更新される流れ。<strong>手動編集された概要が上書きされないこと</strong>。生成が失敗・未準備のときにノートが従来どおり使えること。ページの追加・更新・移動・削除それぞれで追従更新のトリガーが正しく引かれること（および間引きが効くこと）。採用前後でDBがどう変わるか（自動更新を認める範囲を超えていないこと）。</li>
+<li>停止条件: <strong>生成主体を管理者に確認してから着手する</strong>（<a href="REQUIREMENTS.html#8">§8</a>）。(a) 外部AIエージェントに任せる（ツールの説明文で促すだけ。追加の依存なし）か、(b) 同梱のローカルLLMで行う（<strong><a href="TASKS-local-llm.html#t50">T50</a>「提案系補助」の前倒しが必要</strong>。チャット用の生成モデルが要るため<a href="TASKS-local-llm.html#t49">T49</a>にも波及する）か。トリガー（ページ更新の都度か、明示的な指示のときだけか）も併せて確認する。自動更新の対象を概要以外へ広げる判断は管理者に確認する。</li>
+</ul>
+
+</main>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default",
+  });
+</script>
+</body>
+</html>
