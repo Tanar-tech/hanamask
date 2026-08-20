@@ -78,7 +78,7 @@ flowchart TB
 
 <h3 id="t56">T56: ノート/ページ(3) 意味検索の索引をノートへ広げる</h3>
 <ul>
-<li>ステータス: 実装中（SPEC承認済み 2026-08-20＝作り直しマイグレーション承認込み。A/B統合・Phase 4 結線・§6検証済み、Phase 5 レビュー中）</li>
+<li>ステータス: 完了（PR #207、<code>SPEC.md</code>。§6実データ検証41件bit一致）</li>
 <li>優先度: 中</li>
 <li>依存: 必須: T54, T55（<code>EntityType</code> の拡張が前提）／推奨: なし</li>
 <li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9・§4.8-1。ノートの概要も埋め込みの対象にし、<code>semantic_search_notes</code> がノート・ページ・タスクの3種を返せるようにする。<strong>「ノートも検索で引き当てられる」は§4.9の並列性の一部</strong>であり、ここが欠けるとノートは検索から見えない入れ物に留まる。</li>
