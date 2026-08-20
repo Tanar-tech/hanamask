@@ -92,7 +92,7 @@ flowchart TB
 
 <h3 id="t57">T57: ノート/ページ(4) MCPツール群（<code>*_page</code> / <code>move_page</code> / <code>*_notebook</code>）</h3>
 <ul>
-<li>ステータス: 実装中（SPEC承認済み 2026-08-20。A分割・B/C実装・Phase 4 統合済み、Phase 5 レビュー中）</li>
+<li>ステータス: 完了（PR #209、<code>SPEC.md</code>）</li>
 <li>優先度: <strong>高</strong>（管理者決定、2026-08-20。AIがノートを扱えることが§4.9の主目的）</li>
 <li>依存: 必須: T54, T55／推奨: T56（<code>semantic_search_notes</code> の戻り値を同時に固めたい）</li>
 <li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9・§7.3。ページ用の <code>*_page</code> 群と <code>move_page</code>、ノート用の <code>create_notebook</code> / <code>update_notebook</code> / <code>get_notebook</code> / <code>list_notebooks</code> / <code>delete_notebook</code> / <code>restore_notebook</code> を新設し、<strong>外部AIエージェントが束ね方まで含めて記録を管理できる</strong>ようにする。既存の <code>*_note</code> 系は<strong>名前・引数・戻り値を変えずページ操作として温存</strong>し（案A）、説明文で新ツールを案内する。</li>

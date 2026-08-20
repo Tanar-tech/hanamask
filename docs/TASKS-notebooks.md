@@ -60,7 +60,7 @@
 
 ### T57: ノート/ページ(4) MCPツール群（`*_page` / `move_page` / `*_notebook`）
 
-- ステータス: 実装中（SPEC承認済み 2026-08-20。A分割・B/C実装・Phase 4 統合済み、Phase 5 レビュー中）
+- ステータス: 完了（PR #209、`SPEC.md`）
 - 優先度: **高**（管理者決定、2026-08-20。AIがノートを扱えることが§4.9の主目的）
 - 依存: 必須: T54, T55／推奨: T56（`semantic_search_notes` の戻り値を同時に固めたい）
 - 目的: `docs/REQUIREMENTS.md` §4.9・§7.3。ページ用の `*_page` 群と `move_page`、ノート用の `create_notebook` / `update_notebook` / `get_notebook` / `list_notebooks` / `delete_notebook` / `restore_notebook` を新設し、**外部AIエージェントが束ね方まで含めて記録を管理できる**ようにする。既存の `*_note` 系は**名前・引数・戻り値を変えずページ操作として温存**し（案A）、説明文で新ツールを案内する。
