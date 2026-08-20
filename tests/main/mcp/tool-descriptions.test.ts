@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { linkTools } from "../../../src/main/mcp/tools/links";
+import { notebookTools } from "../../../src/main/mcp/tools/notebooks";
 import { noteTools } from "../../../src/main/mcp/tools/notes";
 import type { McpTool } from "../../../src/main/mcp/tools/shared";
 import { taskTools } from "../../../src/main/mcp/tools/tasks";
@@ -10,7 +11,13 @@ import { uiTools } from "../../../src/main/mcp/tools/ui";
  * 促しの一文が消えていないかを見る。文言そのものは改善のたびに変わるため固定しない。
  */
 
-const allTools: readonly McpTool[] = [...noteTools, ...taskTools, ...linkTools, ...uiTools];
+const allTools: readonly McpTool[] = [
+  ...noteTools,
+  ...notebookTools,
+  ...taskTools,
+  ...linkTools,
+  ...uiTools,
+];
 
 const describedText = (tool: McpTool): string => tool.definition.description ?? "";
 
