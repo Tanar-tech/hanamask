@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
+import { getNote } from "./notes-repo.js";
 import { parseTags, serializeTags } from "./tags.js";
 import type {
   DeletedNotebook,
+  Note,
   Notebook,
   NoteVersion,
   VersionEntityType,
@@ -43,6 +45,12 @@ const isNotebookRow = (value: unknown): value is NotebookRow => {
     typeof row.created_at === "string" &&
     typeof row.updated_at === "string"
   );
+};
+
+const isNoteIdRow = (value: unknown): value is { id: string } => {
+  if (typeof value !== "object" || value === null) return false;
+  const row: Record<string, unknown> = { ...value };
+  return typeof row.id === "string";
 };
 
 const isNotebookVersionRow = (value: unknown): value is NotebookVersionRow => {
@@ -115,15 +123,43 @@ export const createNotebook = (input: NotebookInput): Notebook => {
   return notebook;
 };
 
-export const getNotebook = (id: string): Notebook | null => {
-  const row: unknown = getDb()
-    .prepare("SELECT * FROM notebooks WHERE id = ?")
-    .get(id);
+const selectNotebook = (sql: string, id: string): Notebook | null => {
+  const row: unknown = getDb().prepare(sql).get(id);
   if (row === undefined) return null;
   if (!isNotebookRow(row)) {
     throw new Error(`Unexpected notebooks row shape for id ${id}`);
   }
   return toNotebook(row);
+};
+
+export const getNotebook = (id: string): Notebook | null =>
+  selectNotebook("SELECT * FROM notebooks WHERE id = ?", id);
+
+// ゴミ箱の中の束を「無い」ものとして扱いたい呼び出し側のための入口。
+export const getActiveNotebook = (id: string): Notebook | null =>
+  selectNotebook("SELECT * FROM notebooks WHERE id = ? AND deleted_at IS NULL", id);
+
+/*
+ * ページの行の読み方は notes-repo が持っているので、ここでは id だけを引いて本体の
+ * 組み立てを getNote に任せる（同じ行の解釈が2箇所に増えないようにするため）。
+ */
+export const listNotesInNotebook = (notebookId: string): Note[] => {
+  const rows: unknown[] = getDb()
+    .prepare(
+      // Two updates can share a millisecond, so rowid breaks the tie by insertion order.
+      "SELECT id FROM notes WHERE notebook_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC, rowid DESC",
+    )
+    .all(notebookId);
+  return rows.map((row) => {
+    if (!isNoteIdRow(row)) {
+      throw new Error(`Unexpected notes row shape in notebook ${notebookId}`);
+    }
+    const note = getNote(row.id);
+    if (note === null) {
+      throw new Error(`Note ${row.id} disappeared while listing notebook ${notebookId}`);
+    }
+    return note;
+  });
 };
 
 export const listNotebooks = (): Notebook[] => {

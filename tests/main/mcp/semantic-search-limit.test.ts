@@ -10,7 +10,7 @@ vi.mock("../../../src/main/llm/semantic-search-service", async (importOriginal) 
   searchSemanticEntities,
 }));
 
-const { findNoteTool } = await import("../../../src/main/mcp/tools");
+const { findNoteTool } = await import("../../../src/main/mcp/tools/notes");
 
 const callTool = async (args: unknown): Promise<void> => {
   const tool = findNoteTool("semantic_search_notes");

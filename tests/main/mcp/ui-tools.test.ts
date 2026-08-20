@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { findUiTool, uiTools } from "../../../src/main/mcp/tools";
+import { findUiTool, uiTools } from "../../../src/main/mcp/tools/ui";
 import { setUiNavigator } from "../../../src/main/ui/navigate";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
@@ -104,7 +104,7 @@ describe("mcp ui tools", () => {
 
   it("ナビゲーターが未注入ならクラッシュせずエラー結果を返す", async () => {
     vi.resetModules();
-    const freshTools = await import("../../../src/main/mcp/tools");
+    const freshTools = await import("../../../src/main/mcp/tools/ui");
     const openApp = freshTools.findUiTool("open_app");
     if (openApp === undefined) throw new Error("open_app tool not found");
 
