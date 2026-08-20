@@ -208,7 +208,7 @@ release/win-unpacked/</code></pre>
 <h3>検証済み（2026-08-19、T48 意味検索）</h3>
 <p>WSL から Windows 側ツールチェーン（Node v24.15.0）で <code>impl/t48</code>（<code>fa293c9</code>）をビルド・実行して確認した。</p>
 <ul>
-<li><code>npm run fetch:model</code>: 取得済み GGUF の sha256 一致でスキップすることを確認（ダウンロード経路はリリースアセット公開後に確認）</li>
+<li><code>npm run fetch:model</code>: 取得済み GGUF の sha256 一致でスキップすることを確認。リリースアセット公開後（2026-08-20）、GGUF の無い状態からのダウンロード→sha256 検証の完走も確認した</li>
 <li><code>npm test</code> 951件、<code>npm run test:e2e</code> 29件（意味検索1本含む）が Windows でも緑。<code>@node-llama-cpp/win-x64</code> のプリビルドで実モデルが動く</li>
 <li><code>npm run package:win</code>: 約16分。生成物 <code>release/hanamask-Setup-1.0.0.exe</code> = <strong>205,510,811 bytes（約196 MiB）</strong>。0.3.0（126 MB）比 <strong>+79 MB</strong>（モデル 73 MiB ＋ エンジン）</li>
 <li>パッケージ後: <code>resources/models/</code> に GGUF・<code>embedding.json</code>・<code>.LICENSE</code> が置かれ、<code>app.asar.unpacked/node_modules/@node-llama-cpp/</code> は <code>win-x64</code> のみ（cuda/vulkan/arm64 なし）。<code>win-unpacked/hanamask.exe</code> を一時DBで起動し、MCP の <code>semantic_search_notes</code> が <code>unavailable</code> なしで近いノートを返すことを確認</li>
@@ -217,7 +217,6 @@ release/win-unpacked/</code></pre>
 <p>埋め込みモデルの同梱（T48）について、Windows 実機で未確認のもの。</p>
 
 <ul>
-<li>リリースアセット公開後、GGUF が無い状態から <code>npm run fetch:model</code> のダウンロード経路が完走すること</li>
 <li>インストーラーでの実インストール（署名なしの SmartScreen 挙動含む）</li>
 </ul>
 

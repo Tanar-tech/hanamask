@@ -1,6 +1,6 @@
 {
   "name": "hanamask",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "license": "Apache-2.0",
   "private": true,
   "description": "AI開発に最適化されたMCPネイティブ・ローカルノートアプリ（Electron。タスク管理は補助機能として同梱。仕様: docs/REQUIREMENTS.md）",

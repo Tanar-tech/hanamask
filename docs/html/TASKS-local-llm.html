@@ -20,7 +20,7 @@
 
 <h3 id="t48">T48: ローカルLLM(1) 意味検索（埋め込み）</h3>
 <ul>
-<li>ステータス: 実装中（SPEC承認済み 2026-08-19。セット0〜F・Phase 4 まで <code>impl/t48</code> に統合、Phase 5 レビュー中。issue #181）</li>
+<li>ステータス: 完了（PR #195、<code>SPEC.md</code>。2026-08-20 に Windows 実機確認済み、v2.0.0 として main へ統合）</li>
 <li>優先度: <strong>高</strong>（管理者決定、2026-08-19）</li>
 <li>依存: 必須: なし／推奨: T46（記録が増えてからでないと意味検索の効果が見えない）</li>
 <li>目的: <a href="REQUIREMENTS.html#4-8">REQUIREMENTS.html</a> §4.8-1。ノート・タスク本文を同梱の埋め込みモデルでベクトル化してSQLiteに保存し、意味的に近い記録を探せるようにする。MCPツール <code>semantic_search_notes</code> として公開し、外部AIエージェントが「作業前に過去の経緯を引く」精度を上げる（キーワードが一致しない記録も引ける）。UIでは詳細画面の「関連ノート」欄と検索結果への併記。<strong>ランタイム同梱（<code>node-llama-cpp</code>＋electron-builderの<code>asarUnpack</code>）とモデル同梱の配布経路をここで固める</strong>のが、後続T49/T50の基盤になる。</li>

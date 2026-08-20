@@ -176,14 +176,13 @@ release/win-unpacked/
 
 WSL から Windows 側ツールチェーン（Node v24.15.0）で `impl/t48`（`fa293c9`）をビルド・実行して確認した。
 
-- `npm run fetch:model`: 取得済み GGUF の sha256 一致でスキップすることを確認（ダウンロード経路はリリースアセット公開後に確認）
+- `npm run fetch:model`: 取得済み GGUF の sha256 一致でスキップすることを確認。リリースアセット公開後（2026-08-20）、GGUF の無い状態からのダウンロード→sha256 検証の完走も確認した
 - `npm test` 951件、`npm run test:e2e` 29件（意味検索1本含む）が Windows でも緑。`@node-llama-cpp/win-x64` のプリビルドで実モデルが動く
 - `npm run package:win`: 約16分。生成物 `release/hanamask-Setup-1.0.0.exe` = **205,510,811 bytes（約196 MiB）**。0.3.0（126 MB）比 **+79 MB**（モデル 73 MiB ＋ エンジン）
 - パッケージ後: `resources/models/` に GGUF・`embedding.json`・`.LICENSE` が置かれ、`app.asar.unpacked/node_modules/@node-llama-cpp/` は `win-x64` のみ（cuda/vulkan/arm64 なし）。`win-unpacked/hanamask.exe` を一時DBで起動し、MCP の `semantic_search_notes` が `unavailable` なしで近いノートを返すことを確認
 
 埋め込みモデルの同梱（T48）について、Windows 実機で未確認のもの。
 
-- リリースアセット公開後、GGUF が無い状態から `npm run fetch:model` のダウンロード経路が完走すること
 - インストーラーでの実インストール（署名なしの SmartScreen 挙動含む）
 
 確認手順は `.claude/skills/e2e-runner/SKILL.md` の方針に従い手動で行う（インストーラー検証の自動化は行わない）。
