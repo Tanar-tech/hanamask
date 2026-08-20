@@ -3,7 +3,6 @@ import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type Database from "better-sqlite3";
 import { closeDb, getDb, openDb } from "../../../src/main/db/db";
 import { createNote, listNoteVersions, updateNote } from "../../../src/main/db/notes-repo";
 import {
@@ -22,40 +21,6 @@ import {
  * schema.sql とマイグレーションはセットAが並行して実装中なので、SPEC.md の DDL を
  * ここで直接あてる。セットA合流後は列が既に存在するため、無いときだけ足す。
  */
-const NOTEBOOKS_DDL = `
-CREATE TABLE IF NOT EXISTS notebooks (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  summary TEXT NOT NULL,
-  tags TEXT NOT NULL,
-  deleted_at TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-)`;
-
-const isColumnRow = (value: unknown): value is { name: string } => {
-  if (typeof value !== "object" || value === null) return false;
-  const row: Record<string, unknown> = { ...value };
-  return typeof row.name === "string";
-};
-
-const addColumnIfMissing = (
-  db: Database.Database,
-  table: string,
-  column: string,
-  definition: string,
-): void => {
-  const rows: unknown[] = db.prepare("SELECT name FROM pragma_table_info(?)").all(table);
-  if (rows.some((row) => isColumnRow(row) && row.name === column)) return;
-  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-};
-
-const applySpecSchema = (db: Database.Database): void => {
-  db.exec(NOTEBOOKS_DDL);
-  addColumnIfMissing(db, "notes", "notebook_id", "TEXT");
-  addColumnIfMissing(db, "note_versions", "entity_type", "TEXT NOT NULL DEFAULT 'note'");
-};
-
 const isNotebookIdRow = (value: unknown): value is { notebook_id: string | null } => {
   if (typeof value !== "object" || value === null) return false;
   const row: Record<string, unknown> = { ...value };
@@ -72,7 +37,7 @@ describe("notebooks repo", () => {
 
   beforeEach(() => {
     dbFilePath = join(tmpdir(), `hanamask-notebooks-test-${randomUUID()}.sqlite3`);
-    applySpecSchema(openDb(dbFilePath));
+    openDb(dbFilePath);
   });
 
   afterEach(() => {

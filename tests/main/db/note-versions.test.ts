@@ -16,25 +16,12 @@ import {
  * entity_type 列を足すマイグレーションはセットAが並行して実装中なので、無いあいだは
  * SPEC.md の DDL をここであてる。セットA合流後はこの分岐を通らない。
  */
-const isColumnRow = (value: unknown): value is { name: string } => {
-  if (typeof value !== "object" || value === null) return false;
-  const row: Record<string, unknown> = { ...value };
-  return typeof row.name === "string";
-};
-
-const ensureEntityTypeColumn = (): void => {
-  const rows: unknown[] = getDb().prepare("SELECT name FROM pragma_table_info(?)").all("note_versions");
-  if (rows.some((row) => isColumnRow(row) && row.name === "entity_type")) return;
-  getDb().exec("ALTER TABLE note_versions ADD COLUMN entity_type TEXT NOT NULL DEFAULT 'note'");
-};
-
 describe("note versions", () => {
   let dbFilePath: string;
 
   beforeEach(() => {
     dbFilePath = join(tmpdir(), `hanamask-versions-test-${randomUUID()}.sqlite3`);
     openDb(dbFilePath);
-    ensureEntityTypeColumn();
   });
 
   afterEach(() => {
