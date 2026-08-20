@@ -444,6 +444,7 @@ describe("App のノート切替時の復元レース", () => {
   const noteVersion: NoteVersion = {
     id: "version-1",
     noteId: "note-1",
+    entityType: "note",
     title: "旧タイトル",
     body: "旧本文",
     tags: ["design"],
