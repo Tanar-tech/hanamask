@@ -110,28 +110,41 @@ describe("notebook flow (MCP tools for notebooks and pages)", () => {
     expect(notes).toHaveLength(1);
     expect(idOf({ note: notes[0] }, "note")).toBe(attachedId);
 
-    // 意味検索でノート（束）が引ける（モデルがある環境のみ）
-    if (hasEmbeddingModel()) {
-      const deadline = Date.now() + INDEX_TIMEOUT_MS;
-      let notebookTitles: string[] = [];
-      while (Date.now() < deadline) {
-        const found = readPayload(
-          await callMcpTool(E2E_MCP_PORT, "semantic_search_notes", {
-            query: "アプリに同梱するAIモデルの話",
-          }),
-        );
-        const notebooks = found.notebooks;
-        if (Array.isArray(notebooks)) {
-          notebookTitles = notebooks.map((entry: unknown) => {
-            if (typeof entry !== "object" || entry === null || !("title" in entry)) return "";
-            const { title } = entry;
-            return typeof title === "string" ? title : "";
-          });
-          if (notebookTitles.length > 0) break;
-        }
-        await sleep(POLL_INTERVAL_MS);
+  });
+
+  it.skipIf(!hasEmbeddingModel())("意味検索でノート（束）が引ける", async () => {
+    workDir = mkdtempSync(join(tmpdir(), "hanamask-e2e-notebook-sem-"));
+    app = await launchApp(join(workDir, "hanamask.sqlite3"), E2E_MCP_PORT);
+    const window = await app.firstWindow();
+    await window.waitForLoadState();
+
+    readPayload(
+      await callMcpTool(E2E_MCP_PORT, "create_notebook", {
+        title: "ローカルLLM組み込み",
+        summary: "推論エンジンと埋め込みモデルをアプリに同梱し、意味検索を提供する案件",
+        tags: ["ローカルLLM"],
+      }),
+    );
+
+    const deadline = Date.now() + INDEX_TIMEOUT_MS;
+    let notebookTitles: string[] = [];
+    while (Date.now() < deadline) {
+      const found = readPayload(
+        await callMcpTool(E2E_MCP_PORT, "semantic_search_notes", {
+          query: "アプリに同梱するAIモデルの話",
+        }),
+      );
+      const notebooks = found.notebooks;
+      if (Array.isArray(notebooks)) {
+        notebookTitles = notebooks.map((entry: unknown) => {
+          if (typeof entry !== "object" || entry === null || !("title" in entry)) return "";
+          const { title } = entry;
+          return typeof title === "string" ? title : "";
+        });
+        if (notebookTitles.length > 0) break;
       }
-      expect(notebookTitles).toContain("ローカルLLM組み込み");
+      await sleep(POLL_INTERVAL_MS);
     }
+    expect(notebookTitles).toContain("ローカルLLM組み込み");
   });
 });

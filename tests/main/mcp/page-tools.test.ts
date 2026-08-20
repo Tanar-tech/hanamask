@@ -119,13 +119,29 @@ describe("ページ用MCPツール", () => {
   });
 
   describe("8別名の同値性", () => {
-    it.each(ALIAS_PAIRS)("%s と %s は同じ処理を共有している", (noteName, pageName) => {
+    // delete だけは confirm エラーの文言をツール名ごとに変えるため、参照は別・中身は同じ関数から生成する。
+    const IDENTITY_PAIRS = ALIAS_PAIRS.filter(([noteName]) => noteName !== "delete_note");
+
+    it.each(IDENTITY_PAIRS)("%s と %s は同じ処理を共有している", (noteName, pageName) => {
       const noteTool = findNoteTool(noteName);
       const pageTool = findNoteTool(pageName);
 
       expect(noteTool).toBeDefined();
       expect(pageTool).toBeDefined();
       expect(pageTool?.handler).toBe(noteTool?.handler);
+    });
+
+    it("delete_note と delete_page は confirm エラーの文言だけが異なり、それ以外は同じ結果を返す", async () => {
+      const note = await callTool("delete_note", { id: "missing", confirm: false });
+      const page = await callTool("delete_page", { id: "missing", confirm: false });
+      const textOf = (result: CallToolResult): string =>
+        result.content
+          .map((block) => (block.type === "text" ? block.text : ""))
+          .join("\n");
+      expect(note.isError).toBe(true);
+      expect(page.isError).toBe(true);
+      expect(textOf(note)).toContain('delete_note requires');
+      expect(textOf(page)).toContain('delete_page requires');
     });
 
     it("create_page が create_note と同じ結果を返す", async () => {

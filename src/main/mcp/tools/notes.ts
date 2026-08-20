@@ -1,5 +1,5 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { listNotebooks } from "../../db/notebooks-repo.js";
+import { getActiveNotebook } from "../../db/notebooks-repo.js";
 import {
   createNote,
   getNote,
@@ -20,6 +20,7 @@ import {
 import { attachImage } from "../../images/attach-image.js";
 import { emitNotesChanged } from "../change-emitter.js";
 import {
+  type McpTool,
   errorResult,
   jsonResult,
   readOptionalString,
@@ -53,7 +54,7 @@ const readNullableString = (args: Record<string, unknown>, key: string): string 
 };
 
 const requireLiveNotebook = (notebookId: string): void => {
-  if (!listNotebooks().some((notebook) => notebook.id === notebookId)) {
+  if (getActiveNotebook(notebookId) === null) {
     throw new Error(`Notebook not found or deleted: ${notebookId}`);
   }
 };
@@ -237,6 +238,23 @@ const updatePageTool: NoteTool = {
   handler: updateNoteTool.handler,
 };
 
+// confirm エラーの文言だけツール名ごとに変える（互換名 delete_note の既存文言を変えないため）。
+const deletePageHandlerWith = (confirmError: string): McpTool["handler"] =>
+  toToolHandler((args) => {
+    const id = readString(args, "id");
+    if (args.confirm !== true) {
+      throw new Error(confirmError);
+    }
+    // 削除するとタイトルを引けなくなるため、通知に載せる分を先に読んでおく。
+    const title = getNote(id)?.title ?? "";
+    const deleted = softDeleteNote(id);
+    if (!deleted) {
+      return errorResult(`Note not found or already deleted: ${id}`);
+    }
+    emitNotesChanged({ entity: "note", action: "deleted", id, title });
+    return jsonResult({ deleted: true });
+  });
+
 const deleteNoteTool: NoteTool = {
   definition: {
     name: "delete_note",
@@ -252,20 +270,7 @@ const deleteNoteTool: NoteTool = {
       required: ["id", "confirm"],
     },
   },
-  handler: toToolHandler((args) => {
-    const id = readString(args, "id");
-    if (args.confirm !== true) {
-      throw new Error('Deleting a page requires "confirm: true"');
-    }
-    // 削除するとタイトルを引けなくなるため、通知に載せる分を先に読んでおく。
-    const title = getNote(id)?.title ?? "";
-    const deleted = softDeleteNote(id);
-    if (!deleted) {
-      return errorResult(`Note not found or already deleted: ${id}`);
-    }
-    emitNotesChanged({ entity: "note", action: "deleted", id, title });
-    return jsonResult({ deleted: true });
-  }),
+  handler: deletePageHandlerWith('delete_note requires "confirm: true"'),
 };
 
 const deletePageTool: NoteTool = {
@@ -282,7 +287,7 @@ const deletePageTool: NoteTool = {
       required: ["id", "confirm"],
     },
   },
-  handler: deleteNoteTool.handler,
+  handler: deletePageHandlerWith('delete_page requires "confirm: true"'),
 };
 
 const restoreNoteTool: NoteTool = {
@@ -344,6 +349,9 @@ const movePageTool: NoteTool = {
   },
   handler: toToolHandler((args) => {
     const id = readString(args, "id");
+    if (!("notebook_id" in args)) {
+      throw new Error('"notebook_id" is required (pass null to detach the page)');
+    }
     const notebookId = readNullableString(args, "notebook_id");
     if (notebookId !== null) requireLiveNotebook(notebookId);
     const note = moveNoteToNotebook(id, notebookId);
