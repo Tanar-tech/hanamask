@@ -7,6 +7,7 @@ import { closeDb, openDb } from "../../../src/main/db/db";
 import { createNote, softDeleteNote } from "../../../src/main/db/notes-repo";
 import { createTask } from "../../../src/main/db/tasks-repo";
 import { listTagsInUse } from "../../../src/main/db/tags-repo";
+import { createNotebook, softDeleteNotebook } from "../../../src/main/db/notebooks-repo";
 
 /*
  * エージェントは自分が過去に何と名付けたかを覚えていない。既に使われているタグを
@@ -48,6 +49,30 @@ describe("listTagsInUse", () => {
     const note = createNote({ title: "n", body: "", tags: ["消える"] });
     createNote({ title: "残る", body: "", tags: ["残る"] });
     softDeleteNote(note.id);
+
+    expect(listTagsInUse().map((entry) => entry.tag)).toEqual(["残る"]);
+  });
+
+  it("ノート（束）だけに付いたタグも集める", () => {
+    createNotebook({ title: "nb", summary: "", tags: ["束だけ"] });
+
+    expect(listTagsInUse()).toEqual([{ tag: "束だけ", noteCount: 1, taskCount: 0 }]);
+  });
+
+  it("ノート（束）とページの同名タグは合算する", () => {
+    createNotebook({ title: "nb1", summary: "", tags: ["設計"] });
+    createNotebook({ title: "nb2", summary: "", tags: ["設計"] });
+    createNotebook({ title: "nb3", summary: "", tags: ["設計"] });
+    createNote({ title: "n1", body: "", tags: ["設計"] });
+    createNote({ title: "n2", body: "", tags: ["設計"] });
+
+    expect(listTagsInUse()).toEqual([{ tag: "設計", noteCount: 5, taskCount: 0 }]);
+  });
+
+  it("削除済みのノート（束）のタグは数えない", () => {
+    const notebook = createNotebook({ title: "nb", summary: "", tags: ["消える"] });
+    createNotebook({ title: "残る束", summary: "", tags: ["残る"] });
+    softDeleteNotebook(notebook.id);
 
     expect(listTagsInUse().map((entry) => entry.tag)).toEqual(["残る"]);
   });

@@ -61,10 +61,12 @@ const statusOf = (availability: EmbeddingAvailability, pending: number): Embeddi
 const isSameStatus = (left: EmbeddingIndexStatus, right: EmbeddingIndexStatus): boolean =>
   left.state === right.state && left.pending === right.pending && left.reason === right.reason;
 
-const toQueueItem = (change: EntityChange): QueueItem => ({
-  entityType: change.entity,
-  entityId: change.id,
-});
+// ノート（束）は索引対象外（対応は T56）。専用チャンネル購読なのでここへは来ないが、
+// 万一混ざったときに黙ってページとして索引しないよう型で落とす。
+const toQueueItem = (change: EntityChange): QueueItem | undefined =>
+  change.entity === "notebook"
+    ? undefined
+    : { entityType: change.entity, entityId: change.id };
 
 export const createEmbeddingIndexer = (deps: EmbeddingIndexerDeps): EmbeddingIndexer => {
   const debounceMs = deps.debounceMs ?? EMBEDDING_INDEX_DEBOUNCE_MS;
@@ -182,7 +184,9 @@ export const createEmbeddingIndexer = (deps: EmbeddingIndexerDeps): EmbeddingInd
      * 物理削除で行き場を失った行は purge の孤児掃除が落とす。
      */
     if (change.action === "deleted") return;
-    enqueue([toQueueItem(change)]);
+    const item = toQueueItem(change);
+    if (item === undefined) return;
+    enqueue([item]);
   };
 
   const start = (): void => {

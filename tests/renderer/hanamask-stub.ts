@@ -11,7 +11,10 @@ const notStubbed = (name: string) => (): never => {
   throw new Error(`${name} is not stubbed`);
 };
 
-const UNAVAILABLE_STATUS: EmbeddingStatus = { state: "unavailable", pending: 0 };
+const UNAVAILABLE_STATUS: EmbeddingStatus = {
+  state: "unavailable",
+  pending: 0,
+};
 
 /** 何もしない既定のpreload API。関心のある口だけを差し替えて使う。 */
 export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
@@ -25,13 +28,22 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     updateNote: vi.fn(async () => null),
     deleteNote: vi.fn(async () => {}),
     onNotesChanged: vi.fn(() => () => {}),
+    onNotebooksChanged: vi.fn(() => () => undefined),
     listNoteVersions: vi.fn(async () => []),
     restoreNoteVersion: vi.fn(async () => null),
     listDeletedNotes: vi.fn(async () => []),
     restoreNote: vi.fn(async () => null),
+    listDeletedNotebooks: vi.fn(async () => []),
+    restoreNotebook: vi.fn(async () => true),
     readActivity: vi.fn(async () => ({ lastRecordedAt: null, recentCount: 0 })),
-    readMcpEndpoint: vi.fn(async () => ({ port: 39217, url: "http://127.0.0.1:39217/mcp" })),
-    readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: false })),
+    readMcpEndpoint: vi.fn(async () => ({
+      port: 39217,
+      url: "http://127.0.0.1:39217/mcp",
+    })),
+    readAppSettings: vi.fn(async () => ({
+      closeToTray: true,
+      openAtLogin: false,
+    })),
     saveAppSettings: vi.fn(async (settings: AppSettings) => settings),
     readChatSettings: vi.fn(async () => CHAT_SETTINGS),
     sendChatMessage: vi.fn(async () => []),
@@ -39,7 +51,10 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     onChatEvent: vi.fn(() => () => {}),
     saveChatApiKey: vi.fn(async () => CHAT_SETTINGS),
     clearChatApiKey: vi.fn(async () => CHAT_SETTINGS),
-    saveChatModel: vi.fn(async (model: string) => ({ apiKeyMask: null, model })),
+    saveChatModel: vi.fn(async (model: string) => ({
+      apiKeyMask: null,
+      model,
+    })),
     listTasks: vi.fn(async () => []),
     getTask: vi.fn(async () => null),
     updateTaskStatus: vi.fn(async () => {}),

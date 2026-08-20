@@ -197,7 +197,7 @@ Mermaid図は専用ツールを持たず、ノート本文へのインライン�
 
 | ツール | 内容 |
 |---|---|
-| `link_entities` | ノート/タスク同士をリンクする（`from_type`, `from_id`, `to_type`, `to_id`） |
+| `link_entities` | ノート/タスク/ノート（束、`notebook`）同士をリンクする（`from_type`, `from_id`, `to_type`, `to_id`） |
 | `unlink_entities` | リンクをidで削除する（リンク先の実体は消さない） |
 | `list_links` | あるエンティティに紐づくリンクを取得する（from/to どちら側も） |
 

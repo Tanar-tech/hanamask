@@ -578,8 +578,8 @@ export const findTaskTool = (name: string): McpTool | undefined =>
 
 const ENTITY_TYPE_SCHEMA = {
   type: "string",
-  enum: ["note", "task"],
-  description: 'Entity type ("note" or "task")',
+  enum: ["note", "task", "notebook"],
+  description: 'Entity type ("note", "task" or "notebook")',
 } as const;
 
 const readEntityType = (args: Record<string, unknown>, key: string): EntityType =>
@@ -588,7 +588,7 @@ const readEntityType = (args: Record<string, unknown>, key: string): EntityType 
 const linkEntitiesTool: McpTool = {
   definition: {
     name: "link_entities",
-    description: "Link two entities (notes and/or tasks) to each other.",
+    description: "Link two entities (notes, tasks and/or notebooks) to each other.",
     inputSchema: {
       type: "object",
       properties: {

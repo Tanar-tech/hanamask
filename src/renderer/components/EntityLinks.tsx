@@ -20,8 +20,12 @@ const LINK_MISSING_MESSAGE = "対象のリンクが見つかりません";
 const TARGET_TYPE_LABEL = "リンク先の種別";
 const TARGET_ID_LABEL = "リンク先のID";
 const LIST_LABEL = "リンク一覧";
-const TYPE_LABELS: Record<EntityType, string> = { note: "ノート", task: "タスク" };
-const ENTITY_TYPES: readonly EntityType[] = ["note", "task"];
+const TYPE_LABELS: Record<EntityType, string> = {
+  note: "ノート",
+  task: "タスク",
+  notebook: "ノート（束）",
+};
+const ENTITY_TYPES: readonly EntityType[] = ["note", "task", "notebook"];
 const DEFAULT_TARGET_TYPE: EntityType = "note";
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */

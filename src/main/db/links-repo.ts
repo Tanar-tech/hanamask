@@ -10,7 +10,7 @@ interface LinkRow {
   to_id: string;
 }
 
-const ENTITY_TYPES: readonly string[] = ["note", "task"];
+const ENTITY_TYPES: readonly string[] = ["note", "task", "notebook"];
 
 const isEntityType = (value: unknown): value is EntityType =>
   typeof value === "string" && ENTITY_TYPES.includes(value);
@@ -57,9 +57,10 @@ export interface LinkInput {
  * 検査はこの1か所に置く。MCPとUIの両方が createLink を通るので、呼び出し側ごとに
  * 書くと片方だけ抜ける。
  */
-const TABLE_OF: Readonly<Record<EntityType, "notes" | "tasks">> = {
+const TABLE_OF: Readonly<Record<EntityType, "notes" | "tasks" | "notebooks">> = {
   note: "notes",
   task: "tasks",
+  notebook: "notebooks",
 };
 
 const assertEndpointExists = (type: EntityType, id: string): void => {

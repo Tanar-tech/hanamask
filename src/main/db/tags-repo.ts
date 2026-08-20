@@ -22,7 +22,9 @@ const isTagsRow = (value: unknown): value is { tags: string } => {
   return typeof row.tags === "string";
 };
 
-const readTagColumn = (table: "notes" | "tasks"): string[][] => {
+type TaggedTable = "notes" | "tasks" | "notebooks";
+
+const readTagColumn = (table: TaggedTable): string[][] => {
   const rows: unknown[] = getDb()
     .prepare(`SELECT tags FROM ${table} WHERE deleted_at IS NULL`)
     .all();
@@ -32,25 +34,26 @@ const readTagColumn = (table: "notes" | "tasks"): string[][] => {
   });
 };
 
+type TagCountKind = "noteCount" | "taskCount";
+
+const countTable = (usage: Map<string, TagUsage>, table: TaggedTable, kind: TagCountKind): void => {
+  readTagColumn(table).forEach((tags) => {
+    // 同じ記録に同じタグが二度入っていても1件と数える。
+    new Set(tags).forEach((tag) => {
+      const entry = usage.get(tag) ?? { tag, noteCount: 0, taskCount: 0 };
+      entry[kind] += 1;
+      usage.set(tag, entry);
+    });
+  });
+};
+
 export const listTagsInUse = (): TagUsage[] => {
   const usage = new Map<string, TagUsage>();
-  const add = (tag: string, kind: "noteCount" | "taskCount"): void => {
-    const entry = usage.get(tag) ?? { tag, noteCount: 0, taskCount: 0 };
-    entry[kind] += 1;
-    usage.set(tag, entry);
-  };
 
-  readTagColumn("notes").forEach((tags) => {
-    // 同じノートに同じタグが二度入っていても1件と数える。
-    new Set(tags).forEach((tag) => {
-      add(tag, "noteCount");
-    });
-  });
-  readTagColumn("tasks").forEach((tags) => {
-    new Set(tags).forEach((tag) => {
-      add(tag, "taskCount");
-    });
-  });
+  countTable(usage, "notes", "noteCount");
+  // ノート（束）とページのタグは一つの名前空間なので、件数も分けずに合算する。
+  countTable(usage, "notebooks", "noteCount");
+  countTable(usage, "tasks", "taskCount");
 
   return [...usage.values()].sort((a, b) => a.tag.localeCompare(b.tag, "ja"));
 };

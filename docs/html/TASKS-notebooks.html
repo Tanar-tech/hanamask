@@ -65,7 +65,7 @@ flowchart TB
 
 <h3 id="t55">T55: ノート/ページ(2) リンク・変更通知・タグをノートへ広げる</h3>
 <ul>
-<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>ステータス: 実装中（SPEC承認済み 2026-08-20。セットA〜C・Phase 4 結線済み、Phase 5 レビュー中）</li>
 <li>優先度: <strong>高</strong>（管理者決定、2026-08-20）</li>
 <li>依存: 必須: T54（<code>notebooks</code> 表が無いと参照先が無い）／推奨: なし</li>
 <li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9の「<strong>ノートとページは並列の存在</strong>」を、リンク・タグ・変更通知・ゴミ箱の各機能で成立させる。共有の <code>EntityType</code> に <code>"notebook"</code> を足し、ノートをリンクの端点にでき、タグで引け、更新がデスクトップUIとOS通知に乗り、ソフトデリート→復元→30日パージの経路に乗る状態にする。</li>

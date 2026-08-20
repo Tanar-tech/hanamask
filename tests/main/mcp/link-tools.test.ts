@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { closeDb, openDb } from "../../../src/main/db/db";
 import { createNote } from "../../../src/main/db/notes-repo";
 import { createTask } from "../../../src/main/db/tasks-repo";
+import { createNotebook } from "../../../src/main/db/notebooks-repo";
 import { listLinks } from "../../../src/main/db/links-repo";
 import {
   onLinksChanged,
@@ -51,12 +52,14 @@ describe("mcp link tools", () => {
   // リンクは両端の存在を確かめてから張られるので、実在するノート・タスクを用意する。
   let noteId: string;
   let taskId: string;
+  let notebookId: string;
 
   beforeEach(() => {
     dbFilePath = join(tmpdir(), `hanamask-link-mcp-test-${randomUUID()}.sqlite3`);
     openDb(dbFilePath);
     noteId = createNote({ title: "n1", body: "b1", tags: [] }).id;
     taskId = createTask({ title: "t1", status: "todo", dueDate: null }).id;
+    notebookId = createNotebook({ title: "nb1", summary: "", tags: [] }).id;
   });
 
   afterEach(() => {
@@ -237,6 +240,46 @@ describe("mcp link tools", () => {
   it("存在しないリンクのunlink_entitiesはエラーを返す", () => {
     expect(callTool("unlink_entities", { id: randomUUID() }).isError).toBe(true);
     expect(callTool("unlink_entities", {}).isError).toBe(true);
+  });
+
+  it("link_entitiesはノート（束）を端点にできる", () => {
+    const id = linkThroughTool({
+      from_type: "notebook",
+      from_id: notebookId,
+      to_type: "task",
+      to_id: taskId,
+    });
+
+    expect(listLinks("notebook", notebookId)).toEqual([
+      { id, fromType: "notebook", fromId: notebookId, toType: "task", toId: taskId },
+    ]);
+  });
+
+  it("list_linksはノート（束）のリンクを返す", () => {
+    const id = linkThroughTool({
+      from_type: "note",
+      from_id: noteId,
+      to_type: "notebook",
+      to_id: notebookId,
+    });
+
+    expect(
+      readJsonPayload(callTool("list_links", { entity_type: "notebook", entity_id: notebookId })),
+    ).toEqual({
+      links: [{ id, fromType: "note", fromId: noteId, toType: "notebook", toId: notebookId }],
+    });
+  });
+
+  it("存在しないノート（束）idのlink_entitiesはエラーを返す", () => {
+    const result = callTool("link_entities", {
+      from_type: "notebook",
+      from_id: randomUUID(),
+      to_type: "task",
+      to_id: taskId,
+    });
+
+    expect(result.isError).toBe(true);
+    expect(listLinks("task", taskId)).toEqual([]);
   });
 
   it("DBクローズ後の呼び出しはクラッシュせずMCPエラーを返す", () => {
