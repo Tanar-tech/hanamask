@@ -173,7 +173,7 @@ export interface EmbeddingStatus {
   reason?: string;
 }
 
-export type EntityType = "note" | "task";
+export type EntityType = "note" | "task" | "notebook";
 
 export interface Link {
   id: string;
