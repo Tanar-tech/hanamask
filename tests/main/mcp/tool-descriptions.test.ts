@@ -45,4 +45,23 @@ describe("MCPツールの説明文", () => {
     expect(description).toMatch(/decision|decided/);
     expect(description).toMatch(/why|reason/);
   });
+
+  it.each(["create_page", "move_page", "update_page", "update_note"])(
+    "%s が所属ノート（束）の概要を update_notebook で追従更新するよう促している",
+    (name) => {
+      const description = descriptionOf(name);
+      expect(description).toMatch(/update_notebook/);
+      expect(description).toMatch(/summary/);
+    },
+  );
+
+  it.each(["create_notebook", "update_notebook"])(
+    "%s が概要をAIが書き・古くなれば書き直してよいと示している",
+    (name) => {
+      const description = descriptionOf(name);
+      expect(description).toMatch(/summary/);
+      expect(description).toMatch(/out of date|outdated|stale/);
+      expect(description).toMatch(/history|restore/);
+    },
+  );
 });
