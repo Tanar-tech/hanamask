@@ -232,6 +232,9 @@ export interface HanamaskPreloadApi {
   restoreNoteVersion(versionId: string): Promise<Note | null>;
   listDeletedNotes(): Promise<DeletedNote[]>;
   restoreNote(id: string): Promise<Note | null>;
+  listDeletedNotebooks(): Promise<DeletedNotebook[]>;
+  restoreNotebook(id: string): Promise<boolean>;
+  onNotebooksChanged(callback: () => void): () => void;
   readActivity(): Promise<Activity>;
   readMcpEndpoint(): Promise<McpEndpoint>;
   readAppSettings(): Promise<AppSettings>;

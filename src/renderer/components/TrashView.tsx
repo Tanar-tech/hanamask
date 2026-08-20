@@ -10,18 +10,7 @@ import {
  * IPC の結線と preload-api.ts への型追加は後続のため、ここで暫定的に任意メンバーとして宣言する。
  * 結線後は preload-api.ts の HanamaskPreloadApi に必須メンバーとして移し、この宣言を消す。
  */
-declare module "../../shared/preload-api" {
-  interface HanamaskPreloadApi {
-    listDeletedNotebooks?(): Promise<DeletedNotebook[]>;
-    restoreNotebook?(id: string): Promise<boolean>;
-  }
-}
 
-const listDeletedNotebooks = async (): Promise<DeletedNotebook[]> =>
-  (await window.hanamask.listDeletedNotebooks?.()) ?? [];
-
-const restoreNotebookById = async (id: string): Promise<boolean> =>
-  (await window.hanamask.restoreNotebook?.(id)) ?? false;
 
 interface TrashViewProps {
   onBack: () => void;
@@ -156,7 +145,7 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
       const [noteResult, taskResult, notebookResult] = await Promise.allSettled([
         window.hanamask.listDeletedNotes(),
         window.hanamask.listDeletedTasks(),
-        listDeletedNotebooks(),
+        window.hanamask.listDeletedNotebooks(),
       ]);
       if (!current) return;
       if (noteResult.status === "fulfilled") setNotes(noteResult.value);
@@ -190,7 +179,7 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
   };
 
   const reloadNotebooks = async (): Promise<void> => {
-    const reloaded = await listDeletedNotebooks();
+    const reloaded = await window.hanamask.listDeletedNotebooks();
     if (!mounted.current) return;
     setNotebooks(reloaded);
     setNowMs(Date.now());
@@ -244,7 +233,7 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
 
   const restoreNotebook = (id: string): void => {
     void runRestore({
-      restore: () => restoreNotebookById(id),
+      restore: () => window.hanamask.restoreNotebook(id),
       reload: reloadNotebooks,
       missingMessage: NOTEBOOK_MISSING_MESSAGE,
       failureMessage: "ノート（束）の復元に失敗しました",

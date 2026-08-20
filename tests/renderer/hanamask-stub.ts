@@ -25,6 +25,7 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     updateNote: vi.fn(async () => null),
     deleteNote: vi.fn(async () => {}),
     onNotesChanged: vi.fn(() => () => {}),
+  onNotebooksChanged: vi.fn(() => () => undefined),
     listNoteVersions: vi.fn(async () => []),
     restoreNoteVersion: vi.fn(async () => null),
     listDeletedNotes: vi.fn(async () => []),

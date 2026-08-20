@@ -24,6 +24,7 @@ import {
   updateNote,
   type NoteUpdateInput,
 } from "./db/notes-repo.js";
+import { listDeletedNotebooks, restoreNotebook } from "./db/notebooks-repo.js";
 import {
   getTask,
   listDeletedTasks,
@@ -85,6 +86,8 @@ import {
   onNotesChanged,
   onTasksChanged,
   type EntityChange,
+  emitNotebooksChanged,
+  onNotebooksChanged,
 } from "./mcp/change-emitter.js";
 import { createChangeNotifier, type ChangeNotification } from "./notify/change-notifier.js";
 import { createEmbeddingIndexer, type EmbeddingIndexer } from "./llm/embedding-indexer.js";
@@ -119,6 +122,9 @@ const NOTES_UPDATE_CHANNEL = "notes:update";
 const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
 const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
 const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
+const NOTEBOOKS_LIST_DELETED_CHANNEL = "notebooks:list-deleted";
+const NOTEBOOKS_RESTORE_CHANNEL = "notebooks:restore";
+const NOTEBOOKS_CHANGED_CHANNEL = "notebooks:changed";
 const NOTES_RESTORE_CHANNEL = "notes:restore";
 const TASKS_GET_CHANNEL = "tasks:get";
 const TASKS_UPDATE_STATUS_CHANNEL = "tasks:update-status";
@@ -251,6 +257,12 @@ export const broadcastNotesChanged = (): void => {
   });
 };
 
+const broadcastNotebooksChanged = (): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(NOTEBOOKS_CHANGED_CHANNEL);
+  });
+};
+
 export const broadcastTasksChanged = (): void => {
   BrowserWindow.getAllWindows().forEach((window) => {
     window.webContents.send(TASKS_CHANGED_CHANNEL);
@@ -302,6 +314,12 @@ const undeleteNote = (_event: IpcMainInvokeEvent, id: string): Note | null => {
   const restored = restoreNote(id);
   if (restored !== null) emitNotesChanged();
   return restored;
+};
+
+const undeleteNotebook = (_event: IpcMainInvokeEvent, id: string): boolean => {
+  const restored = restoreNotebook(id);
+  if (restored !== null) emitNotebooksChanged();
+  return restored !== null;
 };
 
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
@@ -423,6 +441,11 @@ const changeNotifier = createChangeNotifier({
 // 画面の更新は変更の中身に関わらず必要だが、OS通知は何が変わったか分かるときだけ出す。
 const handleNotesChanged = (change?: EntityChange): void => {
   broadcastNotesChanged();
+  if (change !== undefined) changeNotifier.recordChange(change);
+};
+
+const handleNotebooksChanged = (change?: EntityChange): void => {
+  broadcastNotebooksChanged();
   if (change !== undefined) changeNotifier.recordChange(change);
 };
 
@@ -635,6 +658,7 @@ const start = async (): Promise<void> => {
     navigate: navigateMainWindow,
   });
   onNotesChanged(handleNotesChanged);
+  onNotebooksChanged(handleNotebooksChanged);
   onTasksChanged(handleTasksChanged);
   onLinksChanged(broadcastLinksChanged);
   setUpEmbeddings();
@@ -653,6 +677,8 @@ ipcMain.handle(NOTES_LIST_VERSIONS_CHANNEL, findNoteVersions);
 ipcMain.handle(NOTES_RESTORE_VERSION_CHANNEL, restoreVersion);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(NOTES_LIST_DELETED_CHANNEL, () => listDeletedNotes());
+  ipcMain.handle(NOTEBOOKS_LIST_DELETED_CHANNEL, () => listDeletedNotebooks());
+  ipcMain.handle(NOTEBOOKS_RESTORE_CHANNEL, undeleteNotebook);
 ipcMain.handle(NOTES_RESTORE_CHANNEL, undeleteNote);
 ipcMain.handle(TASKS_UPDATE_STATUS_CHANNEL, updateTaskStatus);
 ipcMain.handle(TASKS_UPDATE_CHANNEL, editTask);
