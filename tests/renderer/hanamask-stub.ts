@@ -4,6 +4,10 @@ import type {
   EmbeddingStatus,
   HanamaskPreloadApi,
 } from "../../src/shared/preload-api";
+import type { NotebookNavApi } from "../../src/renderer/components/NotebookNav";
+
+/* ノートを読む口はPhase 4でpreload-api.tsに載る。載るまではナビ側の宣言を借りる。 */
+type StubbedApi = HanamaskPreloadApi & NotebookNavApi;
 
 const CHAT_SETTINGS = { apiKeyMask: null, model: "claude-sonnet-4-5" };
 
@@ -17,8 +21,10 @@ const UNAVAILABLE_STATUS: EmbeddingStatus = {
 };
 
 /** 何もしない既定のpreload API。関心のある口だけを差し替えて使う。 */
-export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
-  const base: HanamaskPreloadApi = {
+export const stubHanamask = (overrides: Partial<StubbedApi>): void => {
+  const base: StubbedApi = {
+    listNotebooks: vi.fn(async () => []),
+    getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
     deleteTask: vi.fn(async () => {}),
     listDeletedTasks: vi.fn(async () => []),
     restoreTask: vi.fn(async () => null),
@@ -74,5 +80,6 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     readEmbeddingStatus: vi.fn(async () => UNAVAILABLE_STATUS),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
   };
-  window.hanamask = { ...base, ...overrides };
+  const api: StubbedApi = { ...base, ...overrides };
+  window.hanamask = api;
 };
