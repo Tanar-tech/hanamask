@@ -2,7 +2,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { TrashView } from "../../src/renderer/components/TrashView";
-import type { AppSettings, DeletedNote, DeletedTask, Note, Task } from "../../src/shared/preload-api";
+import type {
+  AppSettings,
+  DeletedNote,
+  DeletedNotebook,
+  DeletedTask,
+  Note,
+  Task,
+} from "../../src/shared/preload-api";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const isoDaysAgo = (days: number): string => new Date(Date.now() - days * DAY_MS).toISOString();
@@ -31,11 +38,24 @@ const makeTask = (overrides: Partial<DeletedTask> = {}): DeletedTask => ({
   ...overrides,
 });
 
+const makeNotebook = (overrides: Partial<DeletedNotebook> = {}): DeletedNotebook => ({
+  id: "notebook-1",
+  title: "消したノート",
+  summary: "消したノートの概要",
+  tags: [],
+  createdAt: "2026-08-03T00:00:00.000Z",
+  updatedAt: "2026-08-03T10:00:00.000Z",
+  deletedAt: isoDaysAgo(0),
+  ...overrides,
+});
+
 interface TrashApiOverrides {
   listDeletedNotes?: () => Promise<DeletedNote[]>;
   restoreNote?: (id: string) => Promise<Note | null>;
   listDeletedTasks?: () => Promise<DeletedTask[]>;
   restoreTask?: (id: string) => Promise<Task | null>;
+  listDeletedNotebooks?: () => Promise<DeletedNotebook[]>;
+  restoreNotebook?: (id: string) => Promise<boolean>;
 }
 
 const mockHanamask = (overrides: TrashApiOverrides = {}) => {
@@ -43,6 +63,8 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
   const restoreNote = vi.fn(overrides.restoreNote ?? (async () => makeNote()));
   const listDeletedTasks = vi.fn(overrides.listDeletedTasks ?? (async () => []));
   const restoreTask = vi.fn(overrides.restoreTask ?? (async () => makeTask()));
+  const listDeletedNotebooks = vi.fn(overrides.listDeletedNotebooks ?? (async () => []));
+  const restoreNotebook = vi.fn(overrides.restoreNotebook ?? (async () => true));
   window.hanamask = {
     deleteTask: vi.fn(async () => {}),
     listDeletedTasks,
@@ -86,8 +108,17 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
     relatedNotes: vi.fn(async () => ({ notes: [] })),
     readEmbeddingStatus: vi.fn(async () => ({ state: "unavailable" as const, pending: 0 })),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
+    listDeletedNotebooks,
+    restoreNotebook,
   };
-  return { listDeletedNotes, restoreNote, listDeletedTasks, restoreTask };
+  return {
+    listDeletedNotes,
+    restoreNote,
+    listDeletedTasks,
+    restoreTask,
+    listDeletedNotebooks,
+    restoreNotebook,
+  };
 };
 
 const clickButton = async (name: string, index = 0): Promise<void> => {
@@ -397,5 +428,102 @@ describe("TrashView", () => {
     const later = screen.getByText("あと 29 日");
     expect(soon.className).toContain("text-crit");
     expect(later.className).not.toContain("text-crit");
+  });
+
+  it("削除済みノート（束）の一覧を表示する", async () => {
+    mockHanamask({
+      listDeletedNotes: async () => [],
+      listDeletedNotebooks: async () => [
+        makeNotebook(),
+        makeNotebook({ id: "notebook-2", title: "別の消したノート", summary: "別の概要" }),
+      ],
+    });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect(await screen.findByRole("list", { name: "削除済みノート（束）" })).toBeTruthy();
+    expect(screen.getByText("消したノート")).toBeTruthy();
+    expect(screen.getByText("別の消したノート")).toBeTruthy();
+    expect(screen.getByText("消したノートの概要")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "復元" })).toHaveLength(2);
+  });
+
+  it("削除済みノート（束）が無いときは一覧を出さない", async () => {
+    mockHanamask({ listDeletedNotes: async () => [makeNote()] });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect(await screen.findByText("消したメモ")).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "削除済みノート（束）" })).toBeNull();
+  });
+
+  it("ノートもタスクも無くてもノート（束）が残っていれば空状態を出さない", async () => {
+    mockHanamask({
+      listDeletedNotes: async () => [],
+      listDeletedNotebooks: async () => [makeNotebook()],
+    });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect(await screen.findByText("消したノート")).toBeTruthy();
+    expect(screen.queryByText("削除済みのノート・タスクはありません")).toBeNull();
+  });
+
+  it("ノート（束）の復元ボタンで restoreNotebook を呼び一覧を取り直す", async () => {
+    const { listDeletedNotebooks, restoreNotebook } = mockHanamask({
+      listDeletedNotes: async () => [],
+    });
+    listDeletedNotebooks.mockImplementationOnce(async () => [makeNotebook()]);
+    listDeletedNotebooks.mockImplementation(async () => []);
+
+    render(<TrashView onBack={vi.fn()} />);
+    await clickButton("復元");
+
+    expect(restoreNotebook).toHaveBeenCalledWith("notebook-1");
+    await waitFor(() => {
+      expect(listDeletedNotebooks).toHaveBeenCalledTimes(2);
+    });
+    expect(await screen.findByText("削除済みのノート・タスクはありません")).toBeTruthy();
+  });
+
+  it("削除済みノート（束）にも残り日数を表示する", async () => {
+    mockHanamask({
+      listDeletedNotes: async () => [],
+      listDeletedNotebooks: async () => [makeNotebook({ deletedAt: isoDaysAgo(29) })],
+    });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect(await screen.findByText("あと 1 日")).toBeTruthy();
+  });
+
+  it("復元対象のノート（束）が見つからないときはエラーを表示する", async () => {
+    mockHanamask({
+      listDeletedNotes: async () => [],
+      listDeletedNotebooks: async () => [makeNotebook()],
+      restoreNotebook: async () => false,
+    });
+
+    render(<TrashView onBack={vi.fn()} />);
+    await clickButton("復元");
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "対象のノート（束）が見つかりません",
+    );
+  });
+
+  it("削除済みノート（束）の読み込みに失敗するとエラーを表示する", async () => {
+    mockHanamask({
+      listDeletedNotes: async () => [],
+      listDeletedNotebooks: async () => {
+        throw new Error("boom");
+      },
+    });
+
+    render(<TrashView onBack={vi.fn()} />);
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "削除済みノート（束）の読み込みに失敗しました",
+    );
   });
 });
