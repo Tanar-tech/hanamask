@@ -29,7 +29,8 @@ describe("STANDING_INSTRUCTION", () => {
     expect(STANDING_INSTRUCTION).toContain("作業の区切り");
     expect(STANDING_INSTRUCTION).toContain("決定");
     expect(STANDING_INSTRUCTION).toContain("次に持ち越すこと");
-    expect(STANDING_INSTRUCTION).toContain("create_note");
+    expect(STANDING_INSTRUCTION).toContain("create_page");
+    expect(STANDING_INSTRUCTION).toContain("update_page");
     expect(STANDING_INSTRUCTION).toContain("list_tags");
   });
 
@@ -41,7 +42,7 @@ describe("STANDING_INSTRUCTION", () => {
   });
 
   it("着手前に search_notes で過去の経緯を引くよう促す", () => {
-    expect(STANDING_INSTRUCTION).toContain("search_notes");
+    expect(STANDING_INSTRUCTION).toContain("semantic_search_notes");
     expect(STANDING_INSTRUCTION).toMatch(/作業を始める前に/);
     expect(STANDING_INSTRUCTION).toMatch(/二度|蒸し返/);
   });
