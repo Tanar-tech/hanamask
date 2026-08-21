@@ -14,7 +14,7 @@ import {
 // ポートは実行時にOSから空きを取る（固定するとE2Eの同時実行で衝突する）。
 let E2E_MCP_PORT = 0;
 
-const SEARCH_FIELD_LABEL = "ノートとタスクを検索";
+const SEARCH_FIELD_LABEL = "ページとタスクを検索";
 const RESULT_LIST_LABEL = "検索結果";
 
 /*
@@ -97,7 +97,7 @@ describe("search flow (find notes from the home screen)", () => {
     await callMcpTool(E2E_MCP_PORT, "delete_note", { id: noteId, confirm: true });
 
     await search(window, "カワセミ");
-    await window.getByText("該当するノートはありません").waitFor();
+    await window.getByText("該当するページはありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "search-02-deleted-hidden.png") });
   });
 
@@ -108,6 +108,6 @@ describe("search flow (find notes from the home screen)", () => {
 
     await search(window, "どこにも書いていない語");
 
-    await window.getByText("該当するノートはありません").waitFor();
+    await window.getByText("該当するページはありません").waitFor();
   });
 });

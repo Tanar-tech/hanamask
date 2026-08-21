@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { asRecord } from "../records.js";
 import { getDb } from "./db.js";
 
-export type EmbeddedEntityType = "note" | "task";
+export type EmbeddedEntityType = "note" | "task" | "notebook";
 
 export interface StoredEmbedding {
   entityType: EmbeddedEntityType;
@@ -37,7 +37,7 @@ interface IndexedStateRow {
   content_hash: string | null;
 }
 
-const ENTITY_TYPES: readonly string[] = ["note", "task"];
+const ENTITY_TYPES: readonly string[] = ["note", "task", "notebook"];
 
 const isEmbeddedEntityType = (value: unknown): value is EmbeddedEntityType =>
   typeof value === "string" && ENTITY_TYPES.includes(value);
@@ -118,7 +118,7 @@ export const deleteEmbedding = (entityType: EmbeddedEntityType, entityId: string
     .run(entityType, entityId);
 };
 
-// ゴミ箱の中身を検索結果に出さないため、生きているノート・タスクに結び付く行だけを返す。
+// ゴミ箱の中身を検索結果に出さないため、生きているページ・タスク・ノートに結び付く行だけを返す。
 const LIST_EMBEDDINGS_SQL = `
   SELECT e.* FROM embeddings e
     JOIN notes n ON n.id = e.entity_id
@@ -126,10 +126,14 @@ const LIST_EMBEDDINGS_SQL = `
   UNION ALL
   SELECT e.* FROM embeddings e
     JOIN tasks t ON t.id = e.entity_id
-   WHERE e.entity_type = 'task' AND e.model_id = ? AND t.deleted_at IS NULL`;
+   WHERE e.entity_type = 'task' AND e.model_id = ? AND t.deleted_at IS NULL
+  UNION ALL
+  SELECT e.* FROM embeddings e
+    JOIN notebooks nb ON nb.id = e.entity_id
+   WHERE e.entity_type = 'notebook' AND e.model_id = ? AND nb.deleted_at IS NULL`;
 
 export const listEmbeddings = (modelId: string): StoredEmbedding[] => {
-  const rows: unknown[] = getDb().prepare(LIST_EMBEDDINGS_SQL).all(modelId, modelId);
+  const rows: unknown[] = getDb().prepare(LIST_EMBEDDINGS_SQL).all(modelId, modelId, modelId);
   return rows.map((row) => {
     if (!isEmbeddingRow(row)) {
       throw new Error("Unexpected embeddings row shape");
@@ -141,6 +145,7 @@ export const listEmbeddings = (modelId: string): StoredEmbedding[] => {
 /*
  * SQLite に sha256 が無いので、ハッシュの一致判定は取り出してから JS 側で行う。model_id を
  * JOIN 条件に入れているので、モデルを差し替えたときは全件が索引なしとして出る。
+ * ノート（束）は本文を持たないので、利用者から見た「概要」である summary を本文として扱う。
  */
 const LIST_INDEXED_STATE_SQL = `
   SELECT 'note' AS entity_type, n.id AS entity_id, n.title AS title, n.body AS body,
@@ -153,10 +158,16 @@ const LIST_INDEXED_STATE_SQL = `
          e.content_hash AS content_hash
     FROM tasks t
     LEFT JOIN embeddings e ON e.entity_type = 'task' AND e.entity_id = t.id AND e.model_id = ?
-   WHERE t.deleted_at IS NULL`;
+   WHERE t.deleted_at IS NULL
+  UNION ALL
+  SELECT 'notebook' AS entity_type, nb.id AS entity_id, nb.title AS title, nb.summary AS body,
+         e.content_hash AS content_hash
+    FROM notebooks nb
+    LEFT JOIN embeddings e ON e.entity_type = 'notebook' AND e.entity_id = nb.id AND e.model_id = ?
+   WHERE nb.deleted_at IS NULL`;
 
 export const listStaleEntities = (modelId: string): StaleEntity[] => {
-  const rows: unknown[] = getDb().prepare(LIST_INDEXED_STATE_SQL).all(modelId, modelId);
+  const rows: unknown[] = getDb().prepare(LIST_INDEXED_STATE_SQL).all(modelId, modelId, modelId);
   return rows
     .map((row) => {
       if (!isIndexedStateRow(row)) {
@@ -179,6 +190,7 @@ export const deleteOrphanEmbeddings = (): number =>
     .prepare(
       `DELETE FROM embeddings
         WHERE (entity_type = 'note' AND entity_id NOT IN (SELECT id FROM notes))
-           OR (entity_type = 'task' AND entity_id NOT IN (SELECT id FROM tasks))`,
+           OR (entity_type = 'task' AND entity_id NOT IN (SELECT id FROM tasks))
+           OR (entity_type = 'notebook' AND entity_id NOT IN (SELECT id FROM notebooks))`,
     )
     .run().changes;

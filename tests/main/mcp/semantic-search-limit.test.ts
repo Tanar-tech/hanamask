@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SemanticSearchResult } from "../../../src/shared/preload-api";
 
 const searchSemanticEntities = vi.fn(
-  async (): Promise<SemanticSearchResult> => ({ notes: [], tasks: [] }),
+  async (): Promise<SemanticSearchResult> => ({ notes: [], tasks: [], notebooks: [] }),
 );
 
 vi.mock("../../../src/main/llm/semantic-search-service", async (importOriginal) => ({
@@ -10,7 +10,7 @@ vi.mock("../../../src/main/llm/semantic-search-service", async (importOriginal) 
   searchSemanticEntities,
 }));
 
-const { findNoteTool } = await import("../../../src/main/mcp/tools");
+const { findNoteTool } = await import("../../../src/main/mcp/tools/notes");
 
 const callTool = async (args: unknown): Promise<void> => {
   const tool = findNoteTool("semantic_search_notes");

@@ -51,7 +51,7 @@ flowchart TB
 
 <h3 id="t54">T54: ノート/ページ(1) DB基盤と既存データの移行</h3>
 <ul>
-<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>ステータス: 完了（PR #203、<code>SPEC.md</code>。§6実データ検証済み）</li>
 <li>優先度: <strong>高</strong>（管理者決定、2026-08-20。これが無いと後続が全て着手できない）</li>
 <li>依存: 必須: なし／推奨: なし</li>
 <li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9・§6。ページを束ねる <code>notebooks</code> 表と、ページの所属先 <code>notes.notebook_id</code>（NULL可＝無所属）を追加し、<strong>ノートの概要にも編集履歴（バージョン）が付く</strong>状態にする。既存の全レコードは <code>notebook_id</code> が NULL のまま<strong>無所属ページ</strong>として引き継がれ（IDも中身も変えない）、包みノートは作らない。<strong>呼び名の読み替えとデータの器だけをここで用意し、外から見える挙動は変えない</strong>のが後続T55〜T59の基盤になる。</li>
@@ -65,7 +65,7 @@ flowchart TB
 
 <h3 id="t55">T55: ノート/ページ(2) リンク・変更通知・タグをノートへ広げる</h3>
 <ul>
-<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>ステータス: 完了（PR #205、<code>SPEC.md</code>）</li>
 <li>優先度: <strong>高</strong>（管理者決定、2026-08-20）</li>
 <li>依存: 必須: T54（<code>notebooks</code> 表が無いと参照先が無い）／推奨: なし</li>
 <li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9の「<strong>ノートとページは並列の存在</strong>」を、リンク・タグ・変更通知・ゴミ箱の各機能で成立させる。共有の <code>EntityType</code> に <code>"notebook"</code> を足し、ノートをリンクの端点にでき、タグで引け、更新がデスクトップUIとOS通知に乗り、ソフトデリート→復元→30日パージの経路に乗る状態にする。</li>
@@ -78,7 +78,7 @@ flowchart TB
 
 <h3 id="t56">T56: ノート/ページ(3) 意味検索の索引をノートへ広げる</h3>
 <ul>
-<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>ステータス: 完了（PR #207、<code>SPEC.md</code>。§6実データ検証41件bit一致）</li>
 <li>優先度: 中</li>
 <li>依存: 必須: T54, T55（<code>EntityType</code> の拡張が前提）／推奨: なし</li>
 <li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9・§4.8-1。ノートの概要も埋め込みの対象にし、<code>semantic_search_notes</code> がノート・ページ・タスクの3種を返せるようにする。<strong>「ノートも検索で引き当てられる」は§4.9の並列性の一部</strong>であり、ここが欠けるとノートは検索から見えない入れ物に留まる。</li>
@@ -92,7 +92,7 @@ flowchart TB
 
 <h3 id="t57">T57: ノート/ページ(4) MCPツール群（<code>*_page</code> / <code>move_page</code> / <code>*_notebook</code>）</h3>
 <ul>
-<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>ステータス: 完了（PR #209、<code>SPEC.md</code>）</li>
 <li>優先度: <strong>高</strong>（管理者決定、2026-08-20。AIがノートを扱えることが§4.9の主目的）</li>
 <li>依存: 必須: T54, T55／推奨: T56（<code>semantic_search_notes</code> の戻り値を同時に固めたい）</li>
 <li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9・§7.3。ページ用の <code>*_page</code> 群と <code>move_page</code>、ノート用の <code>create_notebook</code> / <code>update_notebook</code> / <code>get_notebook</code> / <code>list_notebooks</code> / <code>delete_notebook</code> / <code>restore_notebook</code> を新設し、<strong>外部AIエージェントが束ね方まで含めて記録を管理できる</strong>ようにする。既存の <code>*_note</code> 系は<strong>名前・引数・戻り値を変えずページ操作として温存</strong>し（案A）、説明文で新ツールを案内する。</li>
@@ -105,7 +105,7 @@ flowchart TB
 
 <h3 id="t58">T58: ノート/ページ(5) Explorer型ナビゲーション</h3>
 <ul>
-<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>ステータス: 完了（PR #211、<code>SPEC.md</code>）</li>
 <li>優先度: 中</li>
 <li>依存: 必須: T57（ノートを読むIPC/リポジトリ経路が要る。T54〜T55でも足りるが、ツールと同時に画面を確認できる方が手戻りが少ない）／推奨: T56</li>
 <li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9。Main View に加えて<strong>Explorer型のナビゲーション</strong>を持ち、ノートと<strong>無所属ページ</strong>が混在して並ぶ状態にする。（ページ一覧はナビ側だけが持ち、Main View は概要＋タグ＋最近更新されたページのプレビュー。ナビ上部にタイトルの逐次絞り込みを置く。§4.9 の2026-08-20確定事項）<strong>ノートをクリックするとそのノートに属するページの一覧（サブナビ）が出る。</strong>束ねる作業をしていない利用者が従来どおり使えること（無所属ページがそのまま並ぶこと）を崩さない。</li>
@@ -118,13 +118,13 @@ flowchart TB
 
 <h3 id="t59">T59: ノート/ページ(6) ノート概要の自動生成・追従更新</h3>
 <ul>
-<li>ステータス: 未着手（SPEC未作成。issue #199）</li>
+<li>ステータス: 完了（PR #213、<code>SPEC.md</code>）</li>
 <li>優先度: 低</li>
 <li>依存: 必須: T57／推奨: T56, T58（生成した概要が検索・画面に出て初めて効果が見える）</li>
 <li>目的: <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9。ノートの概要（何の案件か・どこまで進んだか）を所属ページの内容から<strong>自動生成し、ページの追加・更新に合わせて追従更新する</strong>。手で書かなくてもノートが読める入口になっている状態を作る。</li>
 <li><strong>§4.8-3（提案系補助）との関係</strong>: 「提案→利用者が採用」の原則に対する<strong>限定的な例外</strong>として、対象がノートの概要に限られる（ページ本文＝利用者の記録そのものは書き換えない）ことを前提に、自動更新を認める。この境界を広げない。</li>
 <li>変更範囲: 生成主体の決定（停止条件）により変わる。外部AIエージェントに任せる場合は <code>src/main/mcp/tools.ts</code>（ツールの説明文・案内）と運用ドキュメントのみ。同梱ローカルLLMで行う場合は <code>src/main/llm/</code>（生成プロンプトと構造化出力）、<code>src/main/notify/</code>（更新をトリガーにした再生成）、<code>src/renderer/components/</code>（自動生成であることの表示・手動編集との切り替え）。</li>
-<li>禁止事項: <strong>利用者が手で書いた概要を、断りなく上書きしないこと</strong>（手動編集の有無を持ち、上書きしないか確認を挟む）。ページ本文・タイトル・タグを自動で書き換えないこと（例外は概要のみ）。ページの更新のたびに無条件で推論を走らせて、アプリを重くしないこと（間引き・遅延を設計する）。概要の生成のために記録の内容を外部へ送らないこと（ローカルLLMで行う場合）。生成に失敗したときにノートの保存や他の機能を止めないこと。ログに本文を出さないこと。</li>
+<li>禁止事項: <del>利用者が手で書いた概要を、断りなく上書きしないこと</del> → <strong>§4.9 の 2026-08-20/08-21 判断により改定</strong>: 手書きの概要も、古くなっていれば追従更新の対象として書き直してよい（更新は全てMCPツール経由で編集履歴に残り、復元できるため。手動編集フラグ・確認ステップは持たない）。ページ本文・タイトル・タグを自動で書き換えないこと（例外は概要のみ）。ページの更新のたびに無条件で推論を走らせて、アプリを重くしないこと（間引き・遅延を設計する）。概要の生成のために記録の内容を外部へ送らないこと（ローカルLLMで行う場合）。生成に失敗したときにノートの保存や他の機能を止めないこと。ログに本文を出さないこと。</li>
 <li>テスト: 推論層をモックし、概要が生成・更新される流れ。<strong>手動編集された概要が上書きされないこと</strong>。生成が失敗・未準備のときにノートが従来どおり使えること。ページの追加・更新・移動・削除それぞれで追従更新のトリガーが正しく引かれること（および間引きが効くこと）。採用前後でDBがどう変わるか（自動更新を認める範囲を超えていないこと）。</li>
 <li>停止条件: <strong>生成主体を管理者に確認してから着手する</strong>（<a href="REQUIREMENTS.html#8">§8</a>）。(a) 外部AIエージェントに任せる（ツールの説明文で促すだけ。追加の依存なし）か、(b) 同梱のローカルLLMで行う（<strong><a href="TASKS-local-llm.html#t50">T50</a>「提案系補助」の前倒しが必要</strong>。チャット用の生成モデルが要るため<a href="TASKS-local-llm.html#t49">T49</a>にも波及する）か。トリガー（ページ更新の都度か、明示的な指示のときだけか）も併せて確認する。自動更新の対象を概要以外へ広げる判断は管理者に確認する。</li>
 </ul>

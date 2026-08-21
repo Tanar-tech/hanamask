@@ -53,6 +53,12 @@ const mockHanamask = (overrides: LinkApiOverrides = {}) => {
     updateNote: vi.fn(async () => null),
     deleteNote: vi.fn(async () => {}),
     onNotesChanged: vi.fn(() => () => {}),
+    onNotebooksChanged: vi.fn(() => () => undefined),
+    listDeletedNotebooks: vi.fn(async () => []),
+    listNotebooks: vi.fn(async () => []),
+    getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
+    updateNotebook: vi.fn(async () => null),
+    restoreNotebook: vi.fn(async () => true),
     onNavigate: vi.fn(() => () => {}),
     listNoteVersions: vi.fn(async () => []),
     restoreNoteVersion: vi.fn(async () => null),
@@ -80,7 +86,7 @@ const mockHanamask = (overrides: LinkApiOverrides = {}) => {
     saveChatModel: vi.fn(async (model: string) => ({ apiKeyMask: null, model })),
     exportBackup: vi.fn(),
     importBackup: vi.fn(),
-    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [] })),
+    semanticSearch: vi.fn(async () => ({ notes: [], tasks: [], notebooks: [] })),
     relatedNotes: vi.fn(async () => ({ notes: [] })),
     readEmbeddingStatus: vi.fn(async () => ({ state: "unavailable" as const, pending: 0 })),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
@@ -166,8 +172,33 @@ describe("EntityLinks", () => {
 
     render(<EntityLinks entityType="task" entityId="task-1" />);
 
-    expect(await screen.findByText("ノート: note-7")).toBeTruthy();
+    expect(await screen.findByText("ページ: note-7")).toBeTruthy();
     expect(screen.queryByText(/task-1/)).toBeNull();
+  });
+
+  it("ノートが相手のリンクは束のラベルで表示する", async () => {
+    mockHanamask({
+      listLinks: async () => [makeLink({ toType: "notebook", toId: "notebook-3" })],
+    });
+
+    render(<EntityLinks entityType="note" entityId="note-1" />);
+
+    expect(await screen.findByText("ノート: notebook-3")).toBeTruthy();
+  });
+
+  it("リンク先の種別にノートを選べる", async () => {
+    const { createLink } = mockHanamask({ listLinks: async () => [] });
+
+    render(<EntityLinks entityType="note" entityId="note-1" />);
+    await screen.findByText("リンクはありません");
+    await fillAndSubmitForm("notebook", "notebook-3");
+
+    expect(createLink).toHaveBeenCalledWith({
+      fromType: "note",
+      fromId: "note-1",
+      toType: "notebook",
+      toId: "notebook-3",
+    });
   });
 
   it("一覧に何の一覧かが分かるラベルを付ける", async () => {

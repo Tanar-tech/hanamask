@@ -90,6 +90,7 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
+vi.mock("../../src/main/db/notebooks-repo", () => ({ listDeletedNotebooks: vi.fn(() => []), restoreNotebook: vi.fn(() => null) }));
 vi.mock("../../src/main/db/notes-repo", () => ({
   searchNotes,
   softDeleteNote,
@@ -112,6 +113,8 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
+  emitNotebooksChanged: vi.fn(),
+  onNotebooksChanged: vi.fn(() => () => {}),
   emitNotesChanged: () => {
     notesChangedListeners.forEach((listener) => {
       listener();
@@ -254,6 +257,7 @@ const sampleNote: Note = {
 const sampleNoteVersion: NoteVersion = {
   id: "version-1",
   noteId: "note-1",
+  entityType: "note",
   title: "古いタイトル",
   body: "古い本文",
   tags: ["a"],

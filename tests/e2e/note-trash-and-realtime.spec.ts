@@ -50,7 +50,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
 
   it("deletes a note from the list into the trash view and brings it back on restore", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     await createNoteViaMcp(E2E_MCP_PORT, {
       title: "ゴミ箱往復ノート",
@@ -60,7 +60,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     await noteListOf(window).getByRole("button", { name: "ゴミ箱往復ノート" }).waitFor();
 
     await noteListOf(window).getByRole("button", { name: "削除" }).click();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-01-deleted-from-list.png") });
 
     await window.getByRole("button", { name: "ゴミ箱" }).click();
@@ -69,7 +69,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-02-in-trash.png") });
 
     await window.getByRole("button", { name: "復元" }).click();
-    await window.getByText("削除済みのノート・タスクはありません").waitFor();
+    await window.getByText("削除済みのページ・タスク・ノートはありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-03-restored.png") });
 
     await window.getByRole("button", { name: "戻る" }).click();
@@ -79,7 +79,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
 
   it("refreshes the open detail view when update_note changes title, body and tags", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     const noteId = await createNoteViaMcp(E2E_MCP_PORT, {
       title: "反映前タイトル",
@@ -107,7 +107,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
 
   it("keeps the draft and shows a notice when update_note arrives while editing", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     const noteId = await createNoteViaMcp(E2E_MCP_PORT, {
       title: "編集中ノート",
@@ -117,10 +117,11 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     await noteListOf(window).getByRole("button", { name: "編集中ノート" }).waitFor();
     await openNoteDetail(window, "編集中ノート");
 
-    await window.getByRole("button", { name: "編集" }).click();
-    await window.getByLabel("タイトル").fill("編集中のタイトル");
-    await window.getByLabel("本文").fill("編集中の本文");
-    await window.getByLabel("タグ").fill("draft");
+    // 詳細を開いてもナビは残るため、「編集」を含むページ名と部分一致しないよう厳密に指す。
+    await window.getByRole("button", { name: "編集", exact: true }).click();
+    await window.getByLabel("タイトル", { exact: true }).fill("編集中のタイトル");
+    await window.getByLabel("本文", { exact: true }).fill("編集中の本文");
+    await window.getByLabel("タグ", { exact: true }).fill("draft");
 
     await callMcpTool(E2E_MCP_PORT, "update_note", {
       id: noteId,
@@ -133,9 +134,9 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
       .getByRole("status")
       .filter({ hasText: "このノートは別の場所で更新されました" })
       .waitFor();
-    await expect.poll(() => window.getByLabel("タイトル").inputValue()).toBe("編集中のタイトル");
-    await expect.poll(() => window.getByLabel("本文").inputValue()).toBe("編集中の本文");
-    await expect.poll(() => window.getByLabel("タグ").inputValue()).toBe("draft");
+    await expect.poll(() => window.getByLabel("タイトル", { exact: true }).inputValue()).toBe("編集中のタイトル");
+    await expect.poll(() => window.getByLabel("本文", { exact: true }).inputValue()).toBe("編集中の本文");
+    await expect.poll(() => window.getByLabel("タグ", { exact: true }).inputValue()).toBe("draft");
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-06-external-update-notice.png") });
 
     // Discarding the draft is what pulls the external update into the view.

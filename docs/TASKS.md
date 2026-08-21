@@ -45,7 +45,7 @@
 | T48 | ローカルLLM(1) 意味検索（埋め込み）（詳細は [TASKS-local-llm.md](TASKS-local-llm.md)） | なし | 開発管理者＋開発要員（2026-08-19起票。統合ブランチ `feature/local-llm`） |
 | T49 | ローカルLLM(2) チャットのローカルモデル（同上） | T48, T12 | T48でランタイム同梱を固めてから |
 | T50 | ローカルLLM(3) 提案系補助（同上） | T48 | T49の後を推奨 |
-| T54〜T59 | ノート/ページ再編（詳細は [TASKS-notebooks.md](TASKS-notebooks.md)） | T54が起点 | 開発管理者＋開発要員（2026-08-20起票。統合ブランチ `feature/notebooks`） |
+| T54〜T59 | ノート/ページ再編（詳細は [TASKS-notebooks.md](TASKS-notebooks.md)） | T54が起点 | **完了（2026-08-21、v2.1.0）** |
 
 `electron-updater` による自動更新（`docs/AUTO_UPDATE.md`）は **T43 の完了により導入可能になった**（公開リポジトリが前提だった）。依存追加は `docs/GOVERNANCE.md` §6 の承認事項のため、まだタスク化していない。
 

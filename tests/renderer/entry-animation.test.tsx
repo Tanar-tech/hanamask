@@ -73,7 +73,7 @@ const expectOnlyArrivedMoves = (arrivedTitle: string, existingTitle: string): vo
   expect(hasEntryOffset(itemOf(existingTitle))).toBe(false);
 };
 
-const NOTE_TITLES = { existing: "元からあるノート", arrived: "いま増えたノート" };
+const NOTE_TITLES = { existing: "元からあるページ", arrived: "いま増えたページ" };
 const TASK_TITLES = { existing: "元からあるタスク", arrived: "いま増えたタスク" };
 
 const stubNoteFeed = (listeners: Array<() => void>): void => {
@@ -111,7 +111,7 @@ afterEach(() => {
  * 担保しており、そちらは2種類の誤実装で実際に落ちることを確認済み。
  */
 describe("新しく現れた項目の入場アニメーション", () => {
-  it("ノート一覧では増えたノートだけが動く", async () => {
+  it("ページ一覧では増えたページだけが動く", async () => {
     const listeners: Array<() => void> = [];
     stubNoteFeed(listeners);
 
@@ -135,7 +135,7 @@ describe("新しく現れた項目の入場アニメーション", () => {
     expectOnlyArrivedMoves(TASK_TITLES.arrived, TASK_TITLES.existing);
   });
 
-  it("ホームの最近のノートでは増えたノートだけが動く", async () => {
+  it("ホームの最近のページでは増えたページだけが動く", async () => {
     const listeners: Array<() => void> = [];
     stubNoteFeed(listeners);
 

@@ -81,10 +81,13 @@ vi.mock("electron", () => ({
 
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
 vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes: vi.fn(), softDeleteNote: vi.fn() }));
+vi.mock("../../src/main/db/notebooks-repo", () => ({ listDeletedNotebooks: vi.fn(() => []), restoreNotebook: vi.fn(() => null) }));
 vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks: vi.fn(), updateTask: vi.fn() }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords: vi.fn() }));
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
+  emitNotebooksChanged: vi.fn(),
+  onNotebooksChanged: vi.fn(() => () => {}),
   emitNotesChanged: vi.fn(),
   onNotesChanged: (listener: (change?: EntityChange) => void) => {
     notesChangedListeners.push(listener);
@@ -174,7 +177,7 @@ describe("main process change notifications", () => {
 
     expect(NotificationMock).toHaveBeenCalledTimes(1);
     expect(NotificationMock).toHaveBeenCalledWith({
-      title: "ノートを作成しました",
+      title: "ページを作成しました",
       body: "設計メモ",
     });
     expect(createdNotifications[0]?.show).toHaveBeenCalledTimes(1);
@@ -201,7 +204,7 @@ describe("main process change notifications", () => {
     });
   });
 
-  it("OS通知をクリックすると該当ノートを開く", () => {
+  it("OS通知をクリックすると該当ページを開く", () => {
     emitNoteChange(noteChange({ action: "updated", id: "note-7" }));
     vi.advanceTimersByTime(CHANGE_NOTIFICATION_WINDOW_MS);
 

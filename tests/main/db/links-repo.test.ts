@@ -5,8 +5,9 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { closeDb, getDb, openDb } from "../../../src/main/db/db";
 import { createLink, deleteLink, listLinks } from "../../../src/main/db/links-repo";
-import { createNote } from "../../../src/main/db/notes-repo";
+import { createNote, softDeleteNote } from "../../../src/main/db/notes-repo";
 import { createTask } from "../../../src/main/db/tasks-repo";
+import { createNotebook, softDeleteNotebook } from "../../../src/main/db/notebooks-repo";
 
 describe("links-repo", () => {
   let dbFilePath: string;
@@ -15,6 +16,8 @@ describe("links-repo", () => {
   let otherNoteId: string;
   let taskId: string;
   let otherTaskId: string;
+  let notebookId: string;
+  let otherNotebookId: string;
 
   beforeEach(() => {
     dbFilePath = join(tmpdir(), `hanamask-link-test-${randomUUID()}.sqlite3`);
@@ -23,6 +26,8 @@ describe("links-repo", () => {
     otherNoteId = createNote({ title: "n2", body: "b2", tags: [] }).id;
     taskId = createTask({ title: "t1", status: "todo", dueDate: null }).id;
     otherTaskId = createTask({ title: "t2", status: "todo", dueDate: null }).id;
+    notebookId = createNotebook({ title: "nb1", summary: "", tags: [] }).id;
+    otherNotebookId = createNotebook({ title: "nb2", summary: "", tags: [] }).id;
   });
 
   afterEach(() => {
@@ -139,6 +144,78 @@ describe("links-repo", () => {
 
     expect(deleteLink(created.id)).toBe(false);
     expect(deleteLink(randomUUID())).toBe(false);
+  });
+
+  it("ノート（束）とページのリンクを両側から辿れる", () => {
+    const created = createLink({
+      fromType: "notebook",
+      fromId: notebookId,
+      toType: "note",
+      toId: noteId,
+    });
+
+    expect(listLinks("notebook", notebookId)).toEqual([created]);
+    expect(listLinks("note", noteId)).toEqual([created]);
+  });
+
+  it("ノート（束）とタスクのリンクを両側から辿れる", () => {
+    const created = createLink({
+      fromType: "task",
+      fromId: taskId,
+      toType: "notebook",
+      toId: notebookId,
+    });
+
+    expect(listLinks("notebook", notebookId)).toEqual([created]);
+    expect(listLinks("task", taskId)).toEqual([created]);
+  });
+
+  it("ノート（束）同士のリンクを両側から辿れる", () => {
+    const created = createLink({
+      fromType: "notebook",
+      fromId: notebookId,
+      toType: "notebook",
+      toId: otherNotebookId,
+    });
+
+    expect(listLinks("notebook", notebookId)).toEqual([created]);
+    expect(listLinks("notebook", otherNotebookId)).toEqual([created]);
+  });
+
+  it("ノート（束）のリンクも解除できる", () => {
+    const created = createLink({
+      fromType: "notebook",
+      fromId: notebookId,
+      toType: "note",
+      toId: noteId,
+    });
+
+    expect(deleteLink(created.id)).toBe(true);
+    expect(listLinks("notebook", notebookId)).toEqual([]);
+  });
+
+  it("存在しないノート（束）idへのリンクは弾かれる", () => {
+    const missingId = randomUUID();
+
+    expect(() =>
+      createLink({ fromType: "notebook", fromId: missingId, toType: "note", toId: noteId }),
+    ).toThrow(`notebook not found: ${missingId}`);
+    expect(() =>
+      createLink({ fromType: "note", fromId: noteId, toType: "notebook", toId: missingId }),
+    ).toThrow(`notebook not found: ${missingId}`);
+    expect(listLinks("note", noteId)).toEqual([]);
+  });
+
+  it("削除済みのノート（束）端点はページと同じく弾かれる", () => {
+    softDeleteNotebook(notebookId);
+    softDeleteNote(otherNoteId);
+
+    expect(() =>
+      createLink({ fromType: "notebook", fromId: notebookId, toType: "note", toId: noteId }),
+    ).toThrow(`notebook not found: ${notebookId}`);
+    expect(() =>
+      createLink({ fromType: "note", fromId: otherNoteId, toType: "note", toId: noteId }),
+    ).toThrow(`note not found: ${otherNoteId}`);
   });
 
   it("保存済みの不正なfrom_type値を読み出すと例外を投げる", () => {

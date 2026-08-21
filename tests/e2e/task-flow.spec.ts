@@ -155,7 +155,7 @@ describe("task flow (Electron app + MCP server + renderer)", () => {
     await window.screenshot({ path: join(SCREENSHOT_DIR, "task-06-in-trash.png") });
 
     await window.getByRole("button", { name: "復元" }).click();
-    await window.getByText("削除済みのノート・タスクはありません").waitFor();
+    await window.getByText("削除済みのページ・タスク・ノートはありません").waitFor();
 
     await window.getByRole("button", { name: "戻る" }).click();
     await openTaskList(window);

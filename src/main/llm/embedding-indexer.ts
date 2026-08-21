@@ -28,6 +28,7 @@ export interface EmbeddingIndexerDeps {
   onAvailabilityChanged?: (listener: () => void) => () => void;
   subscribeNotes: (listener: ChangeListener) => () => void;
   subscribeTasks: (listener: ChangeListener) => () => void;
+  subscribeNotebooks: (listener: ChangeListener) => () => void;
   readEntity: (
     entityType: EmbeddedEntityType,
     entityId: string,
@@ -188,7 +189,11 @@ export const createEmbeddingIndexer = (deps: EmbeddingIndexerDeps): EmbeddingInd
   const start = (): void => {
     if (started) return;
     started = true;
-    unsubscribes.push(deps.subscribeNotes(handleChange), deps.subscribeTasks(handleChange));
+    unsubscribes.push(
+      deps.subscribeNotes(handleChange),
+      deps.subscribeTasks(handleChange),
+      deps.subscribeNotebooks(handleChange),
+    );
     // 読み込み完了をポーリングせずに待つため、availability の変化で保留分を流す。
     const unsubscribeAvailability = deps.onAvailabilityChanged?.(() => {
       publishStatus();

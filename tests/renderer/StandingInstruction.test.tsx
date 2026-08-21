@@ -33,6 +33,13 @@ describe("STANDING_INSTRUCTION", () => {
     expect(STANDING_INSTRUCTION).toContain("list_tags");
   });
 
+  it("ページが増えたらノートに束ね、区切りで概要を追従更新するよう促す", () => {
+    expect(STANDING_INSTRUCTION).toContain("create_notebook");
+    expect(STANDING_INSTRUCTION).toContain("move_page");
+    expect(STANDING_INSTRUCTION).toContain("update_notebook");
+    expect(STANDING_INSTRUCTION).toMatch(/概要/);
+  });
+
   it("着手前に search_notes で過去の経緯を引くよう促す", () => {
     expect(STANDING_INSTRUCTION).toContain("search_notes");
     expect(STANDING_INSTRUCTION).toMatch(/作業を始める前に/);

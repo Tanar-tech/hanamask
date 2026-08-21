@@ -4,10 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { closeDb, openDb } from "../../../src/main/db/db";
+import { createNotebook } from "../../../src/main/db/notebooks-repo";
 import {
   createNote,
   getNote,
   listDeletedNotes,
+  moveNoteToNotebook,
   restoreNote,
   searchNotes,
   softDeleteNote,
@@ -203,5 +205,49 @@ describe("notes-repo", () => {
     softDeleteNote(second.id);
 
     expect(listDeletedNotes().map((note) => note.id)).toEqual([second.id, first.id]);
+  });
+
+  it("creates a note without a notebook by default", () => {
+    const note = createNote({ title: "無所属", body: "本文", tags: [] });
+
+    expect(note.notebookId).toBeNull();
+    expect(getNote(note.id)?.notebookId).toBeNull();
+  });
+
+  it("creates a note inside the given notebook", () => {
+    const notebook = createNotebook({ title: "束", summary: "", tags: [] });
+
+    const note = createNote({ title: "所属", body: "本文", tags: [] }, notebook.id);
+
+    expect(note.notebookId).toBe(notebook.id);
+    expect(getNote(note.id)?.notebookId).toBe(notebook.id);
+  });
+
+  it("moves a note into a notebook, to another one, and back out", () => {
+    const first = createNotebook({ title: "元", summary: "", tags: [] });
+    const second = createNotebook({ title: "先", summary: "", tags: [] });
+    const note = createNote({ title: "移す", body: "本文", tags: [] });
+
+    expect(moveNoteToNotebook(note.id, first.id)?.notebookId).toBe(first.id);
+    expect(moveNoteToNotebook(note.id, second.id)?.notebookId).toBe(second.id);
+    expect(moveNoteToNotebook(note.id, null)?.notebookId).toBeNull();
+  });
+
+  it("returns null when moving a note that does not exist or is deleted", () => {
+    const notebook = createNotebook({ title: "束", summary: "", tags: [] });
+    const deleted = createNote({ title: "消す", body: "本文", tags: [] });
+    softDeleteNote(deleted.id);
+
+    expect(moveNoteToNotebook(randomUUID(), notebook.id)).toBeNull();
+    expect(moveNoteToNotebook(deleted.id, notebook.id)).toBeNull();
+  });
+
+  it("filters search results by notebook when a notebook id is given", () => {
+    const notebook = createNotebook({ title: "束", summary: "", tags: [] });
+    createNote({ title: "中", body: "本文", tags: [] }, notebook.id);
+    createNote({ title: "外", body: "本文", tags: [] });
+
+    expect(searchNotes("", notebook.id).map((note) => note.title)).toEqual(["中"]);
+    expect(searchNotes("").map((note) => note.title).sort()).toEqual(["中", "外"]);
   });
 });

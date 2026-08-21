@@ -111,7 +111,7 @@ describe("backup flow (export and import through the settings screen)", () => {
       confirm: true,
     });
     await openNoteList(window);
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     await app?.evaluate(async ({ dialog }, path: string) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] });

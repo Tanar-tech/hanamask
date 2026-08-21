@@ -61,7 +61,7 @@ describe("change notifier", () => {
     vi.advanceTimersByTime(CHANGE_NOTIFICATION_WINDOW_MS);
 
     expect(showNotification).toHaveBeenCalledTimes(1);
-    expect(lastNotification(showNotification).title).toBe("ノートを作成しました");
+    expect(lastNotification(showNotification).title).toBe("ページを作成しました");
     expect(lastNotification(showNotification).body).toBe("設計メモ");
   });
 
@@ -100,7 +100,7 @@ describe("change notifier", () => {
     expect(lastNotification(showNotification).body).toBe("a、b、c ほか2件");
   });
 
-  it("同じノートへの連続更新は1件として数える", () => {
+  it("同じページへの連続更新は1件として数える", () => {
     const { notifier, showNotification } = setup(false);
 
     notifier.recordChange(noteChange({ action: "created", title: "初版" }));
@@ -108,7 +108,7 @@ describe("change notifier", () => {
     vi.advanceTimersByTime(CHANGE_NOTIFICATION_WINDOW_MS);
 
     expect(showNotification).toHaveBeenCalledTimes(1);
-    expect(lastNotification(showNotification).title).toBe("ノートを更新しました");
+    expect(lastNotification(showNotification).title).toBe("ページを更新しました");
     expect(lastNotification(showNotification).body).toBe("改訂");
   });
 
@@ -148,7 +148,7 @@ describe("change notifier", () => {
     expect(lastNotification(showNotification).title).toBe("タスクを削除しました");
   });
 
-  it("1件の通知をクリックすると該当ノートを開く", () => {
+  it("1件の通知をクリックすると該当ページを開く", () => {
     const { notifier, showNotification, navigate, showWindow } = setup(false);
 
     notifier.recordChange(noteChange({ action: "updated", id: "note-9" }));
@@ -178,6 +178,53 @@ describe("change notifier", () => {
     const { notifier, showNotification, navigate, showWindow } = setup(false);
 
     notifier.recordChange(noteChange({ action: "deleted" }));
+    vi.advanceTimersByTime(CHANGE_NOTIFICATION_WINDOW_MS);
+    lastNotification(showNotification).onClick();
+
+    expect(navigate).not.toHaveBeenCalled();
+    expect(showWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it("ノートの変更も通知する", () => {
+    const { notifier, showNotification } = setup(false);
+
+    notifier.recordChange({
+      entity: "notebook",
+      action: "created",
+      id: "notebook-1",
+      title: "案件A",
+    });
+    vi.advanceTimersByTime(CHANGE_NOTIFICATION_WINDOW_MS);
+
+    expect(lastNotification(showNotification).title).toBe("ノートを作成しました");
+    expect(lastNotification(showNotification).body).toBe("案件A");
+  });
+
+  it("1件の通知をクリックすると該当ノートを開く", () => {
+    const { notifier, showNotification, navigate, showWindow } = setup(false);
+
+    notifier.recordChange({
+      entity: "notebook",
+      action: "updated",
+      id: "notebook-9",
+      title: "案件A",
+    });
+    vi.advanceTimersByTime(CHANGE_NOTIFICATION_WINDOW_MS);
+    lastNotification(showNotification).onClick();
+
+    expect(navigate).toHaveBeenCalledWith({ kind: "notebook", id: "notebook-9" });
+    expect(showWindow).not.toHaveBeenCalled();
+  });
+
+  it("削除されたノートの通知をクリックしたときはウィンドウを前面に出すだけにする", () => {
+    const { notifier, showNotification, navigate, showWindow } = setup(false);
+
+    notifier.recordChange({
+      entity: "notebook",
+      action: "deleted",
+      id: "notebook-9",
+      title: "案件A",
+    });
     vi.advanceTimersByTime(CHANGE_NOTIFICATION_WINDOW_MS);
     lastNotification(showNotification).onClick();
 

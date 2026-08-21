@@ -20,6 +20,14 @@ const noteChange = (overrides: Partial<EntityChange> = {}): EntityChange => ({
   ...overrides,
 });
 
+const notebookChange = (overrides: Partial<EntityChange> = {}): EntityChange => ({
+  entity: "notebook",
+  action: "created",
+  id: "notebook-1",
+  title: "MCPの調べもの",
+  ...overrides,
+});
+
 interface Harness {
   deps: EmbeddingIndexerDeps;
   provider: FakeEmbeddingProvider;
@@ -28,8 +36,10 @@ interface Harness {
   blockEmbedding: () => () => void;
   emitNote: (change?: EntityChange) => void;
   emitTask: (change?: EntityChange) => void;
+  emitNotebook: (change?: EntityChange) => void;
   noteListeners: ChangeListener[];
   taskListeners: ChangeListener[];
+  notebookListeners: ChangeListener[];
   setAvailability: (next: EmbeddingAvailability) => void;
   stale: StaleEntity[];
   bodies: Map<string, { title: string; body: string }>;
@@ -42,6 +52,7 @@ const createHarness = (): Harness => {
   const warnings: string[] = [];
   const noteListeners: ChangeListener[] = [];
   const taskListeners: ChangeListener[] = [];
+  const notebookListeners: ChangeListener[] = [];
   const availabilityListeners: Array<() => void> = [];
   const stale: StaleEntity[] = [];
   const embedFailures = new Set<string>();
@@ -49,6 +60,8 @@ const createHarness = (): Harness => {
     ["note:note-1", { title: "設計メモ", body: "MCPの接続で詰まった" }],
     ["note:note-2", { title: "別のノート", body: "本文2" }],
     ["task:task-1", { title: "READMEを直す", body: "本文3" }],
+    // ノート（束）は概要が本文相当（readEntity 側で summary を body に載せる契約）。
+    ["notebook:notebook-1", { title: "MCPの調べもの", body: "接続まわりの概要" }],
   ]);
   let availability: EmbeddingAvailability = { state: "ready", provider };
 
@@ -107,6 +120,12 @@ const createHarness = (): Harness => {
         removeFrom(taskListeners, listener);
       };
     },
+    subscribeNotebooks: (listener) => {
+      notebookListeners.push(listener);
+      return () => {
+        removeFrom(notebookListeners, listener);
+      };
+    },
     readEntity: (entityType, id) => bodies.get(`${entityType}:${id}`),
     contextSize: CONTEXT_SIZE,
     now: () => "2026-08-19T00:00:00.000Z",
@@ -125,6 +144,7 @@ const createHarness = (): Harness => {
     blockEmbedding,
     noteListeners,
     taskListeners,
+    notebookListeners,
     stale,
     bodies,
     embedFailures,
@@ -135,6 +155,11 @@ const createHarness = (): Harness => {
     },
     emitTask: (change) => {
       [...taskListeners].forEach((listener) => {
+        listener(change);
+      });
+    },
+    emitNotebook: (change) => {
+      [...notebookListeners].forEach((listener) => {
         listener(change);
       });
     },
@@ -182,6 +207,56 @@ describe("embedding indexer", () => {
     expect(harness.upserted[0]?.modelId).toBe(harness.provider.modelId);
     expect(harness.upserted[0]?.contentHash).toBe("hash(設計メモ|MCPの接続で詰まった)");
     expect(harness.upserted[0]?.updatedAt).toBe("2026-08-19T00:00:00.000Z");
+    indexer.stop();
+  });
+
+  it("ノート（束）の変更でも埋め込みを計算し、概要が文書テキストに載る", async () => {
+    const harness = createHarness();
+    const indexer = createEmbeddingIndexer(harness.deps);
+    indexer.start();
+    await settle();
+    harness.upserted.length = 0;
+    harness.provider.embeddedDocuments.length = 0;
+
+    harness.emitNotebook(notebookChange());
+    await settle();
+
+    expect(harness.upserted).toHaveLength(1);
+    expect(harness.upserted[0]?.entityType).toBe("notebook");
+    expect(harness.upserted[0]?.entityId).toBe("notebook-1");
+    expect(harness.upserted[0]?.contentHash).toBe("hash(MCPの調べもの|接続まわりの概要)");
+    expect(harness.provider.embeddedDocuments[0]).toContain("接続まわりの概要");
+    indexer.stop();
+  });
+
+  it("ノート（束）の削除では埋め込み行に触らない", async () => {
+    const harness = createHarness();
+    const indexer = createEmbeddingIndexer(harness.deps);
+    indexer.start();
+    await settle();
+    harness.upserted.length = 0;
+
+    harness.emitNotebook(notebookChange({ action: "deleted" }));
+    await settle();
+
+    expect(harness.upserted).toHaveLength(0);
+    indexer.stop();
+  });
+
+  it("stale にノート（束）が含まれていれば埋める", async () => {
+    const harness = createHarness();
+    harness.stale.push({
+      entityType: "notebook",
+      entityId: "notebook-1",
+      title: "MCPの調べもの",
+      body: "接続まわりの概要",
+    });
+    const indexer = createEmbeddingIndexer(harness.deps);
+
+    indexer.start();
+    await settle();
+
+    expect(harness.upserted.map((row) => row.entityType)).toEqual(["notebook"]);
     indexer.stop();
   });
 
@@ -422,11 +497,13 @@ describe("embedding indexer", () => {
     await settle();
     expect(harness.noteListeners).toHaveLength(1);
     expect(harness.taskListeners).toHaveLength(1);
+    expect(harness.notebookListeners).toHaveLength(1);
 
     indexer.stop();
 
     expect(harness.noteListeners).toHaveLength(0);
     expect(harness.taskListeners).toHaveLength(0);
+    expect(harness.notebookListeners).toHaveLength(0);
   });
 
   it("stop() 後に届いた変更は処理しない", async () => {

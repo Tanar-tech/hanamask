@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import { closeDb, openDb } from "../../../src/main/db/db";
 import { getTask, listTasks } from "../../../src/main/db/tasks-repo";
 import { onTasksChanged } from "../../../src/main/mcp/change-emitter";
-import { findTaskTool, taskTools } from "../../../src/main/mcp/tools";
+import { findTaskTool, taskTools } from "../../../src/main/mcp/tools/tasks";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
 const callTool = (name: string, args: unknown): CallToolResult => {

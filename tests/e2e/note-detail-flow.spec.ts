@@ -49,7 +49,7 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
 
   it("saves title and body edits made in the detail view and reflects them in the list", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     await createNoteViaMcp(E2E_MCP_PORT, {
       title: "編集前タイトル",
@@ -59,18 +59,19 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
     await noteListOf(window).getByRole("button", { name: "編集前タイトル" }).waitFor();
 
     await openNoteDetail(window, "編集前タイトル");
-    await window.getByRole("button", { name: "編集" }).click();
+    // 詳細を開いてもナビは残るため、「編集」を含むページ名と部分一致しないよう厳密に指す。
+    await window.getByRole("button", { name: "編集", exact: true }).click();
 
-    await window.getByLabel("タイトル").fill("編集後タイトル");
-    await window.getByLabel("本文").fill("編集後の本文");
-    await window.getByLabel("タグ").fill("after, e2e");
+    await window.getByLabel("タイトル", { exact: true }).fill("編集後タイトル");
+    await window.getByLabel("本文", { exact: true }).fill("編集後の本文");
+    await window.getByLabel("タグ", { exact: true }).fill("after, e2e");
     await window.screenshot({ path: join(SCREENSHOT_DIR, "detail-01-editing.png") });
 
     await window.getByRole("button", { name: "保存" }).click();
 
     // Back in view mode: the edit form's inputs are gone and the new content is shown.
     await window.getByRole("heading", { name: "編集後タイトル" }).waitFor();
-    await expect.poll(() => window.getByLabel("タイトル").count()).toBe(0);
+    await expect.poll(() => window.getByLabel("タイトル", { exact: true }).count()).toBe(0);
     await window.getByText("編集後の本文").waitFor();
     await window.getByText("after", { exact: true }).waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "detail-02-saved.png") });
@@ -85,7 +86,7 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
 
   it("renders a mermaid code fence as an SVG and shows an error instead of crashing on bad syntax", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     await createNoteViaMcp(E2E_MCP_PORT, {
       title: "Mermaid正常ノート",
@@ -118,7 +119,7 @@ describe("note detail flow (edit / mermaid / image attachment)", () => {
 
   it("shows a preview for an image attached through the attach_image MCP tool", async () => {
     const window = await startApp();
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByText("ページはまだありません").waitFor();
 
     const noteId = await createNoteViaMcp(E2E_MCP_PORT, {
       title: "画像添付ノート",

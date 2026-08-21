@@ -1,5 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { findUiTool, uiTools } from "../../../src/main/mcp/tools";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { closeDb, openDb } from "../../../src/main/db/db";
+import { createNotebook } from "../../../src/main/db/notebooks-repo";
+import { findUiTool, uiTools } from "../../../src/main/mcp/tools/ui";
 import { setUiNavigator } from "../../../src/main/ui/navigate";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
@@ -30,10 +36,11 @@ describe("mcp ui tools", () => {
     setUiNavigator({ showWindow, navigate });
   });
 
-  it("4つのUI連携ツール定義を公開する", () => {
+  it("5つのUI連携ツール定義を公開する", () => {
     expect(uiTools.map((tool) => tool.definition.name).sort()).toEqual([
       "open_app",
       "open_note",
+      "open_notebook",
       "open_search",
       "open_task",
     ]);
@@ -102,9 +109,45 @@ describe("mcp ui tools", () => {
     expect(showWindow).not.toHaveBeenCalled();
   });
 
+  describe("open_notebook", () => {
+    let dbFilePath: string;
+
+    beforeEach(() => {
+      dbFilePath = join(tmpdir(), `hanamask-ui-tools-test-${randomUUID()}.sqlite3`);
+      openDb(dbFilePath);
+    });
+
+    afterEach(() => {
+      closeDb();
+      rmSync(dbFilePath, { force: true });
+    });
+
+    it("指定ノートの画面へ遷移させる", () => {
+      const notebook = createNotebook({ title: "案件A", summary: "概要", tags: [] });
+
+      const result = callTool("open_notebook", { id: notebook.id });
+
+      expect(result.isError).toBeFalsy();
+      expect(readJsonPayload(result)).toEqual({ opened: true });
+      expect(navigate).toHaveBeenCalledWith({ kind: "notebook", id: notebook.id });
+    });
+
+    it("存在しないノートはエラー結果を返し遷移しない", () => {
+      const result = callTool("open_notebook", { id: "missing" });
+
+      expect(result.isError).toBe(true);
+      expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it("idが無ければエラー結果を返す", () => {
+      expect(callTool("open_notebook", {}).isError).toBe(true);
+      expect(navigate).not.toHaveBeenCalled();
+    });
+  });
+
   it("ナビゲーターが未注入ならクラッシュせずエラー結果を返す", async () => {
     vi.resetModules();
-    const freshTools = await import("../../../src/main/mcp/tools");
+    const freshTools = await import("../../../src/main/mcp/tools/ui");
     const openApp = freshTools.findUiTool("open_app");
     if (openApp === undefined) throw new Error("open_app tool not found");
 

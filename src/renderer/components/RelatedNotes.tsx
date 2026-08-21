@@ -10,7 +10,7 @@ import {
 import type { RelatedNotesResult } from "../../shared/preload-api";
 import { toUpdatedLabel } from "../text/dateLabel";
 
-const HEADING = "関連するノート";
+const HEADING = "関連するページ";
 const RELATED_LIMIT = 5;
 const EMPTY_RESULT: RelatedNotesResult = { notes: [] };
 

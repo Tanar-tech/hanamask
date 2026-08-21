@@ -57,7 +57,7 @@ const createTableMigration = (table: string, ddl: string): Migration => ({
 
 const EMBEDDINGS_TABLE = `
 CREATE TABLE IF NOT EXISTS embeddings (
-  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task')),
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task','notebook')),
   entity_id   TEXT NOT NULL,
   model_id    TEXT NOT NULL,
   content_hash TEXT NOT NULL,
@@ -65,6 +65,63 @@ CREATE TABLE IF NOT EXISTS embeddings (
   updated_at  TEXT NOT NULL,
   PRIMARY KEY (entity_type, entity_id)
 )`;
+
+const NOTEBOOKS_TABLE = `
+CREATE TABLE IF NOT EXISTS notebooks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  tags TEXT NOT NULL,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+)`;
+
+const isSqlRow = (value: unknown): value is { sql: string } => {
+  if (typeof value !== "object" || value === null) return false;
+  const row: Record<string, unknown> = { ...value };
+  return typeof row.sql === "string";
+};
+
+const tableSql = (db: DatabaseHandle, table: string): string => {
+  const rows: unknown[] = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .all(table);
+  return rows.filter(isSqlRow).map((row) => row.sql).join("");
+};
+
+const EMBEDDINGS_REBUILD_TABLE = `
+CREATE TABLE embeddings_rebuilt (
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task','notebook')),
+  entity_id   TEXT NOT NULL,
+  model_id    TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  vector      BLOB NOT NULL,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (entity_type, entity_id)
+)`;
+
+/*
+ * SQLite は CHECK 制約を後から変えられないので、表ごと作り直すしかない（docs/MIGRATIONS.md §4、
+ * 作り直しは管理者承認済み）。1つのトランザクションに収めてあるため、途中で失敗しても旧表がそのまま残る。
+ * ベクトルは再計算せずそのまま移す。
+ */
+const rebuildEmbeddingsForNotebooks: Migration = {
+  name: "rebuild embeddings to allow notebook",
+  isApplied: (db) => tableSql(db, "embeddings").includes("'notebook'"),
+  apply: (db) => {
+    db.transaction(() => {
+      db.exec(EMBEDDINGS_REBUILD_TABLE);
+      db.exec(
+        `INSERT INTO embeddings_rebuilt
+           (entity_type, entity_id, model_id, content_hash, vector, updated_at)
+         SELECT entity_type, entity_id, model_id, content_hash, vector, updated_at FROM embeddings`,
+      );
+      db.exec("DROP TABLE embeddings");
+      db.exec("ALTER TABLE embeddings_rebuilt RENAME TO embeddings");
+    })();
+  },
+};
 
 // Each migration decides for itself whether it already ran, rather than a global user_version
 // counter: schema.sql creates fresh databases fully up to date, so a version counter would
@@ -80,6 +137,16 @@ export const MIGRATIONS: readonly Migration[] = [
    * schema.sql 側からこの表の定義が消えたときに既存DBが取り残されないようにしておく。
    */
   createTableMigration("embeddings", EMBEDDINGS_TABLE),
+  /*
+   * embeddings と同じく schema.sql 側でも既存DBに作られるため、この項目は単独では効き目が無い。
+   * docs/MIGRATIONS.md の「スキーマを変えたら両方書く」に揃えて置いておく。
+   */
+  createTableMigration("notebooks", NOTEBOOKS_TABLE),
+  // NULL のままなら「どのノートにも属さないページ」。既存ページは全てそのまま無所属になる。
+  addColumnMigration("notes", "notebook_id", "TEXT"),
+  // 既存の版は全てページ（'note'）の版なので、DEFAULT がそのまま正しい値になる。
+  addColumnMigration("note_versions", "entity_type", "TEXT NOT NULL DEFAULT 'note'"),
+  rebuildEmbeddingsForNotebooks,
 ];
 
 export const applyMigrations = (db: DatabaseHandle): void => {

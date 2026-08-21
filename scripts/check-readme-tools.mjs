@@ -6,34 +6,60 @@
  * 逆に、消したツールが載ったままだと、呼んでも動かないものを案内することになる。
  */
 
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 
 const TOOL_ROW = /^\| `([a-z_]+)` \|/gm;
 const TOOL_DEFINITION = /\n {4}name: "([a-z_]+)",/g;
 
-const namesIn = (text, pattern) => new Set([...text.matchAll(pattern)].map((match) => match[1]));
+const TOOLS_DIR = "src/main/mcp/tools";
+const README_PATH = "README.md";
 
-const documented = namesIn(readFileSync("README.md", "utf8"), TOOL_ROW);
-const implemented = namesIn(readFileSync("src/main/mcp/tools.ts", "utf8"), TOOL_DEFINITION);
+const MINIMUM_EXPECTED_TOOLS = 35;
 
-// 片方が空なら、探し方の側が壊れている。一致していても通してはいけない。
-const MINIMUM_EXPECTED_TOOLS = 10;
-if (documented.size < MINIMUM_EXPECTED_TOOLS || implemented.size < MINIMUM_EXPECTED_TOOLS) {
-  console.error(
-    `ツールを見つけられていません（README ${documented.size}件 / 実装 ${implemented.size}件）。` +
-      "抽出の仕方が実態と合っているか確かめてください。",
+const namesIn = (text, pattern) => [...text.matchAll(pattern)].map((match) => match[1]);
+
+export const collectImplementedToolNames = (toolsDir) =>
+  new Set(
+    readdirSync(toolsDir)
+      .filter((fileName) => fileName.endsWith(".ts"))
+      .flatMap((fileName) => namesIn(readFileSync(join(toolsDir, fileName), "utf8"), TOOL_DEFINITION)),
   );
-  process.exit(1);
-}
+
+export const collectDocumentedToolNames = (readmePath) =>
+  new Set(namesIn(readFileSync(readmePath, "utf8"), TOOL_ROW));
 
 const onlyIn = (a, b) => [...a].filter((name) => !b.has(name)).sort();
-const missing = onlyIn(implemented, documented);
-const stale = onlyIn(documented, implemented);
 
-if (missing.length > 0 || stale.length > 0) {
-  if (missing.length > 0) console.error(`READMEに載っていないツール: ${missing.join(", ")}`);
-  if (stale.length > 0) console.error(`実装に無いのにREADMEにあるツール: ${stale.join(", ")}`);
-  process.exit(1);
+export const checkReadmeTools = () => {
+  const documented = collectDocumentedToolNames(README_PATH);
+  const implemented = collectImplementedToolNames(TOOLS_DIR);
+
+  // 片方が空なら、探し方の側が壊れている。一致していても通してはいけない。
+  if (documented.size < MINIMUM_EXPECTED_TOOLS || implemented.size < MINIMUM_EXPECTED_TOOLS) {
+    console.error(
+      `ツールを見つけられていません（README ${documented.size}件 / 実装 ${implemented.size}件）。` +
+        "抽出の仕方が実態と合っているか確かめてください。",
+    );
+    return false;
+  }
+
+  const missing = onlyIn(implemented, documented);
+  const stale = onlyIn(documented, implemented);
+
+  if (missing.length > 0 || stale.length > 0) {
+    if (missing.length > 0) console.error(`READMEに載っていないツール: ${missing.join(", ")}`);
+    if (stale.length > 0) console.error(`実装に無いのにREADMEにあるツール: ${stale.join(", ")}`);
+    return false;
+  }
+
+  console.log(`READMEのMCPツール一覧は実装と一致しています（${implemented.size}件）。`);
+  return true;
+};
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  if (!checkReadmeTools()) {
+    process.exit(1);
+  }
 }
-
-console.log(`READMEのMCPツール一覧は実装と一致しています（${implemented.size}件）。`);

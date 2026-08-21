@@ -5,7 +5,7 @@ import { TagList } from "./TagList";
 
 const BODY_PREVIEW_LENGTH = 120;
 const BACK_LABEL = "戻る";
-const EMPTY_MESSAGE = "該当するノートはありません";
+const EMPTY_MESSAGE = "該当するページはありません";
 const LIST_LABEL = "検索結果";
 
 const toPreview = (body: string): string =>

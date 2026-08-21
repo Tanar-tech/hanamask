@@ -2,23 +2,26 @@ import { useEffect, useRef, useState, type JSX } from "react";
 import {
   TRASH_RETENTION_DAYS,
   type DeletedNote,
+  type DeletedNotebook,
   type DeletedTask,
-  type Note,
-  type Task,
 } from "../../shared/preload-api";
+
+
 
 interface TrashViewProps {
   onBack: () => void;
 }
 
 const HEADING = "ゴミ箱";
-const EMPTY_MESSAGE = "削除済みのノート・タスクはありません";
+const EMPTY_MESSAGE = "削除済みのページ・タスク・ノートはありません";
 const RESTORE_LABEL = "復元";
 const BACK_LABEL = "戻る";
-const NOTE_MISSING_MESSAGE = "対象のノートが見つかりません";
+const NOTE_MISSING_MESSAGE = "対象のページが見つかりません";
 const TASK_MISSING_MESSAGE = "対象のタスクが見つかりません";
-const NOTE_LIST_LABEL = "削除済みノート";
+const NOTEBOOK_MISSING_MESSAGE = "対象のノートが見つかりません";
+const NOTE_LIST_LABEL = "削除済みページ";
 const TASK_LIST_LABEL = "削除済みタスク";
+const NOTEBOOK_LIST_LABEL = "削除済みノート";
 const BODY_PREVIEW_MAX_LENGTH = 80;
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
@@ -40,13 +43,17 @@ const remainingDaysOf = (deletedAt: string, nowMs: number): number =>
 const toBodyPreview = (body: string): string =>
   body.length <= BODY_PREVIEW_MAX_LENGTH ? body : `${body.slice(0, BODY_PREVIEW_MAX_LENGTH)}…`;
 
-/** ノートとタスクで共通に見せる項目。ゴミ箱ではこの4つしか使わない。 */
+/** ページとタスクで共通に見せる項目。ゴミ箱ではこの4つしか使わない。 */
 interface TrashItem {
   id: string;
   title: string;
   body: string;
   deletedAt: string;
 }
+
+/** ノートの「概要」はページの本文にあたるので、共通項目では body として見せる。 */
+const notebooksAsTrashItems = (notebooks: DeletedNotebook[]): TrashItem[] =>
+  notebooks.map(({ id, title, summary, deletedAt }) => ({ id, title, body: summary, deletedAt }));
 
 const loadErrorOf = (result: PromiseSettledResult<unknown>, subject: string): string | null =>
   result.status === "rejected"
@@ -110,6 +117,7 @@ const TrashSection = ({
 export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
   const [notes, setNotes] = useState<DeletedNote[]>([]);
   const [tasks, setTasks] = useState<DeletedTask[]>([]);
+  const [notebooks, setNotebooks] = useState<DeletedNotebook[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   // 一覧を取り直したときだけ現在時刻を更新する。描画のたびに読むと同じ画面で値がぶれる。
@@ -130,15 +138,21 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
     const load = async (): Promise<void> => {
       // 片方が落ちてももう片方は見せる。ゴミ箱は「戻せるものを見つける」ための画面なので、
       // 全部出ないより一部でも出た方が利用者の役に立つ。
-      const [noteResult, taskResult] = await Promise.allSettled([
+      const [noteResult, taskResult, notebookResult] = await Promise.allSettled([
         window.hanamask.listDeletedNotes(),
         window.hanamask.listDeletedTasks(),
+        window.hanamask.listDeletedNotebooks(),
       ]);
       if (!current) return;
       if (noteResult.status === "fulfilled") setNotes(noteResult.value);
       if (taskResult.status === "fulfilled") setTasks(taskResult.value);
+      if (notebookResult.status === "fulfilled") setNotebooks(notebookResult.value);
       setNowMs(Date.now());
-      setError(loadErrorOf(noteResult, "ノート") ?? loadErrorOf(taskResult, "タスク"));
+      setError(
+        loadErrorOf(noteResult, "ページ") ??
+          loadErrorOf(taskResult, "タスク") ??
+          loadErrorOf(notebookResult, "ノート"),
+      );
     };
     void load();
     return () => {
@@ -160,8 +174,16 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
     setNowMs(Date.now());
   };
 
+  const reloadNotebooks = async (): Promise<void> => {
+    const reloaded = await window.hanamask.listDeletedNotebooks();
+    if (!mounted.current) return;
+    setNotebooks(reloaded);
+    setNowMs(Date.now());
+  };
+
   interface RestoreParams {
-    restore: () => Promise<Note | Task | null>;
+    /** 対象が見つかって復元できたら true。 */
+    restore: () => Promise<boolean>;
     reload: () => Promise<void>;
     missingMessage: string;
     failureMessage: string;
@@ -175,7 +197,7 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
       setError(null);
       const restored = await params.restore();
       if (!mounted.current) return;
-      if (restored === null) {
+      if (!restored) {
         setError(params.missingMessage);
         return;
       }
@@ -189,19 +211,28 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
 
   const restoreNote = (id: string): void => {
     void runRestore({
-      restore: () => window.hanamask.restoreNote(id),
+      restore: async () => (await window.hanamask.restoreNote(id)) !== null,
       reload: reloadNotes,
       missingMessage: NOTE_MISSING_MESSAGE,
-      failureMessage: "ノートの復元に失敗しました",
+      failureMessage: "ページの復元に失敗しました",
     });
   };
 
   const restoreTask = (id: string): void => {
     void runRestore({
-      restore: () => window.hanamask.restoreTask(id),
+      restore: async () => (await window.hanamask.restoreTask(id)) !== null,
       reload: reloadTasks,
       missingMessage: TASK_MISSING_MESSAGE,
       failureMessage: "タスクの復元に失敗しました",
+    });
+  };
+
+  const restoreNotebook = (id: string): void => {
+    void runRestore({
+      restore: () => window.hanamask.restoreNotebook(id),
+      reload: reloadNotebooks,
+      missingMessage: NOTEBOOK_MISSING_MESSAGE,
+      failureMessage: "ノートの復元に失敗しました",
     });
   };
 
@@ -221,7 +252,7 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
           {error}
         </p>
       )}
-      {notes.length === 0 && tasks.length === 0 && (
+      {notes.length === 0 && tasks.length === 0 && notebooks.length === 0 && (
         <p className="m-0 rounded-md border border-dashed border-line bg-paper px-4 py-8 text-center text-sm text-text-faint">
           {EMPTY_MESSAGE}
         </p>
@@ -239,6 +270,13 @@ export const TrashView = ({ onBack }: TrashViewProps): JSX.Element => {
         nowMs={nowMs}
         restoring={restoring}
         onRestore={restoreTask}
+      />
+      <TrashSection
+        label={NOTEBOOK_LIST_LABEL}
+        items={notebooksAsTrashItems(notebooks)}
+        nowMs={nowMs}
+        restoring={restoring}
+        onRestore={restoreNotebook}
       />
     </section>
   );

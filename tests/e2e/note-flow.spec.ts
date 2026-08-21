@@ -32,7 +32,7 @@ describe("note flow (Electron app + MCP server + renderer)", () => {
     await window.waitForLoadState();
 
     expect(await window.title()).toBe("hanamask");
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByRole("main").getByText("ページはまだありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "01-empty.png") });
 
     await createNoteViaMcp(E2E_MCP_PORT, {
@@ -42,7 +42,7 @@ describe("note flow (Electron app + MCP server + renderer)", () => {
     });
 
     // No manual reload: the main process forwards the MCP-triggered change over IPC.
-    await window.getByText("E2Eテストノート").waitFor();
+    await window.getByRole("main").getByText("E2Eテストノート").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "02-note-created.png") });
 
     await app.close();
@@ -51,7 +51,7 @@ describe("note flow (Electron app + MCP server + renderer)", () => {
     app = await launchApp(dbFilePath, E2E_MCP_PORT);
     const restartedWindow = await app.firstWindow();
     await restartedWindow.waitForLoadState();
-    await restartedWindow.getByText("E2Eテストノート").waitFor();
+    await restartedWindow.getByRole("main").getByText("E2Eテストノート").waitFor();
     await restartedWindow.screenshot({ path: join(SCREENSHOT_DIR, "03-persisted-after-restart.png") });
   });
 
@@ -68,17 +68,17 @@ describe("note flow (Electron app + MCP server + renderer)", () => {
       body: "delete_note/restore_noteの反映を確認する",
       tags: [],
     });
-    await window.getByText("削除復元テストノート").waitFor();
+    await window.getByRole("main").getByText("削除復元テストノート").waitFor();
 
     await callMcpTool(E2E_MCP_PORT, "delete_note", { id, confirm: true });
     await expect
-      .poll(() => window.getByText("削除復元テストノート").count())
+      .poll(() => window.getByRole("main").getByText("削除復元テストノート").count())
       .toBe(0);
-    await window.getByText("ノートはまだありません").waitFor();
+    await window.getByRole("main").getByText("ページはまだありません").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "04-note-deleted.png") });
 
     await callMcpTool(E2E_MCP_PORT, "restore_note", { id });
-    await window.getByText("削除復元テストノート").waitFor();
+    await window.getByRole("main").getByText("削除復元テストノート").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "05-note-restored.png") });
   });
 });

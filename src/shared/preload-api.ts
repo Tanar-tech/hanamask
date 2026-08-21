@@ -6,6 +6,8 @@ export interface Note {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  /** 所属ノート。null/undefined は無所属ページ */
+  notebookId?: string | null;
 }
 
 /*
@@ -84,9 +86,32 @@ export interface NoteInput {
   tags: string[];
 }
 
+/*
+ * ページを束ねるノート（docs/REQUIREMENTS.md §4.9）。summary が「概要」で、
+ * ページ側の body にあたる。所属ページは notes.notebook_id が指す。
+ */
+export interface Notebook {
+  id: string;
+  title: string;
+  summary: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** DeletedNote と同じ理由で、ゴミ箱でだけ使う派生型として分けている。 */
+export interface DeletedNotebook extends Notebook {
+  deletedAt: string;
+}
+
+/** 版の対象。ページとノートの版は同じ表に entity_type で同居する。 */
+export type VersionEntityType = "note" | "notebook";
+
 export interface NoteVersion {
   id: string;
+  /** 対象エンティティのID。entityType が 'notebook' ならノートのID。 */
   noteId: string;
+  entityType: VersionEntityType;
   title: string;
   body: string;
   tags: string[];
@@ -132,10 +157,15 @@ export interface ScoredTask extends Task {
   score: number;
 }
 
+export interface ScoredNotebook extends Notebook {
+  score: number;
+}
+
 /* unavailable が入っているときは中身が空。理由をUIとエージェントに同じ形で伝える。 */
 export interface SemanticSearchResult {
   notes: ScoredNote[];
   tasks: ScoredTask[];
+  notebooks: ScoredNotebook[];
   unavailable?: string;
 }
 
@@ -150,7 +180,7 @@ export interface EmbeddingStatus {
   reason?: string;
 }
 
-export type EntityType = "note" | "task";
+export type EntityType = "note" | "task" | "notebook";
 
 export interface Link {
   id: string;
@@ -192,6 +222,7 @@ export type NavigateTarget =
   | { kind: "list" }
   | { kind: "note"; id: string }
   | { kind: "task"; id: string }
+  | { kind: "notebook"; id: string }
   | { kind: "search"; query: string }
   | { kind: "trash" };
 
@@ -209,6 +240,15 @@ export interface HanamaskPreloadApi {
   restoreNoteVersion(versionId: string): Promise<Note | null>;
   listDeletedNotes(): Promise<DeletedNote[]>;
   restoreNote(id: string): Promise<Note | null>;
+  listNotebooks(): Promise<Notebook[]>;
+  getNotebook(id: string): Promise<{ notebook: Notebook | null; notes: Note[] }>;
+  updateNotebook(
+    id: string,
+    input: { title?: string; summary?: string; tags?: string[] },
+  ): Promise<Notebook | null>;
+  listDeletedNotebooks(): Promise<DeletedNotebook[]>;
+  restoreNotebook(id: string): Promise<boolean>;
+  onNotebooksChanged(callback: () => void): () => void;
   readActivity(): Promise<Activity>;
   readMcpEndpoint(): Promise<McpEndpoint>;
   readAppSettings(): Promise<AppSettings>;

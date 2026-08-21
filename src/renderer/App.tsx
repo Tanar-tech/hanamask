@@ -1,5 +1,5 @@
 import { LazyMotion, MotionConfig } from "motion/react";
-import { useEffect, useState, type JSX } from "react";
+import { useCallback, useEffect, useState, type JSX } from "react";
 import { AppShell, type ShellSection } from "./components/AppShell";
 import { BackupSettings } from "./components/BackupSettings";
 import { StartupSettings } from "./components/StartupSettings";
@@ -12,6 +12,9 @@ import { Home } from "./components/Home";
 import { KanbanView } from "./components/KanbanView";
 import { NoteDetail } from "./components/NoteDetail";
 import { NoteList } from "./components/NoteList";
+import { NotebookDetail } from "./components/NotebookDetail";
+import { NotebookNav } from "./components/NotebookNav";
+import { NotebookSubPane } from "./components/NotebookSubPane";
 import { SearchResults } from "./components/SearchResults";
 import { TaskDetail } from "./components/TaskDetail";
 import { TaskList } from "./components/TaskList";
@@ -22,14 +25,23 @@ import type { NavigateTarget } from "../shared/preload-api";
 const LIST_VIEW: NavigateTarget = { kind: "list" };
 const TRASH_VIEW: NavigateTarget = { kind: "trash" };
 
-/** ゴミ箱は `NavigateTarget` 側の状態なので、レールが持つのは一覧系の3つだけ。 */
+/** ゴミ箱は `NavigateTarget` 側の状態なので、タブが持つのは一覧系の3つだけ。 */
 type ListSection = "home" | "notes" | "tasks" | "settings";
 
 const PANE = "flex flex-col gap-6 p-6";
+const SUB_PANE_COLUMN =
+  "w-56 shrink-0 overflow-y-auto border-0 border-r border-solid border-line bg-paper-raised px-3 py-4";
 
 export const App = (): JSX.Element => {
   const [view, setView] = useState<NavigateTarget>(LIST_VIEW);
   const [section, setSection] = useState<ListSection>("home");
+  const [selectedNotebookId, setSelectedNotebookId] = useState<string | null>(null);
+
+  // ノートへ飛ぶ指示は、Main View だけでなくナビの選択状態も動かす。
+  const navigate = useCallback((next: NavigateTarget): void => {
+    if (next.kind === "notebook") setSelectedNotebookId(next.id);
+    setView(next);
+  }, []);
 
   const backToList = (): void => {
     setView(LIST_VIEW);
@@ -40,26 +52,31 @@ export const App = (): JSX.Element => {
   const openTask = (id: string): void => {
     setView({ kind: "task", id });
   };
+  const openNotebook = (id: string): void => {
+    navigate({ kind: "notebook", id });
+  };
 
   // MCPのUI連携ツール（open_note等）はこのIPCイベント経由で画面を切り替える。
-  useEffect(() => window.hanamask.onNavigate(setView), []);
+  useEffect(() => window.hanamask.onNavigate(navigate), [navigate]);
 
-  // 詳細を開いている間は、レールの現在地もその種別に合わせる。合わせないと
+  // 詳細を開いている間は、タブの現在地もその種別に合わせる。合わせないと
   // MCPの open_note / open_task で飛んだときに、直前に選んでいたセクションが
   // 選択されたまま残る（ノート詳細なのに「タスク」が現在地に見える）。
-  const railSection = (): ShellSection => {
+  const currentSection = (): ShellSection => {
     if (view.kind === "trash") return "trash";
-    if (view.kind === "note") return "notes";
+    if (view.kind === "note" || view.kind === "notebook") return "notes";
     if (view.kind === "task") return "tasks";
     return section;
   };
 
-  // `NavigateTarget` に「ホーム」は無いため、kind:"list" の着地先はレールの選択で決まる。
+  // `NavigateTarget` に「ホーム」は無いため、kind:"list" の着地先はタブの選択で決まる。
   const selectSection = (next: ShellSection): void => {
     if (next === "trash") {
       setView(TRASH_VIEW);
       return;
     }
+    // タブを押し直すのはその区画の入口に戻る操作なので、開いていたノートも畳む。
+    setSelectedNotebookId(null);
     setSection(next);
     setView(LIST_VIEW);
   };
@@ -70,8 +87,28 @@ export const App = (): JSX.Element => {
     <LazyMotion features={loadMotionFeatures} strict>
       <MotionConfig reducedMotion={REDUCED_MOTION_POLICY}>
         <AppShell
-          current={railSection()}
+          current={currentSection()}
           onSelect={selectSection}
+          // ツリーはワークスペースの常設ナビ。どのセクションでも出したままにする。
+          nav={
+            <NotebookNav
+              selectedNotebookId={selectedNotebookId}
+              onSelectNotebook={openNotebook}
+              onSelectPage={openNote}
+            />
+          }
+          subPane={
+            selectedNotebookId !== null ? (
+              <div className={SUB_PANE_COLUMN}>
+                {/* keyで再マウントさせないと、応答待ちの取得が切替後のノートのページを上書きしうる。 */}
+                <NotebookSubPane
+                  key={selectedNotebookId}
+                  notebookId={selectedNotebookId}
+                  onSelectPage={openNote}
+                />
+              </div>
+            ) : undefined
+          }
           // CHAT_ENABLED が false の間、チャットの枠ごと出さない（preload-api.ts 参照）。
           aside={
             CHAT_ENABLED ? (
@@ -108,6 +145,14 @@ export const App = (): JSX.Element => {
                   noteId={view.id}
                   onBack={backToList}
                   onSelectNote={openNote}
+                />
+              )}
+              {view.kind === "notebook" && (
+                <NotebookDetail
+                  key={view.id}
+                  notebookId={view.id}
+                  onSelectPage={openNote}
+                  onBack={backToList}
                 />
               )}
               {view.kind === "task" && (

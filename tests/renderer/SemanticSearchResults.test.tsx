@@ -6,6 +6,7 @@ import { SemanticSearchResults } from "../../src/renderer/components/SemanticSea
 import type {
   EmbeddingStatus,
   ScoredNote,
+  ScoredNotebook,
   ScoredTask,
   SemanticSearchResult,
 } from "../../src/shared/preload-api";
@@ -13,6 +14,7 @@ import { stubHanamask } from "./hanamask-stub";
 
 const NOTE_TITLE = "ポート固定をやめる";
 const TASK_TITLE = "MCP接続手順を README に足す";
+const NOTEBOOK_TITLE = "MCPの調べもの";
 
 const makeNote = (overrides: Partial<ScoredNote> = {}): ScoredNote => ({
   id: "note-1",
@@ -38,6 +40,17 @@ const makeTask = (overrides: Partial<ScoredTask> = {}): ScoredTask => ({
   ...overrides,
 });
 
+const makeNotebook = (overrides: Partial<ScoredNotebook> = {}): ScoredNotebook => ({
+  id: "notebook-1",
+  title: NOTEBOOK_TITLE,
+  summary: "接続まわりの概要",
+  tags: [],
+  score: 0.7,
+  createdAt: "2026-08-03T00:00:00.000Z",
+  updatedAt: "2026-08-03T00:00:00.000Z",
+  ...overrides,
+});
+
 const READY: EmbeddingStatus = { state: "ready", pending: 0 };
 const LOADING: EmbeddingStatus = { state: "loading", pending: 2 };
 const UNAVAILABLE: EmbeddingStatus = {
@@ -49,6 +62,7 @@ const UNAVAILABLE: EmbeddingStatus = {
 const FOUND: SemanticSearchResult = {
   notes: [makeNote()],
   tasks: [makeTask()],
+  notebooks: [makeNotebook()],
 };
 
 interface Stubs {
@@ -59,7 +73,7 @@ interface Stubs {
 const mockEmbeddingApi = ({ readStatus, readResult }: Stubs) => {
   const readEmbeddingStatus = vi.fn(async () => readStatus());
   const semanticSearch = vi.fn(async () =>
-    readResult === undefined ? { notes: [], tasks: [] } : readResult(),
+    readResult === undefined ? { notes: [], tasks: [], notebooks: [] } : readResult(),
   );
   const listeners: Array<(status: EmbeddingStatus) => void> = [];
   stubHanamask({
@@ -106,8 +120,9 @@ describe("SemanticSearchResults", () => {
 
     const list = await screen.findByRole("list", { name: "意味が近い記録" });
     expect(semanticSearch).toHaveBeenCalledWith("MCPの接続", 10);
-    const [noteRow, taskRow] = within(list).getAllByRole("listitem");
-    expect(noteRow?.textContent).toContain("ノート");
+    const [noteRow, notebookRow, taskRow] = within(list).getAllByRole("listitem");
+    expect(noteRow?.textContent).toContain("ページ");
+    expect(notebookRow?.textContent).toContain("ノート");
     expect(taskRow?.textContent).toContain("タスク");
 
     fireEvent.click(screen.getByRole("button", { name: NOTE_TITLE }));
@@ -116,13 +131,61 @@ describe("SemanticSearchResults", () => {
     expect(onSelectTask).toHaveBeenCalledWith("task-1");
   });
 
-  // 種別ごとにまとめず、スコアの降順で1本に並べる（近い順に読めることを優先する）。
-  it("ノートとタスクをまたいでスコアの降順に並べる", async () => {
+  it("ページ・ノート・タスクをまたいでスコアの降順に並べ、種別と更新日を添える", async () => {
     mockEmbeddingApi({
       readStatus: () => READY,
       readResult: () => ({
-        notes: [makeNote({ score: 0.4 }), makeNote({ id: "note-2", title: "遠いノート", score: 0.1 })],
+        notes: [makeNote({ score: 0.2 })],
+        tasks: [makeTask({ score: 0.5 })],
+        notebooks: [makeNotebook({ score: 0.9 })],
+      }),
+    });
+
+    render(<SemanticSearchResults query="MCPの接続" onSelectNote={noop} onSelectTask={noop} />);
+
+    const list = await screen.findByRole("list", { name: "意味が近い記録" });
+    const updated = toUpdatedLabel("2026-08-03T00:00:00.000Z");
+    expect(within(list).getAllByRole("listitem").map((row) => row.textContent)).toEqual([
+      `${NOTEBOOK_TITLE}${updated}ノート`,
+      `${TASK_TITLE}${updated}タスク`,
+      `${NOTE_TITLE}${updated}ページ`,
+    ]);
+  });
+
+  it("ノートの選択先が無いときはボタンにしない", async () => {
+    mockEmbeddingApi({ readStatus: () => READY, readResult: () => FOUND });
+
+    render(<SemanticSearchResults query="MCPの接続" onSelectNote={noop} />);
+
+    await screen.findByRole("list", { name: "意味が近い記録" });
+    expect(screen.queryByRole("button", { name: NOTEBOOK_TITLE })).toBeNull();
+    expect(screen.getByText(NOTEBOOK_TITLE)).toBeTruthy();
+  });
+
+  it("ノートの選択先があればクリックで通知する", async () => {
+    mockEmbeddingApi({ readStatus: () => READY, readResult: () => FOUND });
+    const onSelectNotebook = vi.fn();
+
+    render(
+      <SemanticSearchResults
+        query="MCPの接続"
+        onSelectNote={noop}
+        onSelectNotebook={onSelectNotebook}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: NOTEBOOK_TITLE }));
+    expect(onSelectNotebook).toHaveBeenCalledWith("notebook-1");
+  });
+
+  // 種別ごとにまとめず、スコアの降順で1本に並べる（近い順に読めることを優先する）。
+  it("ページとタスクをまたいでスコアの降順に並べる", async () => {
+    mockEmbeddingApi({
+      readStatus: () => READY,
+      readResult: () => ({
+        notes: [makeNote({ score: 0.4 }), makeNote({ id: "note-2", title: "遠いページ", score: 0.1 })],
         tasks: [makeTask({ score: 0.9 })],
+        notebooks: [],
       }),
     });
 
@@ -133,8 +196,8 @@ describe("SemanticSearchResults", () => {
     const updated = toUpdatedLabel("2026-08-03T00:00:00.000Z");
     expect(rows.map((row) => row.textContent)).toEqual([
       `${TASK_TITLE}${updated}タスク`,
-      `${NOTE_TITLE}${updated}ノート`,
-      `遠いノート${updated}ノート`,
+      `${NOTE_TITLE}${updated}ページ`,
+      `遠いページ${updated}ページ`,
     ]);
   });
 
@@ -185,7 +248,7 @@ describe("SemanticSearchResults", () => {
   it("結果に unavailable が入っていれば欄を出さない", async () => {
     const { readEmbeddingStatus } = mockEmbeddingApi({
       readStatus: () => READY,
-      readResult: () => ({ notes: [], tasks: [], unavailable: "モデルなし" }),
+      readResult: () => ({ notes: [], tasks: [], notebooks: [], unavailable: "モデルなし" }),
     });
 
     const { container } = render(<SemanticSearchResults query="MCPの接続" onSelectNote={noop} />);
@@ -201,7 +264,7 @@ describe("SemanticSearchResults", () => {
     let status = LOADING;
     const { emitStatusChanged, semanticSearch } = mockEmbeddingApi({
       readStatus: () => status,
-      readResult: () => (status === READY ? FOUND : { notes: [], tasks: [] }),
+      readResult: () => (status === READY ? FOUND : { notes: [], tasks: [], notebooks: [] }),
     });
 
     render(<SemanticSearchResults query="MCPの接続" onSelectNote={noop} />);

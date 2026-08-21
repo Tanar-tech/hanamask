@@ -8,8 +8,9 @@ export const CHANGE_NOTIFICATION_WINDOW_MS = 2000;
 const MAX_LISTED_TITLES = 3;
 
 const ENTITY_LABELS: Record<EntityChange["entity"], string> = {
-  note: "ノート",
+  note: "ページ",
   task: "タスク",
+  notebook: "ノート",
 };
 
 const ACTION_LABELS: Record<EntityChange["action"], string> = {
@@ -36,7 +37,9 @@ export interface ChangeNotifier {
 }
 
 // 同じノートを続けて直しただけで「5件の変更」と出ると、実際より大ごとに見える。
-const keepLatestPerEntity = (changes: readonly EntityChange[]): EntityChange[] => {
+const keepLatestPerEntity = (
+  changes: readonly EntityChange[],
+): EntityChange[] => {
   const byKey = new Map<string, EntityChange>();
   changes.forEach((change) => {
     byKey.set(`${change.entity}:${change.id}`, change);
@@ -54,23 +57,36 @@ const buildTitle = (changes: readonly EntityChange[]): string => {
 
 // 載せるのはタイトルまで。本文を出すと通知を肩越しに読まれるだけで中身が漏れる。
 const buildBody = (changes: readonly EntityChange[]): string => {
-  const listed = changes.slice(0, MAX_LISTED_TITLES).map((change) => change.title);
+  const listed = changes
+    .slice(0, MAX_LISTED_TITLES)
+    .map((change) => change.title);
   const omitted = changes.length - listed.length;
-  return omitted > 0 ? `${listed.join("、")} ほか${omitted}件` : listed.join("、");
+  return omitted > 0
+    ? `${listed.join("、")} ほか${omitted}件`
+    : listed.join("、");
 };
 
-export const createChangeNotifier = (deps: ChangeNotifierDeps): ChangeNotifier => {
+const toNavigateTarget = (change: EntityChange): NavigateTarget | undefined => {
+  // 削除されたものは開けない。
+  if (change.action === "deleted") return undefined;
+  return { kind: change.entity, id: change.id };
+};
+
+export const createChangeNotifier = (
+  deps: ChangeNotifierDeps,
+): ChangeNotifier => {
   let pending: EntityChange[] = [];
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
 
   const openChanges = (changes: readonly EntityChange[]): void => {
     const [only] = changes;
-    // 削除されたものは開けないので、まとめて通知したときと同じくウィンドウを出すだけにする。
-    if (changes.length !== 1 || only === undefined || only.action === "deleted") {
+    const target = only === undefined ? undefined : toNavigateTarget(only);
+    // 開き先が無いものは、まとめて通知したときと同じくウィンドウを出すだけにする。
+    if (changes.length !== 1 || target === undefined) {
       deps.showWindow();
       return;
     }
-    deps.navigate({ kind: only.entity, id: only.id });
+    deps.navigate(target);
   };
 
   const flush = (): void => {

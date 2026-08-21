@@ -54,6 +54,8 @@ claude mcp add --scope user --transport http hanamask http://127.0.0.1:39217/mcp
 
 要点は「作業の区切りと決定をその理由ごと書く」「**同じ話題は新規作成せず既存のノート・タスクを更新して育てる**」「**作業を始める前に検索して過去の経緯を引く**」の3つです。読む習慣が無ければ書いたものが次に効かず、更新しなければ同じ話題が何本にも散って、検索で引いても全部を読まないと経緯が分からなくなります。
 
+**1つの案件のページが増えてきたら、エージェントがノート（束）にまとめます。**束の概要（何の案件か・どこまで進んだか）も、作業の区切りごとにエージェントが書き直すので、束を開かなくても案件の現在地が分かる状態が保たれます。アプリ側が勝手に推論して書くことはなく、更新は全てエージェントの操作として編集履歴に残ります。
+
 **あとは普段どおり話しかけるだけ。**
 
 ```
@@ -163,22 +165,53 @@ Mermaid図は ```` ```mermaid ```` のコードフェンスとして書く。
 ## 実装済みのMCPツール
 
 
-### ノート
+### ページ
 
 | ツール | 内容 |
 |---|---|
-| `create_note` | ノートを作成する（`title`, `body`, 任意の `tags`） |
-| `get_note` | idで1件取得する（存在しなければ `null`） |
-| `search_notes` | タイトル・本文の部分一致検索（空文字で全件） |
-| `semantic_search_notes` | 意味の近いノート・タスクを探す（言葉が一致しなくても内容が近ければ出る。モデルが準備できていなければ空の結果と理由を返す） |
-| `update_note` | タイトル・本文・タグを更新する（省略した項目は据え置き） |
-| `delete_note` | ソフトデリートする（`confirm: true` 必須） |
-| `restore_note` | ソフトデリートしたノートを復元する |
-| `list_note_versions` | 編集履歴を新しい順に取得する |
-| `restore_note_version` | 過去バージョンに戻す（戻す操作自体も履歴に積まれる） |
-| `attach_image` | Base64の画像をノートに添付する（png/jpeg/gif/webp、10MBまで） |
+| `create_page` | ページを作成する（`title`, `body`, 任意の `tags`・`notebook_id`） |
+| `get_page` | idで1件取得する（所属ノートの `notebookId` 付き。存在しなければ `null`） |
+| `search_pages` | タイトル・本文の部分一致検索（空文字で全件。`notebook_id` で1つのノート内に絞れる） |
+| `semantic_search_notes` | 意味の近いページ・ノート（束）・タスクを探す（言葉が一致しなくても内容が近ければ出る。ノート（束）は概要で近さを測る。モデルが準備できていなければ空の結果と理由を返す） |
+| `update_page` | タイトル・本文・タグを更新する（省略した項目は据え置き） |
+| `move_page` | ページをノートへ入れる・別のノートへ移す・`notebook_id: null` で無所属に戻す |
+| `delete_page` | ソフトデリートする（`confirm: true` 必須） |
+| `restore_page` | ソフトデリートしたページを復元する |
+| `list_page_versions` | 編集履歴を新しい順に取得する |
+| `restore_page_version` | 過去バージョンに戻す（戻す操作自体も履歴に積まれる） |
+| `attach_image` | Base64の画像をページに添付する（png/jpeg/gif/webp、10MBまで） |
 
-Mermaid図は専用ツールを持たず、ノート本文へのインライン記述として `update_note` で追加・更新する。
+Mermaid図は専用ツールを持たず、ページ本文へのインライン記述として `update_page` で追加・更新する。
+
+#### 互換名（`*_note`）
+
+以前の名前も同じ処理を指す別名としてそのまま使える。引数・戻り値は上の表の対応するツールと同じ（`create_note` は `notebook_id` を、`search_notes` は絞り込みを説明文に載せていないだけで、渡せば同じように働く）。
+
+| ツール | 内容 |
+|---|---|
+| `create_note` | `create_page` と同じ |
+| `get_note` | `get_page` と同じ |
+| `search_notes` | `search_pages` と同じ |
+| `update_note` | `update_page` と同じ |
+| `delete_note` | `delete_page` と同じ |
+| `restore_note` | `restore_page` と同じ |
+| `list_note_versions` | `list_page_versions` と同じ |
+| `restore_note_version` | `restore_page_version` と同じ |
+
+### ノート（束）
+
+ノート（束）は、ページ（1件のノート）をまとめる入れ物。タグが横断的な目印なのに対し、束は「どこに置いてあるか」を表す。
+
+| ツール | 内容 |
+|---|---|
+| `create_notebook` | ノート（束）を作成する（`title`, `summary`, 任意の `tags`） |
+| `get_notebook` | idで1件取得する（所属ページの一覧付き。存在しない・ゴミ箱の中なら `null`） |
+| `list_notebooks` | ノート（束）の一覧を取得する（ソフトデリート済みは除外） |
+| `update_notebook` | タイトル・概要・タグを更新する（省略した項目は据え置き） |
+| `delete_notebook` | ソフトデリートする（`confirm: true` 必須。所属ページは消えず、束に付いたまま残る） |
+| `restore_notebook` | ソフトデリートしたノート（束）を復元する（所属ページごと戻る） |
+
+`summary` は `semantic_search_notes` が束を探すときの手がかりになるので、束に何を集めているかを書いておく。
 
 ### タスク
 
@@ -197,7 +230,7 @@ Mermaid図は専用ツールを持たず、ノート本文へのインライン�
 
 | ツール | 内容 |
 |---|---|
-| `link_entities` | ノート/タスク同士をリンクする（`from_type`, `from_id`, `to_type`, `to_id`） |
+| `link_entities` | ノート/タスク/ノート（束、`notebook`）同士をリンクする（`from_type`, `from_id`, `to_type`, `to_id`） |
 | `unlink_entities` | リンクをidで削除する（リンク先の実体は消さない） |
 | `list_links` | あるエンティティに紐づくリンクを取得する（from/to どちら側も） |
 
@@ -207,6 +240,7 @@ Mermaid図は専用ツールを持たず、ノート本文へのインライン�
 |---|---|
 | `open_app` | アプリのウィンドウを前面に出す（閉じられていれば作り直す） |
 | `open_note` | 指定したノートの詳細画面を開く |
+| `open_notebook` | 指定したノート（束、`notebook`）の画面を開く |
 | `open_task` | 指定したタスクの詳細画面を開く |
 | `open_search` | 指定したクエリで検索結果画面を開く |
 

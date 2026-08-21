@@ -25,9 +25,9 @@ const POLL_INTERVAL_MS = 1000;
 const NEAR_TITLE = "WSLからWindowsのMCPサーバーへ接続する手順";
 const FAR_TITLE = "今日の昼食はカレー";
 const QUERY = "Windows側への接続でハマった話";
-const SEARCH_FIELD_LABEL = "ノートとタスクを検索";
+const SEARCH_FIELD_LABEL = "ページとタスクを検索";
 const SEMANTIC_LIST_LABEL = "意味が近い記録";
-const RELATED_LIST_LABEL = "関連するノート";
+const RELATED_LIST_LABEL = "関連するページ";
 const LOADING_MESSAGE = "準備中です";
 
 const modelsDirPath = (): string =>
@@ -138,7 +138,7 @@ describe.skipIf(!hasEmbeddingModel())("semantic search (find notes by meaning)",
     await semanticList.getByText(NEAR_TITLE).waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "semantic-01-search-results.png") });
 
-    // 画面側: ノート詳細の「関連するノート」欄に、自分以外の近いノートが出る
+    // 画面側: ページ詳細の「関連するページ」欄に、自分以外の近いページが出る
     await window.getByRole("button", { name: "戻る" }).click();
     await openNoteList(window);
     await openNoteDetail(window, NEAR_TITLE);

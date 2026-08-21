@@ -5,11 +5,21 @@ const exec = vi.fn();
 
 vi.mock("better-sqlite3", () => ({
   default: vi.fn(function createFakeDatabase() {
-    // Reports every migrated column as already present so this suite stays focused on openDb.
+    // Reports every migration as already applied so this suite stays focused on openDb:
+    // the column names for the ALTER migrations, the DDL for the embeddings rebuild.
+    const appliedEmbeddingsDdl =
+      "CREATE TABLE embeddings (entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task','notebook')))";
     return {
       close,
       exec,
-      prepare: () => ({ all: (): unknown[] => [{ name: "body" }, { name: "tags" }] }),
+      prepare: () => ({
+        all: (): unknown[] => [
+          { name: "body", sql: appliedEmbeddingsDdl },
+          { name: "tags", sql: appliedEmbeddingsDdl },
+          { name: "notebook_id", sql: appliedEmbeddingsDdl },
+          { name: "entity_type", sql: appliedEmbeddingsDdl },
+        ],
+      }),
     };
   }),
 }));
