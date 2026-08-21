@@ -8,6 +8,8 @@ export interface Note {
   updatedAt: string;
   /** 所属ノート。null/undefined は無所属ページ */
   notebookId?: string | null;
+  /** 利用者がピン留めした日時。null/undefined は未ピン（docs/REQUIREMENTS.md §4.10） */
+  pinnedAt?: string | null;
 }
 
 /*
@@ -97,6 +99,8 @@ export interface Notebook {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  /** 利用者がピン留めした日時。null/undefined は未ピン（docs/REQUIREMENTS.md §4.10） */
+  pinnedAt?: string | null;
 }
 
 /** DeletedNote と同じ理由で、ゴミ箱でだけ使う派生型として分けている。 */
@@ -235,6 +239,7 @@ export interface HanamaskPreloadApi {
     input: { title?: string; body?: string; tags?: string[] },
   ): Promise<Note | null>;
   deleteNote(id: string): Promise<void>;
+  setNotePinned(id: string, pinned: boolean): Promise<Note | null>;
   onNotesChanged(callback: () => void): () => void;
   listNoteVersions(noteId: string): Promise<NoteVersion[]>;
   restoreNoteVersion(versionId: string): Promise<Note | null>;
@@ -248,6 +253,7 @@ export interface HanamaskPreloadApi {
   ): Promise<Notebook | null>;
   listDeletedNotebooks(): Promise<DeletedNotebook[]>;
   restoreNotebook(id: string): Promise<boolean>;
+  setNotebookPinned(id: string, pinned: boolean): Promise<Notebook | null>;
   onNotebooksChanged(callback: () => void): () => void;
   readActivity(): Promise<Activity>;
   readMcpEndpoint(): Promise<McpEndpoint>;

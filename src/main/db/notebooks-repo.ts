@@ -18,6 +18,7 @@ interface NotebookRow {
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
+  pinned_at: string | null;
 }
 
 interface NotebookVersionRow {
@@ -43,7 +44,8 @@ const isNotebookRow = (value: unknown): value is NotebookRow => {
     typeof row.tags === "string" &&
     (row.deleted_at === null || typeof row.deleted_at === "string") &&
     typeof row.created_at === "string" &&
-    typeof row.updated_at === "string"
+    typeof row.updated_at === "string" &&
+    (row.pinned_at === null || typeof row.pinned_at === "string")
   );
 };
 
@@ -74,6 +76,7 @@ const toNotebook = (row: NotebookRow): Notebook => ({
   tags: parseTags(row.tags),
   createdAt: row.created_at,
   updatedAt: row.updated_at,
+  pinnedAt: row.pinned_at,
 });
 
 const toNotebookVersion = (row: NotebookVersionRow): NoteVersion => ({
@@ -107,6 +110,7 @@ export const createNotebook = (input: NotebookInput): Notebook => {
     tags: input.tags,
     createdAt: timestamp,
     updatedAt: timestamp,
+    pinnedAt: null,
   };
   getDb()
     .prepare(
@@ -160,6 +164,15 @@ export const listNotesInNotebook = (notebookId: string): Note[] => {
     }
     return note;
   });
+};
+
+// notes-repo の setNotePinned と同じ扱い: 版を残さず updated_at も動かさない。
+export const setNotebookPinned = (id: string, pinned: boolean): Notebook | null => {
+  const result = getDb()
+    .prepare("UPDATE notebooks SET pinned_at = ? WHERE id = ? AND deleted_at IS NULL")
+    .run(pinned ? new Date().toISOString() : null, id);
+  if (result.changes === 0) return null;
+  return getNotebook(id);
 };
 
 export const listNotebooks = (): Notebook[] => {

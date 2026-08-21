@@ -134,7 +134,7 @@ describe("notebook flow (MCP tools for notebooks and pages)", () => {
     });
     await openNoteList(window);
     const nav = window.getByRole("list", { name: "ノート・ページ" });
-    await nav.getByRole("button", { name: "今日の昼食はカレー" }).waitFor();
+    await nav.getByRole("button", { name: "今日の昼食はカレー", exact: true }).waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "t58-03-unattached-only.png") });
 
     const notebook = readPayload(

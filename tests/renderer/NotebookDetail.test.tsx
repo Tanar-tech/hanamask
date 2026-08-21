@@ -39,6 +39,7 @@ const mockHanamask = ({ notebook, notes, updated }: NotebookApiOverrides = {}) =
     notes: notes ?? [],
   }));
   const updateNotebook = vi.fn(async () => (updated === undefined ? makeNotebook() : updated));
+  const setNotebookPinned = vi.fn(async () => null);
   const listeners: Array<() => void> = [];
   const onNotebooksChanged = vi.fn((callback: () => void) => {
     listeners.push(callback);
@@ -49,7 +50,13 @@ const mockHanamask = ({ notebook, notes, updated }: NotebookApiOverrides = {}) =
     noteListeners.push(callback);
     return () => {};
   });
-  stubHanamask({ getNotebook, updateNotebook, onNotebooksChanged, onNotesChanged });
+  stubHanamask({
+    getNotebook,
+    updateNotebook,
+    setNotebookPinned,
+    onNotebooksChanged,
+    onNotesChanged,
+  });
   const emitTo = (targets: Array<() => void>) => async (): Promise<void> => {
     await act(async () => {
       targets.forEach((listener) => {
@@ -60,6 +67,7 @@ const mockHanamask = ({ notebook, notes, updated }: NotebookApiOverrides = {}) =
   return {
     getNotebook,
     updateNotebook,
+    setNotebookPinned,
     emitChange: emitTo(listeners),
     emitNotesChange: emitTo(noteListeners),
   };
@@ -112,6 +120,76 @@ describe("NotebookDetail", () => {
     ]);
     expect(list.textContent).toContain("更新 2026-08-19");
     expect(list.textContent).toContain("ページ1の本文");
+  });
+
+  it("ピン留めしたページがあれば、その欄をピン留めした順・全件で出す", async () => {
+    mockHanamask({
+      notes: [
+        makeNote({
+          id: "a",
+          title: "後で留めた",
+          updatedAt: "2026-08-19T00:00:00.000Z",
+          pinnedAt: "2026-08-11T00:00:00.000Z",
+        }),
+        makeNote({ id: "b", title: "留めていない", updatedAt: "2026-08-20T00:00:00.000Z" }),
+        makeNote({
+          id: "c",
+          title: "先に留めた",
+          updatedAt: "2026-08-01T00:00:00.000Z",
+          pinnedAt: "2026-08-10T00:00:00.000Z",
+        }),
+        makeNote({
+          id: "d",
+          title: "中に留めた",
+          updatedAt: "2026-08-02T00:00:00.000Z",
+          pinnedAt: "2026-08-12T00:00:00.000Z",
+        }),
+        makeNote({
+          id: "e",
+          title: "最後に留めた",
+          updatedAt: "2026-08-03T00:00:00.000Z",
+          pinnedAt: "2026-08-13T00:00:00.000Z",
+        }),
+      ],
+    });
+    renderDetail();
+
+    const list = await screen.findByRole("list", { name: "ピン留めしたページ" });
+    // 3件で打ち切らず、更新日ではなくピン留めした順に並ぶ。
+    expect([...list.querySelectorAll("li")].map((item) => item.querySelector("button")?.textContent))
+      .toEqual(["先に留めた", "後で留めた", "中に留めた", "最後に留めた"]);
+    expect(screen.queryByRole("list", { name: "最近更新されたページ" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "ピン留めしたページ" })).toBeTruthy();
+  });
+
+  it("ピン留めしたページが無ければ従来の最近更新欄のままにする", async () => {
+    mockHanamask({ notes: [makeNote({ id: "a", title: "普通のページ", pinnedAt: null })] });
+    renderDetail();
+
+    expect(await screen.findByRole("list", { name: "最近更新されたページ" })).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "ピン留めしたページ" })).toBeNull();
+  });
+
+  it("ヘッダーのピン留めボタンでノートをピン留めする", async () => {
+    const { setNotebookPinned } = mockHanamask({ notebook: makeNotebook({ pinnedAt: null }) });
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole("button", { name: "ピン留め" }));
+    await waitFor(() => {
+      expect(setNotebookPinned).toHaveBeenCalledWith(NOTEBOOK_ID, true);
+    });
+  });
+
+  it("ピン留め中のノートはヘッダーから解除できる", async () => {
+    const { setNotebookPinned } = mockHanamask({
+      notebook: makeNotebook({ pinnedAt: "2026-08-10T00:00:00.000Z" }),
+    });
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole("button", { name: "ピン留め解除" }));
+    await waitFor(() => {
+      expect(setNotebookPinned).toHaveBeenCalledWith(NOTEBOOK_ID, false);
+    });
   });
 
   it("ページが1件も無いノートでは空の案内を出す", async () => {

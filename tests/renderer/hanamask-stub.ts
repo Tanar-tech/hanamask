@@ -28,6 +28,7 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     searchNotes: vi.fn(async () => []),
     getNote: vi.fn(async () => null),
     updateNote: vi.fn(async () => null),
+    setNotePinned: vi.fn(async () => null),
     deleteNote: vi.fn(async () => {}),
     onNotesChanged: vi.fn(() => () => {}),
     onNotebooksChanged: vi.fn(() => () => undefined),
@@ -38,6 +39,7 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     listDeletedNotebooks: vi.fn(async () => []),
     updateNotebook: vi.fn(async () => null),
     restoreNotebook: vi.fn(async () => true),
+    setNotebookPinned: vi.fn(async () => null),
     readActivity: vi.fn(async () => ({ lastRecordedAt: null, recentCount: 0 })),
     readMcpEndpoint: vi.fn(async () => ({
       port: 39217,

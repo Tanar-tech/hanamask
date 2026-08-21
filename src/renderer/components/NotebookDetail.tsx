@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import type { Note, Notebook } from "../../shared/preload-api";
 import { EntityLinks } from "./EntityLinks";
 import { MarkdownBody } from "./MarkdownBody";
+import { PinToggleButton, isPinned } from "./PinToggleButton";
 import { TagList } from "./TagList";
 import { toBodyPreview } from "../text/bodyPreview";
 import { toUpdatedLabel } from "../text/dateLabel";
@@ -28,7 +29,11 @@ const RECENT_HEADING = "最近更新されたページ";
 // ページ一覧はナビゲーション側だけが持つ（SPEC 案1）。ここは入口を思い出すための数件に留める。
 const RECENT_HINT = "一覧はナビゲーションに";
 const RECENT_LIMIT = 3;
+const PINNED_HEADING = "ピン留めしたページ";
+// ピン留めは利用者が自分で選んだ精鋭なので、件数を絞らず留めた順のまま出す。
+const PINNED_HINT = "ピン留めした順";
 const EMPTY_PAGES_MESSAGE = "ページはありません";
+const PIN_FAILED_MESSAGE = "ピン留めの変更に失敗しました";
 const TAG_SEPARATOR = ",";
 const SUMMARY_TEXTAREA_ROWS = 10;
 const TITLE_FIELD_ID = "notebook-detail-title";
@@ -67,6 +72,24 @@ const toRecentPages = (notes: readonly Note[]): Note[] =>
   [...notes]
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
     .slice(0, RECENT_LIMIT);
+
+const toPinnedPages = (notes: readonly Note[]): Note[] =>
+  notes
+    .filter(isPinned)
+    .sort((left, right) => (left.pinnedAt ?? "").localeCompare(right.pinnedAt ?? ""));
+
+interface PagesSection {
+  heading: string;
+  hint: string;
+  pages: Note[];
+}
+
+const toPagesSection = (notes: readonly Note[]): PagesSection => {
+  const pinned = toPinnedPages(notes);
+  if (pinned.length === 0)
+    return { heading: RECENT_HEADING, hint: RECENT_HINT, pages: toRecentPages(notes) };
+  return { heading: PINNED_HEADING, hint: PINNED_HINT, pages: pinned };
+};
 
 const toMetaLabel = (notebook: Notebook, pageCount: number): string =>
   ["ノート", `ページ ${String(pageCount)} 件`, toUpdatedLabel(notebook.updatedAt)]
@@ -189,34 +212,38 @@ interface RecentPagesProps {
   onSelectPage: (id: string) => void;
 }
 
-const RecentPages = ({ notes, onSelectPage }: RecentPagesProps): JSX.Element => (
-  <section className="flex flex-col gap-2">
-    <div className="flex flex-wrap items-baseline justify-between gap-2">
-      <h3 className={SECTION_HEADING}>{RECENT_HEADING}</h3>
-      <span className="font-body text-xs text-text-faint">{RECENT_HINT}</span>
-    </div>
-    {notes.length === 0 ? (
-      <p className={EMPTY_BLOCK}>{EMPTY_PAGES_MESSAGE}</p>
-    ) : (
-      <ul aria-label={RECENT_HEADING} className="m-0 flex list-none flex-col gap-2 p-0">
-        {toRecentPages(notes).map((note) => (
-          <PageRow
-            key={note.id}
-            note={note}
-            onSelect={() => {
-              onSelectPage(note.id);
-            }}
-          />
-        ))}
-      </ul>
-    )}
-  </section>
-);
+const RecentPages = ({ notes, onSelectPage }: RecentPagesProps): JSX.Element => {
+  const { heading, hint, pages } = toPagesSection(notes);
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className={SECTION_HEADING}>{heading}</h3>
+        <span className="font-body text-xs text-text-faint">{hint}</span>
+      </div>
+      {pages.length === 0 ? (
+        <p className={EMPTY_BLOCK}>{EMPTY_PAGES_MESSAGE}</p>
+      ) : (
+        <ul aria-label={heading} className="m-0 flex list-none flex-col gap-2 p-0">
+          {pages.map((note) => (
+            <PageRow
+              key={note.id}
+              note={note}
+              onSelect={() => {
+                onSelectPage(note.id);
+              }}
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+};
 
 interface NotebookViewProps {
   notebook: Notebook;
   notes: readonly Note[];
   onEdit: () => void;
+  onTogglePin: () => void;
   onSelectPage: (id: string) => void;
 }
 
@@ -224,6 +251,7 @@ const NotebookView = ({
   notebook,
   notes,
   onEdit,
+  onTogglePin,
   onSelectPage,
 }: NotebookViewProps): JSX.Element => (
   <>
@@ -236,9 +264,16 @@ const NotebookView = ({
           {toMetaLabel(notebook, notes.length)}
         </p>
       </div>
-      <button type="button" className={BUTTON_PRIMARY} onClick={onEdit}>
-        編集
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={BUTTON_PRIMARY} onClick={onEdit}>
+          編集
+        </button>
+        <PinToggleButton
+          pinned={isPinned(notebook)}
+          onToggle={onTogglePin}
+          className={BUTTON_SECONDARY}
+        />
+      </div>
     </header>
     <TagList tags={notebook.tags} />
     <section className="flex flex-col gap-2">
@@ -273,6 +308,7 @@ export const NotebookDetail = ({
   const [external, setExternal] = useState<LoadedNotebook | null>(null);
   // 取り直しの失敗で表示中の内容まで消さないよう、初回読み込みの失敗とは分けて持つ。
   const [reloadError, setReloadError] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const editing = draft !== null;
   // 変更通知のコールバックは購読時のstateを閉じ込めてしまうため、判断材料は都度refから読む。
@@ -370,6 +406,16 @@ export const NotebookDetail = ({
     }
   };
 
+  // 表示の更新は変更通知の購読に任せる。ピン留めは本文の変更ではなく、更新日時も動かさない。
+  const togglePin = async (current: Notebook): Promise<void> => {
+    try {
+      setPinError(null);
+      await window.hanamask.setNotebookPinned(notebookId, !isPinned(current));
+    } catch (cause) {
+      setPinError(`${PIN_FAILED_MESSAGE}: ${String(cause)}`);
+    }
+  };
+
   const patchDraft = (patch: Partial<NotebookDraft>): void => {
     setDraft((current) => (current === null ? null : { ...current, ...patch }));
   };
@@ -393,6 +439,11 @@ export const NotebookDetail = ({
           {reloadError}
         </p>
       )}
+      {pinError !== null && (
+        <p role="alert" className={ALERT}>
+          {pinError}
+        </p>
+      )}
       {notebook !== null && error === null && draft !== null && (
         <>
           {external !== null && <ExternalUpdateNotice onDiscard={discardDraft} />}
@@ -414,6 +465,9 @@ export const NotebookDetail = ({
           onSelectPage={onSelectPage}
           onEdit={() => {
             setDraft(toDraft(notebook));
+          }}
+          onTogglePin={() => {
+            void togglePin(notebook);
           }}
         />
       )}

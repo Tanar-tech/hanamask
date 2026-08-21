@@ -146,6 +146,8 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
     listDeletedNotebooks,
     restoreNotebook,
+    setNotePinned: vi.fn(async () => null),
+    setNotebookPinned: vi.fn(async () => null),
   };
   return {
     listDeletedNotes,
