@@ -81,6 +81,28 @@ describe("NotebookSubPane", () => {
     expect(titles[1]).toContain(OLDER.title);
   });
 
+  it("ピン留め中のページには印を付け、並びは更新日順のまま変えない", async () => {
+    const pinnedOlder: Note = { ...OLDER, pinnedAt: "2026-08-10T00:00:00.000Z" };
+    mockSubPaneApi(() => [pinnedOlder, NEWER]);
+
+    render(<NotebookSubPane notebookId="nb-1" onSelectPage={noop} />);
+
+    expect(await screen.findByRole("img", { name: "ピン留め中" })).toBeTruthy();
+    const titles = screen.getAllByRole("button").map((button) => button.textContent);
+    // ピン留めしても先頭に来ない。サブペインは全量・時系列のまま。
+    expect(titles[0]).toContain(NEWER.title);
+    expect(titles[1]).toContain(OLDER.title);
+  });
+
+  it("ピン留めしていないページには印を付けない", async () => {
+    mockSubPaneApi(() => [NEWER]);
+
+    render(<NotebookSubPane notebookId="nb-1" onSelectPage={noop} />);
+
+    await screen.findByRole("button", { name: new RegExp(NEWER.title) });
+    expect(screen.queryByRole("img", { name: "ピン留め中" })).toBeNull();
+  });
+
   it("ページのクリックを通知する", async () => {
     mockSubPaneApi(() => [NEWER]);
     const onSelectPage = vi.fn();

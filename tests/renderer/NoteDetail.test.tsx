@@ -77,6 +77,7 @@ const mockHanamask = (
   const listNoteVersionsMock = vi.fn(imageApi.listNoteVersions ?? (async () => []));
   const restoreNoteVersionMock = vi.fn(imageApi.restoreNoteVersion ?? (async () => makeNote()));
   const onNotesChangedMock = vi.fn<(callback: () => void) => () => void>(() => () => {});
+  const setNotePinnedMock = vi.fn(async () => null);
   window.hanamask = {
     deleteTask: vi.fn(async () => {}),
     listDeletedTasks: vi.fn(async () => []),
@@ -89,7 +90,7 @@ const mockHanamask = (
     getNote: getNoteMock,
     updateNote: updateNoteMock,
     deleteNote: vi.fn(async () => {}),
-    setNotePinned: vi.fn(async () => null),
+    setNotePinned: setNotePinnedMock,
     onNotesChanged: onNotesChangedMock,
     onNotebooksChanged: vi.fn(() => () => undefined),
     listDeletedNotebooks: vi.fn(async () => []),
@@ -137,6 +138,7 @@ const mockHanamask = (
     listNoteVersions: listNoteVersionsMock,
     restoreNoteVersion: restoreNoteVersionMock,
     onNotesChanged: onNotesChangedMock,
+    setNotePinned: setNotePinnedMock,
   };
 };
 
@@ -205,6 +207,28 @@ describe("NoteDetail", () => {
     expect(screen.getByText("design")).toBeTruthy();
     expect(screen.getByText("mcp")).toBeTruthy();
     expect(getNote).toHaveBeenCalledWith("note-1");
+  });
+
+  it("ヘッダーのピン留めボタンでページをピン留めする", async () => {
+    const { setNotePinned } = mockHanamask(async () => makeNote({ pinnedAt: null }));
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    await clickButton("ピン留め");
+    expect(setNotePinned).toHaveBeenCalledWith("note-1", true);
+  });
+
+  it("ピン留め中のページはヘッダーから解除できる", async () => {
+    const { setNotePinned } = mockHanamask(async () =>
+      makeNote({ pinnedAt: "2026-08-10T00:00:00.000Z" }),
+    );
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
+    await screen.findByText("設計メモ");
+
+    await clickButton("ピン留め解除");
+    expect(setNotePinned).toHaveBeenCalledWith("note-1", false);
   });
 
   it("本文の改行を含む全文を表示する", async () => {
