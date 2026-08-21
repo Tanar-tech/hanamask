@@ -964,6 +964,18 @@ flowchart TB
 <h2 id="notebooks">ノート/ページ再編（2026-08-20起票）</h2>
 <p>T54〜T59の詳細は <strong><a href="TASKS-notebooks.html">TASKS-notebooks.html</a></strong> にある。統合ブランチ <code>feature/notebooks</code> での進捗更新は同ファイルにのみ書き、<code>main</code> 側で並行するパッチ更新と本ファイルが競合しないようにする（本ファイルへの転記は統合完了時に1回だけ行う）。要求定義は <a href="REQUIREMENTS.html#4-9">REQUIREMENTS.html</a> §4.9、経緯は issue #199。</p>
 
+<h3 id="t60">T60: ピン留めとノートMain Viewの重複解消</h3>
+<ul>
+<li>ステータス: 未着手（SPEC未作成。issue #216）</li>
+<li>優先度: 中（管理者要望、2026-08-21）</li>
+<li>依存: 必須: なし（v2.1.0 の T54〜T59 完了が前提。済み）</li>
+<li>目的: <a href="REQUIREMENTS.html#4-10">REQUIREMENTS.html §4.10</a>。よく見るノート・ページを利用者がピン留めでき、ナビ最上部の「ピン留め」セクションと、ノートMain Viewの欄（ピン優先・無ければ従来の最近更新）に出す。サブペインとMain Viewで同じ一覧が重複して見える問題の解消を兼ねる。</li>
+<li>変更範囲: <code>src/main/db/</code>（<code>pinned_at</code> 列2本とマイグレーション、repo）、<code>src/shared/</code>・IPC（ピンのトグル、<code>pinnedAt</code> の返却）、<code>src/renderer/components/</code>（NotebookNav のピンセクション・行トグル、NotebookDetail の欄差し替え、各詳細画面のピンボタン）。</li>
+<li>禁止事項: <strong>ピン操作のMCPツールを作らないこと</strong>（利用者主体。エージェントが勝手にピンしない）。並び替えUI・D&amp;Dを足さないこと（ピンした順で固定）。既存の一覧・検索の並びを変えないこと。</li>
+<li>テスト: ピンのトグル往復と <code>pinned_at</code> の永続化。ナビのピンセクション（0件で非表示・ピン順）。ノートMain Viewの欄の切り替え（ピンあり→ピン欄／なし→従来欄）。マイグレーション（旧DBに列が足され既存行が保持される。<a href="MIGRATIONS.html">MIGRATIONS.html</a> §5）。既存挙動不変。</li>
+<li>停止条件: ピンの上限数・ゴミ箱との関係（削除されたピン済み記録の扱い）で迷ったらSPECで管理者に確認する。</li>
+</ul>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
