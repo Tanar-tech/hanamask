@@ -9,6 +9,8 @@ export interface NavNotebook {
   updatedAt: string;
   /** 所属ページ数（削除済みは含まない）。行のバッジに出す。 */
   pageCount: number;
+  /** ピン留めした日時。未ピンは null。 */
+  pinnedAt: string | null;
 }
 
 export interface NavPage {
@@ -17,6 +19,8 @@ export interface NavPage {
   updatedAt: string;
   /** 所属ノート名。無所属なら null。絞り込みで出したときの文脈表示に使う。 */
   notebookTitle: string | null;
+  /** ピン留めした日時。未ピンは null。 */
+  pinnedAt: string | null;
 }
 
 export type NavItem =
@@ -52,3 +56,15 @@ export const filterNavItems = (query: string, items: readonly NavItem[]): NavIte
       : items.filter((item) => matches(item, needle));
   return [...shown].sort(byUpdatedDesc);
 };
+
+const pinnedAtOf = (item: NavItem): string | null =>
+  item.kind === "notebook" ? item.notebook.pinnedAt : item.page.pinnedAt;
+
+/*
+ * 並びは「ピン留めした順」で固定する。利用者が自分で置いた棚の位置が
+ * 更新のたびに動くと、目で探す手がかりが無くなるため。
+ */
+export const pinnedNavItems = (items: readonly NavItem[]): NavItem[] =>
+  items
+    .filter((item) => pinnedAtOf(item) !== null)
+    .sort((a, b) => (pinnedAtOf(a) ?? "").localeCompare(pinnedAtOf(b) ?? ""));

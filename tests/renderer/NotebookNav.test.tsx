@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { NotebookNav } from "../../src/renderer/components/NotebookNav";
 import type { Note, Notebook } from "../../src/shared/preload-api";
 import { stubHanamask } from "./hanamask-stub";
@@ -41,6 +41,7 @@ const FILED = makeNote({
 });
 
 const LOCAL_LLM_EMPTY = "ローカルLLM組み込み（ページ0件）";
+const PINNED_LABEL = "ピン留め";
 const RELEASE_EMPTY = "リリース運用（ページ0件）";
 
 interface NavStubs {
@@ -51,11 +52,15 @@ interface NavStubs {
 const mockNavApi = ({ notebooks = [], notes = [] }: NavStubs) => {
   const listNotebooks = vi.fn(async () => notebooks);
   const listNotes = vi.fn(async (): Promise<Note[]> => notes);
+  const setNotePinned = vi.fn(async () => null);
+  const setNotebookPinned = vi.fn(async () => null);
   const noteListeners: Array<() => void> = [];
   const notebookListeners: Array<() => void> = [];
   stubHanamask({
     listNotebooks,
     listNotes,
+    setNotePinned,
+    setNotebookPinned,
     onNotesChanged: vi.fn((callback: () => void) => {
       noteListeners.push(callback);
       return () => {};
@@ -75,6 +80,8 @@ const mockNavApi = ({ notebooks = [], notes = [] }: NavStubs) => {
   return {
     listNotebooks,
     listNotes,
+    setNotePinned,
+    setNotebookPinned,
     emitNotesChanged: () => emit(noteListeners),
     emitNotebooksChanged: () => emit(notebookListeners),
   };
@@ -205,6 +212,82 @@ describe("NotebookNav", () => {
 
     expect(listNotebooks).toHaveBeenCalledTimes(3);
     expect(listNotes).toHaveBeenCalledTimes(3);
+  });
+
+  it("ピン留めが1件も無ければピン留めセクションを出さない", async () => {
+    mockNavApi({ notebooks: [LOCAL_LLM], notes: [UNFILED] });
+
+    renderNav();
+    await screen.findByRole("button", { name: LOCAL_LLM_EMPTY });
+
+    expect(screen.queryByRole("list", { name: PINNED_LABEL })).toBeNull();
+  });
+
+  it("ピン留めした順にピン留めセクションへノートとページを並べる", async () => {
+    mockNavApi({
+      notebooks: [{ ...LOCAL_LLM, pinnedAt: "2026-08-21T10:00:00.000Z" }, RELEASE],
+      notes: [{ ...UNFILED, pinnedAt: "2026-08-21T09:00:00.000Z" }, FILED],
+    });
+
+    renderNav();
+    const section = await screen.findByRole("list", { name: PINNED_LABEL });
+
+    expect(
+      within(section)
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      UNFILED.title,
+      `${UNFILED.title}のピン留めを解除`,
+      LOCAL_LLM_EMPTY.replace("0件", "1件"),
+      `${LOCAL_LLM.title}のピン留めを解除`,
+    ]);
+  });
+
+  it("ピン留めセクションの行のクリックは通常行と同じく通知する", async () => {
+    mockNavApi({ notes: [{ ...UNFILED, pinnedAt: "2026-08-21T09:00:00.000Z" }] });
+    const onSelectPage = vi.fn();
+
+    renderNav({ onSelectPage });
+    const section = await screen.findByRole("list", { name: PINNED_LABEL });
+
+    fireEvent.click(within(section).getByRole("button", { name: UNFILED.title }));
+    expect(onSelectPage).toHaveBeenCalledWith("note-1");
+  });
+
+  it("絞り込み中はピン留めセクションを出さない", async () => {
+    mockNavApi({ notes: [{ ...UNFILED, pinnedAt: "2026-08-21T09:00:00.000Z" }] });
+
+    renderNav();
+    await screen.findByRole("list", { name: PINNED_LABEL });
+
+    typeFilter("WSL");
+
+    expect(screen.queryByRole("list", { name: PINNED_LABEL })).toBeNull();
+    expect(screen.getByRole("button", { name: UNFILED.title })).toBeTruthy();
+  });
+
+  it("ページ行のトグルでピン留めを切り替える", async () => {
+    const { setNotePinned } = mockNavApi({ notes: [UNFILED] });
+
+    renderNav();
+    fireEvent.click(await screen.findByRole("button", { name: `${UNFILED.title}をピン留め` }));
+
+    expect(setNotePinned).toHaveBeenCalledWith("note-1", true);
+  });
+
+  it("ノート行のトグルでピン留めを解除する", async () => {
+    const { setNotebookPinned } = mockNavApi({
+      notebooks: [{ ...LOCAL_LLM, pinnedAt: "2026-08-21T10:00:00.000Z" }],
+    });
+
+    renderNav();
+    const section = await screen.findByRole("list", { name: PINNED_LABEL });
+    fireEvent.click(
+      within(section).getByRole("button", { name: `${LOCAL_LLM.title}のピン留めを解除` }),
+    );
+
+    expect(setNotebookPinned).toHaveBeenCalledWith("nb-1", false);
   });
 
   it("読み込みに失敗したら理由を出す", async () => {
