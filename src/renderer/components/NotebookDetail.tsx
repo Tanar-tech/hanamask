@@ -91,7 +91,7 @@ const toPagesSection = (notes: readonly Note[]): PagesSection => {
   return { heading: PINNED_HEADING, hint: PINNED_HINT, pages: pinned };
 };
 
-const toMetaLabel =(notebook: Notebook, pageCount: number): string =>
+const toMetaLabel = (notebook: Notebook, pageCount: number): string =>
   ["ノート", `ページ ${String(pageCount)} 件`, toUpdatedLabel(notebook.updatedAt)]
     .filter((part) => part !== "")
     .join(" · ");

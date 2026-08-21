@@ -7,6 +7,7 @@ import {
   type NavNotebook,
   type NavPage,
 } from "../text/navFilter";
+import { PIN_MARK, isPinned } from "./PinToggleButton";
 
 export interface NotebookPages {
   notebook: Notebook | null;
@@ -27,7 +28,6 @@ const EMPTY_TEXT = "m-0 px-3 py-4 font-body text-sm text-text-faint";
 const PIN_TOGGLE = `${FOCUS_RING} m-0 shrink-0 cursor-pointer appearance-none rounded-md border-0 bg-transparent px-1 py-1 font-body text-xs leading-none transition-opacity duration-[var(--duration-fast)] ease-standard`;
 const PIN_TOGGLE_PINNED = "opacity-100";
 const PIN_TOGGLE_IDLE = "opacity-0 group-hover:opacity-100 focus-visible:opacity-100";
-const PIN_MARK = "📌";
 const ROW = "group flex items-center";
 
 const LIST_LABEL = "ノート・ページ";
@@ -113,7 +113,7 @@ const NotebookRow = ({
       <span className="min-w-0 flex-1 truncate">{notebook.title}</span>
       <span className={BADGE}>{notebook.pageCount}</span>
     </button>
-    <PinToggle title={notebook.title} pinned={notebook.pinnedAt !== null} onToggle={onTogglePin} />
+    <PinToggle title={notebook.title} pinned={isPinned(notebook)} onToggle={onTogglePin} />
   </li>
 );
 
@@ -145,7 +145,7 @@ const PageRow = ({
         {page.title}
       </span>
     </button>
-    <PinToggle title={page.title} pinned={page.pinnedAt !== null} onToggle={onTogglePin} />
+    <PinToggle title={page.title} pinned={isPinned(page)} onToggle={onTogglePin} />
   </li>
 );
 

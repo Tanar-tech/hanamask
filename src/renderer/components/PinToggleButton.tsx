@@ -3,6 +3,8 @@ import type { JSX } from "react";
 const PIN_LABEL = "ピン留め";
 const UNPIN_LABEL = "ピン留め解除";
 
+export const PIN_MARK = "📌";
+
 /** ピン留めの有無だけを見る。日時そのものは表示に使わない。 */
 export const isPinned = (entity: { pinnedAt?: string | null }): boolean =>
   entity.pinnedAt !== null && entity.pinnedAt !== undefined;

@@ -85,6 +85,7 @@ import type {
   Link,
   NavigateTarget,
   Note,
+  Notebook,
   NoteVersion,
   RelatedNotesResult,
   SemanticSearchResult,
@@ -385,7 +386,11 @@ const changeNotePinned = (
   return updated;
 };
 
-const changeNotebookPinned = (_event: IpcMainInvokeEvent, id: unknown, pinned: unknown) => {
+const changeNotebookPinned = (
+  _event: IpcMainInvokeEvent,
+  id: unknown,
+  pinned: unknown,
+): Notebook | null => {
   const args = readPinnedArgs(id, pinned);
   const updated = setNotebookPinned(args.id, args.pinned);
   if (updated !== null) emitNotebooksChanged();

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
 import type { Note } from "../../shared/preload-api";
 import type { NotebookPages } from "./NotebookNav";
-import { isPinned } from "./PinToggleButton";
+import { PIN_MARK, isPinned } from "./PinToggleButton";
 import { toUpdatedLabel } from "../text/dateLabel";
 
 
@@ -11,7 +11,6 @@ const FOCUS_RING =
 const PAGE_BUTTON = `${FOCUS_RING} m-0 flex w-full cursor-pointer appearance-none flex-col gap-0.5 rounded-md border-0 bg-transparent px-3 py-1.5 text-left font-body text-sm text-text-soft transition-colors duration-[var(--duration-fast)] ease-standard hover:text-text`;
 
 const EMPTY_MESSAGE = "ページはありません";
-const PIN_MARK = "📌";
 const PIN_MARK_LABEL = "ピン留め中";
 const NO_NOTEBOOK: NotebookPages = { notebook: null, notes: [] };
 

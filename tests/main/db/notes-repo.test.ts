@@ -297,5 +297,15 @@ describe("notes-repo", () => {
 
       expect(listNoteVersions(note.id)).toEqual([]);
     });
+
+    it("keeps the pinned state across soft delete and restore", () => {
+      const note = createNote({ title: "復元", body: "本文", tags: [] });
+      const pinnedAt = setNotePinned(note.id, true)?.pinnedAt;
+
+      softDeleteNote(note.id);
+      const restored = restoreNote(note.id);
+
+      expect(restored?.pinnedAt).toBe(pinnedAt);
+    });
   });
 });

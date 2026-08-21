@@ -6,7 +6,7 @@ import { randomUUID } from "node:crypto";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { closeDb, getDb, openDb } from "../../../src/main/db/db";
 import { createNote } from "../../../src/main/db/notes-repo";
-import { getNotebook } from "../../../src/main/db/notebooks-repo";
+import { getNotebook, setNotebookPinned } from "../../../src/main/db/notebooks-repo";
 import { onNotebooksChanged, type EntityChange } from "../../../src/main/mcp/change-emitter";
 import { findNotebookTool, notebookTools } from "../../../src/main/mcp/tools/notebooks";
 
@@ -137,6 +137,20 @@ describe("notebook MCPツール", () => {
 
     expect(readNotebookField(result, "id")).toBe(notebookId);
     expect(readTitles(readList(result, "notes"))).toEqual(["所属ページ"]);
+  });
+
+  it("get_notebook の返り値に pinnedAt が載る（ピン操作ツールは存在しない）", async () => {
+    const notebookId = await createNotebookViaTool("ピン");
+
+    expect(readNotebookField(await callTool("get_notebook", { id: notebookId }), "pinnedAt")).toBe(
+      null,
+    );
+
+    const pinnedAt = setNotebookPinned(notebookId, true)?.pinnedAt;
+    expect(readNotebookField(await callTool("get_notebook", { id: notebookId }), "pinnedAt")).toBe(
+      pinnedAt,
+    );
+    expect(findNotebookTool("pin_notebook")).toBeUndefined();
   });
 
   it("get_notebook は所属ページの削除済みを除外する", async () => {

@@ -284,5 +284,15 @@ describe("notebooks repo", () => {
 
       expect(listNotebookVersions(notebook.id)).toEqual([]);
     });
+
+    it("keeps the pinned state across soft delete and restore", () => {
+      const notebook = createNotebook({ title: "復元", summary: "", tags: [] });
+      const pinnedAt = setNotebookPinned(notebook.id, true)?.pinnedAt;
+
+      softDeleteNotebook(notebook.id);
+      restoreNotebook(notebook.id);
+
+      expect(getNotebook(notebook.id)?.pinnedAt).toBe(pinnedAt);
+    });
   });
 });
