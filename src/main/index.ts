@@ -20,6 +20,7 @@ import {
   restoreNote,
   restoreNoteVersion,
   searchNotes,
+  setNotePinned,
   softDeleteNote,
   updateNote,
   type NoteUpdateInput,
@@ -31,6 +32,7 @@ import {
   listNotebooks,
   listNotesInNotebook,
   restoreNotebook,
+  setNotebookPinned,
   updateNotebook,
 } from "./db/notebooks-repo.js";
 import {
@@ -145,6 +147,8 @@ const NOTES_UPDATE_CHANNEL = "notes:update";
 const NOTES_LIST_VERSIONS_CHANNEL = "notes:list-versions";
 const NOTES_RESTORE_VERSION_CHANNEL = "notes:restore-version";
 const NOTES_LIST_DELETED_CHANNEL = "notes:list-deleted";
+const NOTES_SET_PINNED_CHANNEL = "notes:set-pinned";
+const NOTEBOOKS_SET_PINNED_CHANNEL = "notebooks:set-pinned";
 const NOTEBOOKS_LIST_CHANNEL = "notebooks:list";
 const NOTEBOOKS_GET_CHANNEL = "notebooks:get";
 const NOTEBOOKS_UPDATE_CHANNEL = "notebooks:update";
@@ -358,6 +362,34 @@ const undeleteNote = (_event: IpcMainInvokeEvent, id: string): Note | null => {
   const restored = restoreNote(id);
   if (restored !== null) emitNotesChanged();
   return restored;
+};
+
+const readPinnedArgs = (id: unknown, pinned: unknown): { id: string; pinned: boolean } => {
+  if (typeof id !== "string") throw new Error("id must be a string");
+  if (typeof pinned !== "boolean") throw new Error("pinned must be a boolean");
+  return { id, pinned };
+};
+
+/*
+ * 通知に EntityChange を載せない。ピン留めは本文を変えないので、載せると埋め込みの作り直しと
+ * OS通知まで走ってしまう。MCPツール経由と同じ経路を通すため broadcast ではなく emit を呼ぶ。
+ */
+const changeNotePinned = (
+  _event: IpcMainInvokeEvent,
+  id: unknown,
+  pinned: unknown,
+): Note | null => {
+  const args = readPinnedArgs(id, pinned);
+  const updated = setNotePinned(args.id, args.pinned);
+  if (updated !== null) emitNotesChanged();
+  return updated;
+};
+
+const changeNotebookPinned = (_event: IpcMainInvokeEvent, id: unknown, pinned: unknown) => {
+  const args = readPinnedArgs(id, pinned);
+  const updated = setNotebookPinned(args.id, args.pinned);
+  if (updated !== null) emitNotebooksChanged();
+  return updated;
 };
 
 const readNotebookUpdateInput = (value: unknown): { title?: string; summary?: string; tags?: string[] } => {
@@ -779,6 +811,8 @@ ipcMain.handle(NOTES_LIST_VERSIONS_CHANNEL, findNoteVersions);
 ipcMain.handle(NOTES_RESTORE_VERSION_CHANNEL, restoreVersion);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);
 ipcMain.handle(NOTES_LIST_DELETED_CHANNEL, () => listDeletedNotes());
+ipcMain.handle(NOTES_SET_PINNED_CHANNEL, changeNotePinned);
+ipcMain.handle(NOTEBOOKS_SET_PINNED_CHANNEL, changeNotebookPinned);
 ipcMain.handle(NOTEBOOKS_LIST_CHANNEL, () => listNotebooks());
   ipcMain.handle(NOTEBOOKS_GET_CHANNEL, readNotebookDetail);
   ipcMain.handle(NOTEBOOKS_UPDATE_CHANNEL, changeNotebook);

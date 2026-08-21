@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS notes (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   -- NULL は「どのノートにも属さないページ」。notebooks.id を指すが FK は張らない（links と同じ方針）。
-  notebook_id TEXT
+  notebook_id TEXT,
+  -- NULL ならピン留めなし。留めた時刻を持つのは、ピン欄を留めた順に並べるため。
+  pinned_at TEXT
 );
 
 -- ページを束ねるノート（docs/REQUIREMENTS.md §4.9）。summary が利用者から見た「概要」。
@@ -18,7 +20,9 @@ CREATE TABLE IF NOT EXISTS notebooks (
   tags TEXT NOT NULL,
   deleted_at TEXT,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  -- NULL ならピン留めなし。notes.pinned_at と同じ意味。
+  pinned_at TEXT
 );
 
 -- Snapshot of a note's content taken immediately before each update. Rows are never

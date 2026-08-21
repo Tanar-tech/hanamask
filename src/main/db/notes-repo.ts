@@ -18,6 +18,7 @@ interface NoteRow {
   created_at: string;
   updated_at: string;
   notebook_id: string | null;
+  pinned_at: string | null;
 }
 
 /*
@@ -54,7 +55,8 @@ const isNoteRow = (value: unknown): value is NoteRow => {
     (row.deleted_at === null || typeof row.deleted_at === "string") &&
     typeof row.created_at === "string" &&
     typeof row.updated_at === "string" &&
-    (row.notebook_id === null || typeof row.notebook_id === "string")
+    (row.notebook_id === null || typeof row.notebook_id === "string") &&
+    (row.pinned_at === null || typeof row.pinned_at === "string")
   );
 };
 
@@ -80,6 +82,7 @@ const toNote = (row: NoteRow): Note => ({
   createdAt: row.created_at,
   updatedAt: row.updated_at,
   notebookId: row.notebook_id,
+  pinnedAt: row.pinned_at,
 });
 
 const toNoteWithNotebook = (row: NoteRow): NoteWithNotebook => ({
@@ -119,6 +122,7 @@ export const createNote = (
     createdAt: timestamp,
     updatedAt: timestamp,
     notebookId,
+    pinnedAt: null,
   };
   getDb()
     .prepare(
@@ -156,6 +160,18 @@ export const moveNoteToNotebook = (
     .run(notebookId, noteId);
   if (result.changes === 0) return null;
   return getNote(noteId);
+};
+
+/*
+ * ピン留めは本文の編集ではないので、版を残さず updated_at も動かさない（並び順の根拠が
+ * 「留めた」だけで変わってしまうため）。
+ */
+export const setNotePinned = (id: string, pinned: boolean): Note | null => {
+  const result = getDb()
+    .prepare("UPDATE notes SET pinned_at = ? WHERE id = ? AND deleted_at IS NULL")
+    .run(pinned ? new Date().toISOString() : null, id);
+  if (result.changes === 0) return null;
+  return getNote(id);
 };
 
 export const searchNotes = (query: string, notebookId?: string): Note[] => {
