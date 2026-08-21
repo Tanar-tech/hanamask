@@ -1,69 +1,124 @@
-# SPEC: ノート/ページ(6) ノート概要の自動生成・追従更新（T59）
+# SPEC: ピン留め（T60）
 
 ## Part 1: 利用者向け
 
 ### 何を・なぜ
 
-ノートの概要（何の案件か・どこまで進んだか）が、手で書かなくても**自動で書かれ、ページの動きに合わせて更新され続ける**状態を作ります。ノートが「読める入口」になり、開かなくても案件の現在地が分かります。
+よく見るノート・ページを、利用者が自分で固定（ピン留め）できるようにします。ピン留めした記録はナビゲーションの最上部にまとまって出るので、案件が増えても「いつも見るもの」へ最短で届きます。**利用者主体の機能**であり、AIエージェントにピン留めの操作ツールは与えません（エージェントは「利用者が重視している記録」として参照できるだけ）。要求定義 §4.10（2026-08-21 承認済み）の実装です。
 
-### 生成主体の提案（停止条件の確認事項）
+### 画面イメージ・操作フロー
 
-| | **案a: 外部AIエージェントに任せる（推奨）** | 案b: 同梱ローカルLLMで生成 |
-|---|---|---|
-| 仕組み | ページを書き換えた**その場にいるエージェント**（Claude Code 等）に、ツールの説明文と常設指示で「所属ノートの概要も追従更新する」ことを促す | アプリ自身がページ変更をトリガーに推論して概要を書く |
-| 品質 | 作業の文脈を持っているエージェントが書くため**内容が濃い**（何を決めたか・なぜかまで書ける） | 小型モデルの要約。文脈はページ本文のみ |
-| 追加の重さ | **依存追加なし**。説明文・常設指示・ドキュメントの変更が中心 | **生成モデルの同梱/取得が必要＝T50・T49 の前倒し**。ダウンロードUI・メモリ・速度の課題を先に解く必要がある |
-| 動作条件 | エージェントが接続しているときだけ更新される | オフラインでも更新される |
-| BYO 哲学 | 「AIの仕事は利用者のエージェントがやる」という §1 の設計と一致 | §4.8 の組み込みLLMの用途拡張 |
+**ピン留めする・外す（2か所）**
 
-**提案: v2.1.0 は案a で出し、案b は T49（チャットのローカルモデル）が入ってからの追加改善として積み直す。**理由: 案b は生成モデルという大きな前提を今引き込むことになり、v2.1.0 の主目的（ノート/ページ再編）から外れるため。案a はエージェントが居るときしか動きませんが、そもそもページを書いているのがエージェントなので、実用上は「書いた本人がついでに概要も直す」形で回ります。
+1. **ナビゲーションの行**: ノート・ページの行にマウスを載せると右端にピンのトグルが現れる。クリックでピン留め／解除。ピン留め中の行には常にピン印が付く 📸
+2. **詳細画面のヘッダー**: ページ詳細・ノート詳細の「編集」ボタンの隣に「ピン留め」（ピン中は「ピン留め解除」）ボタン 📸
 
-### 案a で変わること
+**ピン留めの表示**
 
-1. **ツールの説明文**: `create_page`（所属付き）・`move_page`・`update_page`/`update_note` に「所属ノートがある場合は、作業の区切りで `update_notebook` により概要を最新にすること」という一文を追加。`create_notebook`/`update_notebook` には「概要は AI が生成・追従更新してよい。利用者が手で書いた概要も、古くなっていれば更新してよい」を明記（§4.9 の確定どおり）
-2. **常設指示（設定画面の文面）**: 「育てる」の項に**ノートで束ねて概要を保つ**運用を追記（ページが増えたらノートに束ね、区切りで概要を追従更新する）
-3. **README**: エージェントとの使い方の節に、束ね方と概要更新の一文
-4. アプリ側の推論・自動書き込みは**追加しない**（更新は全て MCP ツール経由＝編集履歴に残り、復元できる）
+- **ナビ最上部に「ピン留め」セクション**: 1件以上ピンがあるときだけ見出しつきで出る。ノートとページが混在し、並びは**ピン留めした順**で固定（並び替えUIは持たない）。ピン留めした記録は、下の通常ツリーにも今までどおり出る（居場所は変わらない） 📸
+- **ノートを開いたとき（Main View）**: そのノートの中にピン留めページがあるときは、「最近更新されたページ」欄が「**ピン留めしたページ**」欄に置き換わる（ピン順・全件）。無いときは従来どおり最近更新3件。サブペイン＝全量・時系列、Main View＝利用者が選んだ精鋭、という役割の違いを作る 📸
+- **サブペイン（ノート内ページ一覧）**: 並びは更新日降順のまま変えない。ピン留め中のページにはピン印だけ付ける
+
+**挙動の細部（提案を含む）**
+
+- ピン留め・解除は**編集履歴に残らず、更新日時も動かさない**（本文の変更ではないため。一覧の並びが勝手に変わらない）
+- OS通知・意味検索の再索引も走らない
+- **ゴミ箱との関係（提案）**: ピン留めした記録を削除するとピン留めセクションからは消える（ゴミ箱行きの記録はナビに出ないため）。復元するとピン留めも戻る。パージすれば記録ごと消える
+- **ピン数の上限（提案）**: 設けない。個人利用で、増えすぎたら利用者が自分で外す運用とする（セクションはスクロールに追従するだけ）
+- ナビの絞り込み中は「ピン留め」セクションを出さない（絞り込み結果は検索結果として一本のリストで見せる。ピン留め中の記録が一致すれば結果には出る）
+- エージェント向けには、既存の取得・一覧・検索系ツールの返り値に `pinnedAt`（ピン留めした日時、未ピンは null）が載るだけ。ピン操作のMCPツールは作らない
+
+### バージョンについて
+
+要求定義 §4.10 は「v2.1.1」と書いていましたが、その番号は常設指示の文言パッチ（2026-08-21 リリース済み）が使ったため、本機能は**v2.2.0**（機能追加＝minor）として出します。§4.10 の表記もこのタスク内で改めます。
 
 ### 受け入れ条件
 
-- [ ] 上記ツール群の説明文に概要追従の案内が入り、`check:readme` が緑のまま
-- [ ] 設定画面の常設指示に「束ねて概要を保つ」項が入り、コピーできる
-- [ ] README に束ね方の説明が入る
-- [ ] アプリの挙動（推論・自動書き込み）は何も変わらない（既存テスト全緑）
-- [ ] 実機相当の確認: エージェント（このセッション）が hanamask に接続し、常設指示に従って実際に「ページ追加→概要の追従更新」を行えることを確認する
+- [ ] ナビの行のホバーでピンのトグルが現れ、クリックでピン留め／解除できる（ノート・ページ両方）
+- [ ] ページ詳細・ノート詳細のヘッダーからもピン留め／解除できる
+- [ ] ピンが1件以上あるとき、ナビ最上部に「ピン留め」セクションが出て、ピン留めした順に並ぶ。0件なら出ない
+- [ ] ノートの Main View: ノート内にピン留めページがあれば「ピン留めしたページ」欄（ピン順）、無ければ従来の「最近更新されたページ」欄
+- [ ] ピン留め・解除で編集履歴が増えず、更新日時が変わらない
+- [ ] 削除でピンセクションから消え、復元で戻る
+- [ ] MCPの取得・一覧・検索系の返り値に `pinnedAt` が載る（ピン操作ツールは存在しない）
+- [ ] 既存DBを開くと `pinned_at` 列が追加され、既存データは全て未ピンのまま残る（旧DBテスト＋リリース前の実データ検証）
+- [ ] ナビの絞り込み中はピンセクションが出ない
 
 ### 未決定・要確認事項
 
-1. **生成主体: 案a で良いか**（案b を選ぶ場合は T49/T50 の前倒し計画を別途作ります）
+1. 「ゴミ箱との関係」「上限なし」「絞り込み中は非表示」は上記の提案どおりで良いか
+2. バージョンを v2.2.0 に読み替えることの確認
 
 ---
 
 ## Part 2: AI用（実装セット定義）
 
-単一セット（差分が小さく並列化の意味がないため）:
+前提: 調査済みの実装事実（2026-08-21、main = v2.1.1）に基づく。ブランチは main ベースの1本（`feat/t60-pins`）、PR は draft 1本。
 
-**セット A: 説明文・常設指示・ドキュメント**
-- 触ってよいファイル: `src/main/mcp/tools/notes.ts`（`create_page`/`move_page`/`update_page`/`update_note` の description 追記のみ）、`src/main/mcp/tools/notebooks.ts`（`create_notebook`/`update_notebook` の description 追記のみ）、`src/renderer/components/StandingInstruction.tsx`（「育てる」項への追記）、`README.md`（該当節）、`tests/renderer/StandingInstruction.test.tsx`（文面の追記を固定するアサーション）、`tests/main/mcp/tool-descriptions.test.ts`（概要追従の語が入っていることの軽い検査を追加してもよい）
-- 禁止: ツール名・引数・戻り値・handler の変更。アプリ側の推論追加。ページ本文に触る案内
-- テスト: 説明文に案内が含まれる／常設指示の文面／既存全緑
+### 共有契約（Phase 3 開始前に開発管理者が先行コミットする）
+
+セット間の型不整合を防ぐため、以下の**契約ファイルの変更は Phase 3 の前に開発管理者が単独コミット**し、各セットはそれを前提に作業する（Phase 4 でのみ再調整可）:
+
+- `src/shared/preload-api.ts`: `Note`（2-11行）・`Notebook`（93-100行）に `pinnedAt: string | null` を追加。`HanamaskPreloadApi` に `setNotePinned(id: string, pinned: boolean): Promise<Note | null>` / `setNotebookPinned(id: string, pinned: boolean): Promise<Notebook | null>` を追加
+- `src/preload/index.ts`: チャンネル定数 `notes:set-pinned` / `notebooks:set-pinned` と api 実装（invoke 1行ずつ）
+- `tests/renderer/hanamask-stub.ts`: 新APIのスタブと `pinnedAt: null` の既定値
+
+### セット A: DB とmainプロセス
+
+- 目的: 受け入れ条件のうち「pinned_at 列の追加・旧DB互換」「編集履歴・更新日時を動かさない」「pinnedAt がMCP返り値に載る」
+- 触ってよいファイル:
+  - `src/main/db/schema.sql`（notes / notebooks に `pinned_at TEXT` を追加）
+  - `src/main/db/migrations.ts`（`MIGRATIONS` 配列**末尾**に `addColumnMigration("notes","pinned_at","TEXT")` と `addColumnMigration("notebooks","pinned_at","TEXT")` を追記。146行の `notebook_id` 追加が同型の先例。既存項目は書き換えない）
+  - `src/main/db/notes-repo.ts`（`NoteRow`・`isNoteRow`・`toNote` に pinned_at を追加。`setNotePinned(id, pinned)` を新設 — `moveNoteToNotebook`（150-159行）と同型: 単一列UPDATE、`WHERE id = ? AND deleted_at IS NULL`、スナップショット無し・updated_at 不変、成功時 `getNote(id)` 返し。`createNote` の INSERT は列を足さない（NULL既定））
+  - `src/main/db/notebooks-repo.ts`（同様に `NotebookRow`・`isNotebookRow`・`toNotebook`・`setNotebookPinned`）
+  - `src/main/index.ts`（IPCハンドラ `notes:set-pinned` / `notebooks:set-pinned`。入力型ガードは `readNotebookUpdateInput`（364-382行）に倣う。**`emitNotesChanged()` / `emitNotebooksChanged()` を引数なしで呼ぶ** — EntityChange を渡すと embedding-indexer（`handleChange` 173-188行）が無条件で再埋め込みし、change-notifier がOS通知を出すため。チャンネル定数の追記も忘れない）
+  - `tests/main/db/migrations.test.ts`（v2.1.x 相当＝pinned_at 無しの旧DB定数を追加し、既存パターン（321/331/352/310/365行）どおり: 旧DBを開くと列が揃う・既存行が残る・二度開き・apply直呼び・新規DBと形一致）
+  - `tests/main/db/notes-repo.test.ts` / `tests/main/db/notebooks-repo.test.ts`（setNotePinned の設定・解除・削除済みには効かない・updated_at 不変・スナップショット無し）
+  - `tests/main/` 配下の該当IPC/MCPテスト
+- 依存（読み取りのみ）: `docs/MIGRATIONS.md`、`src/main/mcp/tools/`（返り値は repo の戻りをそのまま JSON 化するためツールファイルの変更は不要）、`src/main/llm/embedding-indexer.ts`
+- 禁止: MCPツールの新設・説明文変更、`updateNote`/`updateNotebook` 経由でのピン更新、EntityChange 付き emit
+
+### セット B: ナビゲーション（ピンセクションと行トグル）
+
+- 目的: 受け入れ条件のうち「ナビ行のトグル」「ピンセクション」「絞り込み中は非表示」
+- 触ってよいファイル:
+  - `src/renderer/text/navFilter.ts`（`NavNotebook`/`NavPage` に `pinnedAt` を追加。ピン項目の抽出関数（ピン順ソート）を純関数として追加。絞り込み中はピンセクション無しの現行結果を返す）
+  - `src/renderer/components/NotebookNav.tsx`（`<li>` を flex 化し、行ボタンとピントグルボタンを並列に置く（ボタンのネスト不可のため）。トグルはホバー/フォーカスで表示（`group`/`group-hover`）、ピン中は常時ピン印。最上部に「ピン留め」見出しセクション — 見出しのスタイルは NotebookSubPane 67行のパターンに合わせる）
+  - `tests/renderer/navFilter.test.ts` / `tests/renderer/NotebookNav.test.tsx`
+- 依存（読み取りのみ）: `src/shared/preload-api.ts`（先行コミット済みの契約）、`tests/renderer/hanamask-stub.ts`
+- 注意: 既存テストの `getByRole("button", { name })` が行構造の変更で二重ヒットしないよう、トグルの `aria-label` は「〜をピン留め」「〜のピン留めを解除」と行名と衝突しない形にする
+
+### セット C: 詳細画面とサブペイン
+
+- 目的: 受け入れ条件のうち「詳細ヘッダーのボタン」「Main View のピン留めページ欄」「サブペインのピン印」
+- 触ってよいファイル:
+  - `src/renderer/components/PinToggleButton.tsx`（新規・共有小コンポーネント。`DeleteButton.tsx` が先例）
+  - `src/renderer/components/NotebookDetail.tsx`（ヘッダー 230-242行に BUTTON_SECONDARY でトグル追加。`RecentPages`（192-214行）: `notes` にピンありなら見出し「ピン留めしたページ」・ピン順・全件、無ければ従来3件。`aria-label`・空欄文言も分岐）
+  - `src/renderer/components/NoteDetail.tsx`（ヘッダー 383-398行にトグル追加）
+  - `src/renderer/components/NotebookSubPane.tsx`（ピン印の表示のみ。並びは変えない）
+  - `tests/renderer/NotebookDetail.test.tsx` / `tests/renderer/NoteDetail.test.tsx` / `tests/renderer/NotebookSubPane.test.tsx`
+- 依存（読み取りのみ）: `src/shared/preload-api.ts`（契約）、`tests/renderer/hanamask-stub.ts`
+- 禁止: NotebookNav / navFilter への変更（セットBの領分）
+
+### 並列グループ宣言
+
+- 契約コミット（開発管理者）→ **A・B・C の3セットを並列実行可**（触るファイルは互いに素）
+- 共有ファイル `src/shared/preload-api.ts` / `src/preload/index.ts` / `src/main/index.ts` / `tests/renderer/hanamask-stub.ts` のうち、`src/main/index.ts` はセットAのみが触る。それ以外は契約コミット後、Phase 4 統合ゲートでのみ再編集可
+- E2E（`tests/e2e/` に pin-flow の追加、`notebook-flow.spec.ts` への影響確認）は Phase 4 で開発管理者が行う
 
 ### Phase 4 / 検証
-- 受け入れ条件5（実機相当の確認）は開発管理者セッションが hanamask MCP で実施し、結果を PR に記録
-- `docs/TASKS-notebooks.md` 進捗、`docs/REQUIREMENTS.md` §8 の「生成主体」未決を確定に更新（＋HTML 同期）
 
-### 完了条件
-- unit / lint / typecheck / `check:readme` 緑。E2E は挙動不変のため既存のみ
-- PR は `feature/notebooks` base に1本
+- 統合後: `npm test`・`npm run lint`・`npm run typecheck`・`npm run check:readme` 全緑
+- E2E: ピン留め→ナビ最上部に出る→解除で消える、Main View の欄の置き換わり、をシナリオ追加
+- ドキュメント: `docs/REQUIREMENTS.md` §4.10 の見出しを v2.2.0 に改め確定事項を反映、`docs/TASKS.md` T60 進捗、README（画面構成の節にピン留めの一文、MCP返り値の `pinnedAt`）、CHANGELOG（Unreleased → 2.2.0）
+- リリース前: `docs/MIGRATIONS.md` §6 の実データ検証（実DB複製 → openDb → 件数不変・integrity ok・全行 pinned_at IS NULL）を実施し §6 実績表に追記
 
----
+### 完了条件（機械判定）
 
-## 追補（2026-08-21 管理者承認）: ナビゲーションのタブ化
+- 上記4コマンド全緑、追加したマイグレーションテスト・repoテスト・rendererテスト・E2Eが緑
+- PR は main base の draft 1本（マージは管理者）
 
-実装がモックアップ（案B）と食い違っていた点の是正。**縦の左レール（208px）を廃止**し、モックアップどおり**ナビ列の上部に「ホーム／ノート／タスク／ゴミ箱／設定」を横並びのセクションタブ**として置く。
+### セーフティ
 
-- 左列（約250px）は常に1本: 上から「hanamask」ロゴ → セクションタブ（横並びの小さなテキストボタン。現在地はアクア・太字）→ 絞り込みボックス → Explorer ツリー（ノート＋無所属ページ）。ツリーはどのセクションでも表示したままにする（ワークスペースの常設ナビ。ツリーのクリックはノートセクションへの遷移を兼ねる）
-- サブペインは従来どおり「ノート選択中」に左列の隣へ出す
-- Main View はタブで切り替え（ホーム／ノート系／タスク／ゴミ箱／設定）。既存の各画面は不変
-- タブは `role` を変えず**ボタンのまま**（`getByRole("button", {name:"ノート", exact:true})` を使う既存 E2E を壊さない）。`aria-label` の一覧名も維持
-- 受け入れ条件: 全セクションへの遷移が従来どおり／幅が縦レール分（約200px）節約される／既存 unit・E2E が緑（AppShell 直接のテストは新構造に追従）／📸 差し替え
+- 各セットの自己修正は3回まで。テストの削除・緩和でのグリーン化は禁止
+- 停止②（/structured-review）まで自律で進め、それ以外で確認を求めるのは本 Part 1 の停止①のみ
