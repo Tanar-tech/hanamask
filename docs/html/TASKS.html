@@ -976,6 +976,18 @@ flowchart TB
 <li>停止条件: ピンの上限数・ゴミ箱との関係（削除されたピン済み記録の扱い）で迷ったらSPECで管理者に確認する。</li>
 </ul>
 
+<h3 id="t61">T61: 公開サイトを GitHub Pages で配信する</h3>
+<ul>
+<li>ステータス: 実装中（2026-08-22 着手。issue #222）</li>
+<li>優先度: 中（管理者要望、2026-08-22）</li>
+<li>依存: 必須: なし（T43 のパブリック化が前提。済み）</li>
+<li>目的: 利用者向けの公開サイト（機能紹介・インストール手順・MCP接続手順・Releases への導線）を <code>https://tanar-tech.github.io/hanamask/</code> で配信する。<strong>リポジトリは分けない</strong>。サイトの内容（バージョン・Releases リンク・機能一覧・スクリーンショット）がリポジトリの状態に依存するため、別リポジトリにすると docs/html と同じ同期漏れが起きる。</li>
+<li>変更範囲: <code>site/</code>（<code>index.html</code>・<code>src/site.css</code>・<code>vite.config.ts</code>。既存の Vite + Tailwind を流用し、スクリーンショットは <code>docs/images/</code> を参照して複製しない）、<code>.github/workflows/pages.yml</code>（<code>main</code> の <code>site/**</code> 変更で <code>actions/deploy-pages</code> からデプロイ。<code>gh-pages</code> ブランチは使わない）、<code>package.json</code>（<code>build:site</code>）、<code>.gitignore</code>（<code>dist-site/</code>）、README。</li>
+<li>禁止事項: サイト専用のフレームワーク・依存を足さないこと（アプリの <code>npm ci</code> と CI を重くしない）。<code>docs/</code> の内部向け文書（GOVERNANCE 等）をサイトに載せないこと。<code>gh-pages</code> ブランチを作らないこと。</li>
+<li>テスト: <code>npm run build:site</code> が <code>dist-site/</code> を出力すること。<code>npm run lint</code> が通ること。ライト／ダーク両テーマでの表示確認（スクリーンショット）。</li>
+<li>停止条件: リポジトリ設定（Pages の Source を GitHub Actions にする）は管理者操作。独自ドメインや <code>&lt;org&gt;.github.io</code> 直下のユーザーサイトが必要になったら、専用リポジトリが要るので管理者に確認する。</li>
+</ul>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
