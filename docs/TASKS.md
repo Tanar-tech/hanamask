@@ -943,3 +943,14 @@ T54〜T59の詳細は **[docs/TASKS-notebooks.md](TASKS-notebooks.md)** にあ�
 - テスト: ピンのトグル往復と `pinned_at` の永続化。ナビのピンセクション（0件で非表示・ピン順）。ノートMain Viewの欄の切り替え（ピンあり→ピン欄／なし→従来欄）。マイグレーション（旧DBに列が足され既存行が保持される。`docs/MIGRATIONS.md` §5）。既存挙動不変。
 - 停止条件: ピンの上限数・ゴミ箱との関係（削除されたピン済み記録の扱い）で迷ったらSPECで管理者に確認する。
 
+### T61: 公開サイトを GitHub Pages で配信する
+
+- ステータス: 実装中（2026-08-22 着手。issue #222）
+- 優先度: 中（管理者要望、2026-08-22）
+- 依存: 必須: なし（T43 のパブリック化が前提。済み）
+- 目的: 利用者向けの公開サイト（機能紹介・インストール手順・MCP接続手順・Releases への導線）を `https://tanar-tech.github.io/hanamask/` で配信する。**リポジトリは分けない**。サイトの内容（バージョン・Releases リンク・機能一覧・スクリーンショット）がリポジトリの状態に依存するため、別リポジトリにすると docs/html と同じ同期漏れが起きる。
+- 変更範囲: `site/`（`index.html`・`src/site.css`・`vite.config.ts`。既存の Vite + Tailwind を流用し、スクリーンショットは `docs/images/` を参照して複製しない）、`.github/workflows/pages.yml`（`main` の `site/**` 変更で `actions/deploy-pages` からデプロイ。`gh-pages` ブランチは使わない）、`package.json`（`build:site`）、`.gitignore`（`dist-site/`）、README。
+- 禁止事項: サイト専用のフレームワーク・依存を足さないこと（アプリの `npm ci` と CI を重くしない）。`docs/` の内部向け文書（GOVERNANCE 等）をサイトに載せないこと。`gh-pages` ブランチを作らないこと。
+- テスト: `npm run build:site` が `dist-site/` を出力すること。`npm run lint` が通ること。ライト／ダーク両テーマでの表示確認（スクリーンショット）。
+- 停止条件: リポジトリ設定（Pages の Source を GitHub Actions にする）は管理者操作。独自ドメインや `<org>.github.io` 直下のユーザーサイトが必要になったら、専用リポジトリが要るので管理者に確認する。
+

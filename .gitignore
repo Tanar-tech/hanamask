@@ -145,6 +145,8 @@ vite.config.ts.timestamp-*
 # hanamask: ローカルSQLite DBファイル・electron-builderのパッケージ出力
 *.sqlite3
 release/
+# hanamask: 公開サイト（site/）のビルド出力。GitHub Actions が main から生成して Pages へ配信する
+dist-site/
 
 # hanamask: E2Eテスト(tests/e2e)が出力するスクリーンショット
 tests/e2e/.artifacts/
