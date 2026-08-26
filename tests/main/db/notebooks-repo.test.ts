@@ -19,6 +19,7 @@ import {
   listNotesInNotebook,
   restoreNotebook,
   restoreNotebookVersion,
+  setNotebookPinned,
   softDeleteNotebook,
   updateNotebook,
 } from "../../../src/main/db/notebooks-repo";
@@ -236,6 +237,62 @@ describe("notebooks repo", () => {
       vi.useRealTimers();
 
       expect(listNotesInNotebook(notebook.id).map((note) => note.title)).toEqual(["先", "後"]);
+    });
+  });
+
+  describe("setNotebookPinned", () => {
+    it("starts unpinned and records an ISO timestamp when pinned", () => {
+      const notebook = createNotebook({ title: "留める", summary: "", tags: [] });
+      expect(notebook.pinnedAt).toBeNull();
+
+      const pinned = setNotebookPinned(notebook.id, true);
+
+      expect(pinned?.pinnedAt).toBeTypeOf("string");
+      expect(new Date(String(pinned?.pinnedAt)).toISOString()).toBe(pinned?.pinnedAt);
+      expect(getNotebook(notebook.id)?.pinnedAt).toBe(pinned?.pinnedAt);
+    });
+
+    it("clears pinnedAt back to null when unpinned", () => {
+      const notebook = createNotebook({ title: "外す", summary: "", tags: [] });
+      setNotebookPinned(notebook.id, true);
+
+      expect(setNotebookPinned(notebook.id, false)?.pinnedAt).toBeNull();
+      expect(getNotebook(notebook.id)?.pinnedAt).toBeNull();
+    });
+
+    it("returns null for an unknown or deleted notebook", () => {
+      const deleted = createNotebook({ title: "消す", summary: "", tags: [] });
+      softDeleteNotebook(deleted.id);
+
+      expect(setNotebookPinned(randomUUID(), true)).toBeNull();
+      expect(setNotebookPinned(deleted.id, true)).toBeNull();
+    });
+
+    // ピン留めは概要の編集ではないので、並び順の根拠になる更新日時を動かしてはいけない。
+    it("leaves updatedAt untouched", () => {
+      const notebook = createNotebook({ title: "日時", summary: "", tags: [] });
+
+      expect(setNotebookPinned(notebook.id, true)?.updatedAt).toBe(notebook.updatedAt);
+      expect(getNotebook(notebook.id)?.updatedAt).toBe(notebook.updatedAt);
+    });
+
+    it("does not add an edit history entry", () => {
+      const notebook = createNotebook({ title: "履歴", summary: "", tags: [] });
+
+      setNotebookPinned(notebook.id, true);
+      setNotebookPinned(notebook.id, false);
+
+      expect(listNotebookVersions(notebook.id)).toEqual([]);
+    });
+
+    it("keeps the pinned state across soft delete and restore", () => {
+      const notebook = createNotebook({ title: "復元", summary: "", tags: [] });
+      const pinnedAt = setNotebookPinned(notebook.id, true)?.pinnedAt;
+
+      softDeleteNotebook(notebook.id);
+      restoreNotebook(notebook.id);
+
+      expect(getNotebook(notebook.id)?.pinnedAt).toBe(pinnedAt);
     });
   });
 });

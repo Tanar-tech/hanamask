@@ -51,6 +51,8 @@ const mockHanamask = (overrides: HistoryApiOverrides = {}) => {
     getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
     updateNotebook: vi.fn(async () => null),
     restoreNotebook: vi.fn(async () => true),
+    setNotePinned: vi.fn(async () => null),
+    setNotebookPinned: vi.fn(async () => null),
     onNavigate: vi.fn(() => () => {}),
     listNoteVersions,
     restoreNoteVersion,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
 import type { Note } from "../../shared/preload-api";
 import type { NotebookPages } from "./NotebookNav";
+import { PIN_MARK, isPinned } from "./PinToggleButton";
 import { toUpdatedLabel } from "../text/dateLabel";
 
 
@@ -10,6 +11,7 @@ const FOCUS_RING =
 const PAGE_BUTTON = `${FOCUS_RING} m-0 flex w-full cursor-pointer appearance-none flex-col gap-0.5 rounded-md border-0 bg-transparent px-3 py-1.5 text-left font-body text-sm text-text-soft transition-colors duration-[var(--duration-fast)] ease-standard hover:text-text`;
 
 const EMPTY_MESSAGE = "ページはありません";
+const PIN_MARK_LABEL = "ピン留め中";
 const NO_NOTEBOOK: NotebookPages = { notebook: null, notes: [] };
 
 // ナビと同じく更新日の新しい順。ISO文字列は辞書順と時刻順が一致する。
@@ -78,7 +80,14 @@ export const NotebookSubPane = ({
                 }}
                 className={PAGE_BUTTON}
               >
-                <span className="truncate">{note.title}</span>
+                <span className="flex min-w-0 items-center gap-1">
+                  {isPinned(note) && (
+                    <span role="img" aria-label={PIN_MARK_LABEL}>
+                      {PIN_MARK}
+                    </span>
+                  )}
+                  <span className="min-w-0 truncate">{note.title}</span>
+                </span>
                 <span className="font-body text-xs text-text-faint">
                   {toUpdatedLabel(note.updatedAt)}
                 </span>

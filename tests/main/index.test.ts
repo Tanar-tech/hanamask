@@ -6,6 +6,7 @@ import type {
   Image,
   Link,
   Note,
+  Notebook,
   NoteVersion,
   Task,
 } from "../../src/shared/preload-api";
@@ -33,6 +34,14 @@ const listNoteVersions = vi.fn();
 const restoreNoteVersion = vi.fn();
 const listDeletedNotes = vi.fn();
 const restoreNote = vi.fn();
+const setNotePinned = vi.fn();
+const setNotebookPinned = vi.fn();
+const emitNotebooksChanged = vi.fn();
+const emitNotesChanged = vi.fn(() => {
+  notesChangedListeners.forEach((listener) => {
+    listener();
+  });
+});
 const getTask = vi.fn();
 const openDb = vi.fn();
 const purgeSoftDeletedRecords = vi.fn(() => ({ notesPurged: 0, tasksPurged: 0 }));
@@ -90,7 +99,11 @@ vi.mock("electron", () => ({
 }));
 
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
-vi.mock("../../src/main/db/notebooks-repo", () => ({ listDeletedNotebooks: vi.fn(() => []), restoreNotebook: vi.fn(() => null) }));
+vi.mock("../../src/main/db/notebooks-repo", () => ({
+  listDeletedNotebooks: vi.fn(() => []),
+  restoreNotebook: vi.fn(() => null),
+  setNotebookPinned,
+}));
 vi.mock("../../src/main/db/notes-repo", () => ({
   searchNotes,
   softDeleteNote,
@@ -100,6 +113,7 @@ vi.mock("../../src/main/db/notes-repo", () => ({
   restoreNoteVersion,
   listDeletedNotes,
   restoreNote,
+  setNotePinned,
 }));
 vi.mock("../../src/main/db/tasks-repo", () => ({ listTasks, getTask }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords }));
@@ -113,13 +127,9 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
-  emitNotebooksChanged: vi.fn(),
+  emitNotebooksChanged,
   onNotebooksChanged: vi.fn(() => () => {}),
-  emitNotesChanged: () => {
-    notesChangedListeners.forEach((listener) => {
-      listener();
-    });
-  },
+  emitNotesChanged,
   onNotesChanged: (listener: () => void) => {
     notesChangedListeners.push(listener);
     return () => {};
@@ -168,6 +178,18 @@ const findListDeletedNotesHandler = (): (() => Note[]) => findHandler("notes:lis
 
 const findRestoreNoteHandler = (): ((event: unknown, id: string) => Note | null) =>
   findHandler("notes:restore");
+
+const findSetNotePinnedHandler = (): ((
+  event: unknown,
+  id: unknown,
+  pinned: unknown,
+) => Note | null) => findHandler("notes:set-pinned");
+
+const findSetNotebookPinnedHandler = (): ((
+  event: unknown,
+  id: unknown,
+  pinned: unknown,
+) => Notebook | null) => findHandler("notebooks:set-pinned");
 
 const findGetTaskHandler = (): ((event: unknown, id: string) => Task | null) =>
   findHandler("tasks:get");
@@ -254,6 +276,16 @@ const sampleNote: Note = {
   updatedAt: "2026-08-03T00:00:00.000Z",
 };
 
+const sampleNotebook: Notebook = {
+  id: "notebook-1",
+  title: "ノート",
+  summary: "概要",
+  tags: [],
+  createdAt: "2026-08-03T00:00:00.000Z",
+  updatedAt: "2026-08-03T00:00:00.000Z",
+  pinnedAt: null,
+};
+
 const sampleNoteVersion: NoteVersion = {
   id: "version-1",
   noteId: "note-1",
@@ -306,6 +338,10 @@ describe("main process entry", () => {
     restoreNoteVersion.mockReset();
     listDeletedNotes.mockReset();
     restoreNote.mockReset();
+    setNotePinned.mockReset();
+    setNotebookPinned.mockReset();
+    emitNotesChanged.mockClear();
+    emitNotebooksChanged.mockClear();
     getTask.mockReset();
     createImage.mockReset();
     listImages.mockReset();
@@ -405,6 +441,66 @@ describe("main process entry", () => {
     openWindows.forEach((window) => {
       expect(window.webContents.send).not.toHaveBeenCalled();
     });
+  });
+
+  it("notes:set-pinned ハンドラはピン留めして全ウィンドウへ通知する", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("notes:set-pinned", expect.any(Function));
+    const pinned: Note = { ...sampleNote, pinnedAt: "2026-08-21T00:00:00.000Z" };
+    setNotePinned.mockReturnValue(pinned);
+
+    expect(findSetNotePinnedHandler()(undefined, "note-1", true)).toEqual(pinned);
+    expect(setNotePinned).toHaveBeenCalledWith("note-1", true);
+    openWindows.forEach((window) => {
+      expect(window.webContents.send).toHaveBeenCalledWith("notes:changed");
+    });
+  });
+
+  /*
+   * EntityChange を渡すと埋め込みの作り直しとOS通知まで走る。ピン留めは本文を変えないので、
+   * 画面の再読み込みだけで足りる。
+   */
+  it("notes:set-pinned ハンドラは変更内容を伴わずに通知する", () => {
+    setNotePinned.mockReturnValue(sampleNote);
+
+    findSetNotePinnedHandler()(undefined, "note-1", false);
+
+    expect(emitNotesChanged).toHaveBeenCalledWith();
+  });
+
+  it("notes:set-pinned ハンドラは存在しないノートではnullを返し通知しない", () => {
+    setNotePinned.mockReturnValue(null);
+
+    expect(findSetNotePinnedHandler()(undefined, "missing-note", true)).toBeNull();
+    expect(emitNotesChanged).not.toHaveBeenCalled();
+  });
+
+  it("notes:set-pinned ハンドラは引数の型が違えば例外を投げる", () => {
+    expect(() => findSetNotePinnedHandler()(undefined, 1, true)).toThrow();
+    expect(() => findSetNotePinnedHandler()(undefined, "note-1", "yes")).toThrow();
+    expect(setNotePinned).not.toHaveBeenCalled();
+  });
+
+  it("notebooks:set-pinned ハンドラはピン留めして変更内容を伴わずに通知する", () => {
+    expect(ipcHandle).toHaveBeenCalledWith("notebooks:set-pinned", expect.any(Function));
+    const pinned: Notebook = { ...sampleNotebook, pinnedAt: "2026-08-21T00:00:00.000Z" };
+    setNotebookPinned.mockReturnValue(pinned);
+
+    expect(findSetNotebookPinnedHandler()(undefined, "notebook-1", true)).toEqual(pinned);
+    expect(setNotebookPinned).toHaveBeenCalledWith("notebook-1", true);
+    expect(emitNotebooksChanged).toHaveBeenCalledWith();
+  });
+
+  it("notebooks:set-pinned ハンドラは存在しないノートではnullを返し通知しない", () => {
+    setNotebookPinned.mockReturnValue(null);
+
+    expect(findSetNotebookPinnedHandler()(undefined, "missing", true)).toBeNull();
+    expect(emitNotebooksChanged).not.toHaveBeenCalled();
+  });
+
+  it("notebooks:set-pinned ハンドラは引数の型が違えば例外を投げる", () => {
+    expect(() => findSetNotebookPinnedHandler()(undefined, null, true)).toThrow();
+    expect(() => findSetNotebookPinnedHandler()(undefined, "notebook-1", 0)).toThrow();
+    expect(setNotebookPinned).not.toHaveBeenCalled();
   });
 
   it("notes:list-versions ハンドラは指定ノートの履歴を返し通知しない", () => {

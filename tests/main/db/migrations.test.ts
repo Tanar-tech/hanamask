@@ -70,6 +70,73 @@ CREATE TABLE links (
 const V2_0_NOTE_ID = "legacy-note-1";
 const V2_0_VERSION_ID = "legacy-version-1";
 
+/* v2.1.x が配布していた形。ノート（notebooks）まで揃っているが pinned_at だけ無い。 */
+const V2_1_TABLES = `
+CREATE TABLE notes (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  tags TEXT NOT NULL,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  notebook_id TEXT
+);
+CREATE TABLE notebooks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  tags TEXT NOT NULL,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE note_versions (
+  id TEXT PRIMARY KEY,
+  note_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  tags TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  entity_type TEXT NOT NULL DEFAULT 'note'
+);
+CREATE TABLE tasks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  tags TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL,
+  due_date TEXT,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE images (
+  id TEXT PRIMARY KEY,
+  note_id TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  mime_type TEXT NOT NULL
+);
+CREATE TABLE links (
+  id TEXT PRIMARY KEY,
+  from_type TEXT NOT NULL,
+  from_id TEXT NOT NULL,
+  to_type TEXT NOT NULL,
+  to_id TEXT NOT NULL
+);
+CREATE TABLE embeddings (
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task','notebook')),
+  entity_id   TEXT NOT NULL,
+  model_id    TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  vector      BLOB NOT NULL,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (entity_type, entity_id)
+);
+`;
+
+const V2_1_NOTEBOOK_ID = "legacy-notebook-1";
+
 /* T56 以前の embeddings。entity_type は 'note'/'task' しか受け付けない。 */
 const LEGACY_EMBEDDINGS_TABLE = `
 CREATE TABLE embeddings (
@@ -176,6 +243,36 @@ const createV2_0DbFile = (dbFilePath: string): void => {
   legacy.close();
 };
 
+const insertV2_1Rows = (db: Database.Database): void => {
+  db.prepare(
+    "INSERT INTO notes (id, title, body, tags, created_at, updated_at, notebook_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run(
+    V2_0_NOTE_ID,
+    "旧ページ",
+    "本文",
+    '["既存"]',
+    LEGACY_TIMESTAMP,
+    LEGACY_TIMESTAMP,
+    V2_1_NOTEBOOK_ID,
+  );
+  db.prepare(
+    "INSERT INTO notebooks (id, title, summary, tags, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+  ).run(V2_1_NOTEBOOK_ID, "旧ノート", "概要", '["既存"]', LEGACY_TIMESTAMP, LEGACY_TIMESTAMP);
+  db.prepare(
+    "INSERT INTO note_versions (id, note_id, title, body, tags, created_at, entity_type) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run(V2_0_VERSION_ID, V2_0_NOTE_ID, "旧ページ", "前の本文", '["既存"]', LEGACY_TIMESTAMP, "note");
+  db.prepare(
+    "INSERT INTO tasks (id, title, body, tags, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+  ).run(LEGACY_TASK_ID, "旧タスク", "", "[]", "todo", LEGACY_TIMESTAMP, LEGACY_TIMESTAMP);
+};
+
+const createV2_1DbFile = (dbFilePath: string): void => {
+  const legacy = new Database(dbFilePath);
+  legacy.exec(V2_1_TABLES);
+  insertV2_1Rows(legacy);
+  legacy.close();
+};
+
 const createLegacyDbFile = (dbFilePath: string): void => {
   const legacy = new Database(dbFilePath);
   legacy.exec(LEGACY_TASKS_TABLE);
@@ -205,6 +302,8 @@ const columnNames = (table: string): string[] => {
 };
 
 const NOTEBOOK_RELATED_TABLES = ["notes", "note_versions", "notebooks"];
+
+const PIN_RELATED_TABLES = ["notes", "notebooks"];
 
 const tableInfo = (table: string): unknown[] =>
   getDb().prepare("SELECT * FROM pragma_table_info(?)").all(table);
@@ -373,6 +472,78 @@ describe("migrations", () => {
       openDb(dbFilePath);
 
       expect(NOTEBOOK_RELATED_TABLES.map(tableInfo)).toEqual(fresh);
+    } finally {
+      rmSync(freshDbFilePath, { force: true });
+    }
+  });
+
+  it("v2.1.x相当のDBを開くとnotes.pinned_atとnotebooks.pinned_atが揃う", () => {
+    createV2_1DbFile(dbFilePath);
+
+    openDb(dbFilePath);
+
+    expect(columnNames("notes")).toContain("pinned_at");
+    expect(columnNames("notebooks")).toContain("pinned_at");
+  });
+
+  it("v2.1.x相当のDBの既存行が全て残り、pinned_atはNULLで読める", () => {
+    createV2_1DbFile(dbFilePath);
+
+    openDb(dbFilePath);
+
+    expect(getDb().prepare("SELECT * FROM notes WHERE id = ?").get(V2_0_NOTE_ID)).toMatchObject({
+      title: "旧ページ",
+      body: "本文",
+      notebook_id: V2_1_NOTEBOOK_ID,
+      // 既存のページ・ノートが勝手にピン留めされていないこと。
+      pinned_at: null,
+    });
+    expect(
+      getDb().prepare("SELECT * FROM notebooks WHERE id = ?").get(V2_1_NOTEBOOK_ID),
+    ).toMatchObject({ title: "旧ノート", summary: "概要", pinned_at: null });
+    expect(
+      getDb().prepare("SELECT * FROM note_versions WHERE id = ?").get(V2_0_VERSION_ID),
+    ).toMatchObject({ body: "前の本文", entity_type: "note" });
+    expect(getDb().prepare("SELECT * FROM tasks WHERE id = ?").get(LEGACY_TASK_ID)).toMatchObject({
+      title: "旧タスク",
+    });
+  });
+
+  it("v2.1.x相当のDBを二度開いてもマイグレーションは失敗しない", () => {
+    createV2_1DbFile(dbFilePath);
+
+    openDb(dbFilePath);
+    closeDb();
+
+    expect(() => openDb(dbFilePath)).not.toThrow();
+    expect(columnNames("notes")).toContain("pinned_at");
+    expect(columnNames("notebooks")).toContain("pinned_at");
+    expect(getDb().prepare("SELECT COUNT(*) AS n FROM notes").get()).toMatchObject({ n: 1 });
+  });
+
+  it("v2.1.x相当のDBに対してapplyを直接呼んでも失敗しない", () => {
+    createV2_1DbFile(dbFilePath);
+    openDb(dbFilePath);
+    const db = getDb();
+
+    MIGRATIONS.forEach((migration) => {
+      expect(() => {
+        migration.apply(db);
+      }, migration.name).not.toThrow();
+    });
+  });
+
+  it("新規DBとv2.1.xからアップグレードしたDBでnotes・notebooksの形が一致する", () => {
+    const freshDbFilePath = join(tmpdir(), `hanamask-migration-fresh-${randomUUID()}.sqlite3`);
+    try {
+      openDb(freshDbFilePath);
+      const fresh = PIN_RELATED_TABLES.map(tableInfo);
+      closeDb();
+
+      createV2_1DbFile(dbFilePath);
+      openDb(dbFilePath);
+
+      expect(PIN_RELATED_TABLES.map(tableInfo)).toEqual(fresh);
     } finally {
       rmSync(freshDbFilePath, { force: true });
     }
