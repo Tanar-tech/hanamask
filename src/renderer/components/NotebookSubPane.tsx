@@ -80,13 +80,13 @@ export const NotebookSubPane = ({
                 }}
                 className={PAGE_BUTTON}
               >
-                <span className="flex items-center gap-1">
+                <span className="flex min-w-0 items-center gap-1">
                   {isPinned(note) && (
                     <span role="img" aria-label={PIN_MARK_LABEL}>
                       {PIN_MARK}
                     </span>
                   )}
-                  <span className="truncate">{note.title}</span>
+                  <span className="min-w-0 truncate">{note.title}</span>
                 </span>
                 <span className="font-body text-xs text-text-faint">
                   {toUpdatedLabel(note.updatedAt)}

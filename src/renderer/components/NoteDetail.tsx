@@ -418,6 +418,7 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
                 pinned={isPinned(note)}
                 onToggle={() => togglePin(note)}
                 className={BUTTON_SECONDARY}
+                disabled={restoring}
               />
             </div>
           </header>
