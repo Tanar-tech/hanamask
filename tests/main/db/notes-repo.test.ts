@@ -9,9 +9,11 @@ import {
   createNote,
   getNote,
   listDeletedNotes,
+  listNoteVersions,
   moveNoteToNotebook,
   restoreNote,
   searchNotes,
+  setNotePinned,
   softDeleteNote,
   updateNote,
 } from "../../../src/main/db/notes-repo";
@@ -249,5 +251,61 @@ describe("notes-repo", () => {
 
     expect(searchNotes("", notebook.id).map((note) => note.title)).toEqual(["中"]);
     expect(searchNotes("").map((note) => note.title).sort()).toEqual(["中", "外"]);
+  });
+
+  describe("setNotePinned", () => {
+    it("starts unpinned and records an ISO timestamp when pinned", () => {
+      const note = createNote({ title: "留める", body: "本文", tags: [] });
+      expect(note.pinnedAt).toBeNull();
+
+      const pinned = setNotePinned(note.id, true);
+
+      expect(pinned?.pinnedAt).toBeTypeOf("string");
+      expect(new Date(String(pinned?.pinnedAt)).toISOString()).toBe(pinned?.pinnedAt);
+      expect(getNote(note.id)?.pinnedAt).toBe(pinned?.pinnedAt);
+    });
+
+    it("clears pinnedAt back to null when unpinned", () => {
+      const note = createNote({ title: "外す", body: "本文", tags: [] });
+      setNotePinned(note.id, true);
+
+      expect(setNotePinned(note.id, false)?.pinnedAt).toBeNull();
+      expect(getNote(note.id)?.pinnedAt).toBeNull();
+    });
+
+    it("returns null for an unknown or deleted page", () => {
+      const deleted = createNote({ title: "消す", body: "本文", tags: [] });
+      softDeleteNote(deleted.id);
+
+      expect(setNotePinned(randomUUID(), true)).toBeNull();
+      expect(setNotePinned(deleted.id, true)).toBeNull();
+    });
+
+    // ピン留めは本文の編集ではないので、並び順の根拠になる更新日時を動かしてはいけない。
+    it("leaves updatedAt untouched", () => {
+      const note = createNote({ title: "日時", body: "本文", tags: [] });
+
+      expect(setNotePinned(note.id, true)?.updatedAt).toBe(note.updatedAt);
+      expect(getNote(note.id)?.updatedAt).toBe(note.updatedAt);
+    });
+
+    it("does not add an edit history entry", () => {
+      const note = createNote({ title: "履歴", body: "本文", tags: [] });
+
+      setNotePinned(note.id, true);
+      setNotePinned(note.id, false);
+
+      expect(listNoteVersions(note.id)).toEqual([]);
+    });
+
+    it("keeps the pinned state across soft delete and restore", () => {
+      const note = createNote({ title: "復元", body: "本文", tags: [] });
+      const pinnedAt = setNotePinned(note.id, true)?.pinnedAt;
+
+      softDeleteNote(note.id);
+      const restored = restoreNote(note.id);
+
+      expect(restored?.pinnedAt).toBe(pinnedAt);
+    });
   });
 });

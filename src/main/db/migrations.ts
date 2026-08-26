@@ -147,6 +147,9 @@ export const MIGRATIONS: readonly Migration[] = [
   // 既存の版は全てページ（'note'）の版なので、DEFAULT がそのまま正しい値になる。
   addColumnMigration("note_versions", "entity_type", "TEXT NOT NULL DEFAULT 'note'"),
   rebuildEmbeddingsForNotebooks,
+  // NULL のままなら「ピン留めしていない」。既存のページ・ノートは全てそのまま留められていない扱いになる。
+  addColumnMigration("notes", "pinned_at", "TEXT"),
+  addColumnMigration("notebooks", "pinned_at", "TEXT"),
 ];
 
 export const applyMigrations = (db: DatabaseHandle): void => {

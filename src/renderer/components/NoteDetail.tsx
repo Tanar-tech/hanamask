@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type JSX } 
 import type { Image, Note } from "../../shared/preload-api";
 import { EntityLinks } from "./EntityLinks";
 import { MarkdownDocument } from "./MarkdownDocument";
+import { PinToggleButton, isPinned } from "./PinToggleButton";
 import { TagList } from "./TagList";
 import { NoteVersionHistory } from "./NoteVersionHistory";
 import { RelatedNotes } from "./RelatedNotes";
@@ -19,6 +20,7 @@ interface NoteDraft {
 }
 
 const NOT_FOUND_MESSAGE = "ノートが見つかりません";
+const PIN_FAILED_MESSAGE = "ピン留めの変更に失敗しました";
 const UPDATE_FAILED_MESSAGE = "ノートの更新に失敗しました";
 const TAG_SEPARATOR = ",";
 const BODY_TEXTAREA_ROWS = 12;
@@ -182,6 +184,7 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
   const [restoring, setRestoring] = useState(false);
   const [externalNote, setExternalNote] = useState<Note | null>(null);
   const [reloadError, setReloadError] = useState<string | null>(null);
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const editing = draft !== null;
   // 変更通知のコールバックは購読時のstateを閉じ込めてしまうため、判断材料は都度refから読む。
@@ -222,6 +225,16 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
     if (liveStateRef.current.editing) setExternalNote(latest);
     else setNote(latest);
   }, [noteId]);
+
+  // 表示の更新は変更通知の購読に任せる。ピン留めは本文の変更ではなく、更新日時も動かさない。
+  const togglePin = async (current: Note): Promise<void> => {
+    try {
+      setPinError(null);
+      await window.hanamask.setNotePinned(noteId, !isPinned(current));
+    } catch (cause) {
+      setPinError(`${PIN_FAILED_MESSAGE}: ${String(cause)}`);
+    }
+  };
 
   const discardDraft = (): void => {
     if (externalNote !== null) setNote(externalNote);
@@ -364,6 +377,11 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
           {reloadError}
         </p>
       )}
+      {pinError !== null && (
+        <p role="alert" className={ALERT}>
+          {pinError}
+        </p>
+      )}
       {note !== null && error === null && draft !== null && (
         <>
           {externalNote !== null && <ExternalUpdateNotice onDiscard={discardDraft} />}
@@ -384,17 +402,25 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
             <h2 className="m-0 font-display text-2xl leading-tight font-bold break-words text-text">
               {note.title}
             </h2>
-            <button
-              type="button"
-              className={BUTTON_PRIMARY}
-              // 復元の応答待ち中に編集を始めると、復元前の内容を基にしたフォームの保存で復元結果が失われる。
-              disabled={restoring}
-              onClick={() => {
-                setDraft(toDraft(note));
-              }}
-            >
-              編集
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={BUTTON_PRIMARY}
+                // 復元の応答待ち中に編集を始めると、復元前の内容を基にしたフォームの保存で復元結果が失われる。
+                disabled={restoring}
+                onClick={() => {
+                  setDraft(toDraft(note));
+                }}
+              >
+                編集
+              </button>
+              <PinToggleButton
+                pinned={isPinned(note)}
+                onToggle={() => togglePin(note)}
+                className={BUTTON_SECONDARY}
+                disabled={restoring}
+              />
+            </div>
           </header>
           <TagList tags={note.tags} />
           {note.body.trim() === "" ? (

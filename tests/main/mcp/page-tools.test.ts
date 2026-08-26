@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { closeDb, openDb } from "../../../src/main/db/db";
 import { createNotebook, softDeleteNotebook } from "../../../src/main/db/notebooks-repo";
-import { getNote } from "../../../src/main/db/notes-repo";
+import { getNote, setNotePinned } from "../../../src/main/db/notes-repo";
 import { onNotesChanged } from "../../../src/main/mcp/change-emitter";
 import { findNoteTool } from "../../../src/main/mcp/tools/notes";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -273,6 +273,23 @@ describe("ページ用MCPツール", () => {
       const payload = readJsonPayload(await callTool("get_page", { id }));
 
       expect(payload).toEqual({ note: expect.objectContaining({ notebookId: notebook.id }) });
+    });
+
+    it("get_page の返り値に pinnedAt が載る（操作はUIのみ）", async () => {
+      const id = readNoteId(await callTool("create_page", { title: "ピン", body: "本文" }));
+
+      const before = readJsonPayload(await callTool("get_page", { id }));
+      expect(before).toEqual({ note: expect.objectContaining({ pinnedAt: null }) });
+
+      const pinnedAt = setNotePinned(id, true)?.pinnedAt;
+      const after = readJsonPayload(await callTool("get_page", { id }));
+      expect(after).toEqual({ note: expect.objectContaining({ pinnedAt }) });
+    });
+
+    it("ピン操作のMCPツールは存在しない", () => {
+      expect(findNoteTool("pin_page")).toBeUndefined();
+      expect(findNoteTool("pin_note")).toBeUndefined();
+      expect(findNoteTool("set_page_pinned")).toBeUndefined();
     });
 
     it("search_pages が所属ノートで絞り込む", async () => {

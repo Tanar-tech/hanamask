@@ -1,14 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { filterNavItems, type NavItem } from "../../src/renderer/text/navFilter";
+import { filterNavItems, pinnedNavItems, type NavItem } from "../../src/renderer/text/navFilter";
 
-const notebook = (title: string, updatedAt: string, pageCount = 0): NavItem => ({
+const notebook = (
+  title: string,
+  updatedAt: string,
+  pageCount = 0,
+  pinnedAt: string | null = null,
+): NavItem => ({
   kind: "notebook",
-  notebook: { id: `nb-${title}`, title, updatedAt, pageCount },
+  notebook: { id: `nb-${title}`, title, updatedAt, pageCount, pinnedAt },
 });
 
-const page = (title: string, updatedAt: string, notebookTitle: string | null = null): NavItem => ({
+const page = (
+  title: string,
+  updatedAt: string,
+  notebookTitle: string | null = null,
+  pinnedAt: string | null = null,
+): NavItem => ({
   kind: "page",
-  page: { id: `page-${title}`, title, updatedAt, notebookTitle },
+  page: { id: `page-${title}`, title, updatedAt, notebookTitle, pinnedAt },
 });
 
 const LOCAL_LLM = notebook("ローカルLLM組み込み", "2026-08-20T00:00:00.000Z", 4);
@@ -59,5 +69,37 @@ describe("filterNavItems", () => {
     const original = [...ITEMS];
     filterNavItems("", ITEMS);
     expect(ITEMS).toEqual(original);
+  });
+});
+
+describe("pinnedNavItems", () => {
+  it("ピン留めした順（pinnedAt昇順）にノートとページを混ぜて返す", () => {
+    const pinnedNotebook = notebook("リリース運用", "2026-08-18T00:00:00.000Z", 6, "2026-08-21T10:00:00.000Z");
+    const pinnedPage = page("T48 意味検索の実装", "2026-08-17T00:00:00.000Z", "ローカルLLM組み込み", "2026-08-21T09:00:00.000Z");
+    const pinnedUnfiled = page("WSLからMCPへ接続する手順", "2026-08-19T00:00:00.000Z", null, "2026-08-21T11:00:00.000Z");
+
+    expect(titlesOf(pinnedNavItems([pinnedNotebook, pinnedUnfiled, pinnedPage]))).toEqual([
+      "T48 意味検索の実装",
+      "リリース運用",
+      "WSLからMCPへ接続する手順",
+    ]);
+  });
+
+  it("ピン留めしていない行は除く", () => {
+    expect(pinnedNavItems(ITEMS)).toEqual([]);
+  });
+
+  it("行が1つも無くても壊れない", () => {
+    expect(pinnedNavItems([])).toEqual([]);
+  });
+
+  it("渡された配列は書き換えない", () => {
+    const pinned = [
+      notebook("あと", "2026-08-18T00:00:00.000Z", 0, "2026-08-21T10:00:00.000Z"),
+      notebook("さき", "2026-08-18T00:00:00.000Z", 0, "2026-08-21T09:00:00.000Z"),
+    ];
+    const original = [...pinned];
+    pinnedNavItems(pinned);
+    expect(pinned).toEqual(original);
   });
 });

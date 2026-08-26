@@ -18,6 +18,7 @@ vi.mock("better-sqlite3", () => ({
           { name: "tags", sql: appliedEmbeddingsDdl },
           { name: "notebook_id", sql: appliedEmbeddingsDdl },
           { name: "entity_type", sql: appliedEmbeddingsDdl },
+          { name: "pinned_at", sql: appliedEmbeddingsDdl },
         ],
       }),
     };

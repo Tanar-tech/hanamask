@@ -100,6 +100,7 @@ const mockHanamask = (notesByCall: Note[][], tasksByCall: Task[][] = [[]]) => {
     listNotes,
     onNotesChanged,
     deleteNote: vi.fn(async () => {}),
+    setNotePinned: vi.fn(async () => null),
     getNote: vi.fn(async () => null),
     updateNote: vi.fn(async () => null),
     listNoteVersions: vi.fn(async () => []),
@@ -140,6 +141,7 @@ const mockHanamask = (notesByCall: Note[][], tasksByCall: Task[][] = [[]]) => {
     getNotebook: vi.fn(async () => ({ notebook: null, notes: [] })),
     updateNotebook: vi.fn(async () => null),
     restoreNotebook: vi.fn(async () => true),
+    setNotebookPinned: vi.fn(async () => null),
   };
   return {
     listNotes,
