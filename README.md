@@ -4,7 +4,7 @@ AI開発（AIエージェントとの協働）に最適化された、ローカ�
 
 **MCPサーバーとして自身のツール群を公開し、利用者が普段使っているAIエージェント（Claude Code等のCLIエージェント）が直接ノート・タスクを読み書きする**ことを主要な操作経路とする。データはローカル（SQLite + ローカルファイル）に閉じ、クラウド同期を持たない。搭載予定のAIチャットも、hanamask自前のAIモデルではなく利用者自身が管理するAIエージェント（BYO Agent）を接続して使う設計とする。
 
-詳細なコンセプト・機能要件は [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) を参照。
+詳細なコンセプト・機能要件は [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) を参照。利用者向けの紹介ページは **[公開サイト](https://tanar-tech.github.io/hanamask/)** にある。
 
 ![ノート詳細。Markdownの表・埋め込みHTML・Mermaid図が描画されている](docs/images/note-detail.png)
 
@@ -281,3 +281,4 @@ Mermaid図は専用ツールを持たず、ページ本文へのインライン�
 - [docs/HUNK.md](docs/HUNK.md): hunk による差分レビュー（導入・エージェント連携）
 - [docs/safety.md](docs/safety.md): 自律ループに許可する範囲
 - [CLAUDE.md](CLAUDE.md): 開発時のセッション指示
+- `site/`: 公開サイト（GitHub Pages）のソース。`npm run build:site` で `dist-site/` に出力し、`main` の `site/**` が変わると `.github/workflows/pages.yml` が配信する

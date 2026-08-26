@@ -16,6 +16,7 @@
     "build": "npm run build:renderer && npm run build:main",
     "build:renderer": "vite build",
     "build:main": "tsc -p tsconfig.main.json && tsc -p tsconfig.preload.json && node scripts/copy-main-assets.mjs",
+    "build:site": "vite build --config site/vite.config.ts",
     "lint": "eslint .",
     "fetch:model": "node scripts/fetch-embedding-model.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",

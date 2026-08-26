@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>hanamask — Visualize Vibe Coding</title>
+    <meta
+      name="description"
+      content="hanamask は MCP サーバーを内蔵したローカル完結のノート・タスク管理デスクトップアプリ。Claude Code などの AI エージェントが直接ノートを読み書きする。"
+    />
+    <link rel="icon" href="../build/icon.png" />
+    <link rel="stylesheet" href="./src/site.css" />
+  </head>
+  <body class="bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <header class="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+      <a href="#" class="flex items-center gap-3 text-xl font-bold">
+        <img src="../build/icon.png" alt="" class="h-9 w-9 rounded-lg" />
+        hanamask
+      </a>
+      <nav class="flex gap-5 text-sm">
+        <a href="#features" class="hover:underline">特長</a>
+        <a href="#start" class="hover:underline">使いはじめる</a>
+        <a href="https://github.com/Tanar-tech/hanamask" class="hover:underline">GitHub</a>
+      </nav>
+    </header>
+
+    <section class="mx-auto max-w-5xl px-6 pt-12 pb-16 text-center">
+      <h1 class="text-4xl leading-tight font-bold sm:text-5xl">
+        Visualize Vibe Coding
+      </h1>
+      <p class="mx-auto mt-6 max-w-2xl text-lg text-slate-600 dark:text-slate-300">
+        hanamask は AI エージェントとの協働に最適化された、ローカル完結のノート・タスク管理デスクトップアプリ。
+        MCP サーバーを内蔵し、Claude Code などの普段使いのエージェントがノートとタスクを直接読み書きします。データはあなたの PC の中だけに残ります。
+      </p>
+      <div class="mt-8 flex flex-wrap justify-center gap-4">
+        <a
+          href="https://github.com/Tanar-tech/hanamask/releases/latest"
+          class="rounded-lg bg-pink-600 px-6 py-3 font-semibold text-white hover:bg-pink-700"
+          >Windows 版をダウンロード</a
+        >
+        <a
+          href="https://github.com/Tanar-tech/hanamask"
+          class="rounded-lg border border-slate-300 px-6 py-3 font-semibold hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+          >ソースコードを見る</a
+        >
+      </div>
+      <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+        Apache-2.0 ライセンス · Windows インストーラー（署名なし。初回は「詳細情報」→「実行」）
+      </p>
+    </section>
+
+    <section id="features" class="bg-slate-50 py-16 dark:bg-slate-900">
+      <div class="mx-auto max-w-5xl space-y-16 px-6">
+        <div class="grid items-center gap-8 md:grid-cols-2">
+          <div>
+            <h2 class="text-2xl font-bold">Markdown・HTML・Mermaid をそのまま描画</h2>
+            <p class="mt-3 text-slate-600 dark:text-slate-300">
+              表、埋め込み HTML、Mermaid 図に対応。本文は信頼できない入力として扱い、<code class="rounded bg-slate-200 px-1 dark:bg-slate-800">&lt;script&gt;</code>
+              や <code class="rounded bg-slate-200 px-1 dark:bg-slate-800">&lt;style&gt;</code> は描画時に取り除きます。
+            </p>
+          </div>
+          <img
+            src="../docs/images/note-detail.png"
+            alt="ノート詳細。Markdownの表・埋め込みHTML・Mermaid図が描画されている"
+            class="w-full rounded-lg border border-slate-200 shadow dark:border-slate-700"
+          />
+        </div>
+        <div class="grid items-center gap-8 md:grid-cols-2">
+          <img
+            src="../docs/images/tag-filter.png"
+            alt="ノート一覧をタグで絞り込んだ状態。選んだタグが強調され、別のタグは薄く残っている"
+            class="w-full rounded-lg border border-slate-200 shadow md:order-first dark:border-slate-700"
+          />
+          <div>
+            <h2 class="text-2xl font-bold">タグで案件ごとに分ける</h2>
+            <p class="mt-3 text-slate-600 dark:text-slate-300">
+              エージェントが記録を増やし続けても、どのノート・タスクがどの案件のものかを一覧のまま判別できます。選んだタグ以外は消さずに薄く残すので、複数案件にまたがる記録も分かります。
+            </p>
+          </div>
+        </div>
+        <div class="grid gap-8 md:grid-cols-3">
+          <div>
+            <h3 class="text-lg font-bold">書いた瞬間に画面へ</h3>
+            <p class="mt-2 text-slate-600 dark:text-slate-300">
+              エージェントの書き込みは、開いている画面へ手動リロードなしで反映。画面を見ていないときは OS の通知で知らせます。
+            </p>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold">ノートで案件を束ねる</h3>
+            <p class="mt-2 text-slate-600 dark:text-slate-300">
+              ページが増えたらエージェントがノート（束）にまとめ、概要を書き直します。束を開かなくても案件の現在地が分かります。
+            </p>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold">クラウド同期なし</h3>
+            <p class="mt-2 text-slate-600 dark:text-slate-300">
+              SQLite とローカルファイルに閉じ、外部へ送りません。書き出し・取り込みで別の PC へ移せます。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="start" class="mx-auto max-w-3xl px-6 py-16">
+      <h2 class="text-3xl font-bold">使いはじめる</h2>
+      <p class="mt-3 text-slate-600 dark:text-slate-300">必要なのは 2 つだけ。Node.js もソースコードも要りません。</p>
+      <ol class="mt-8 space-y-8">
+        <li>
+          <h3 class="text-xl font-bold">1. hanamask を入れて起動する</h3>
+          <p class="mt-2 text-slate-600 dark:text-slate-300">
+            <a href="https://github.com/Tanar-tech/hanamask/releases/latest" class="text-pink-600 underline dark:text-pink-400">Releases</a>
+            から <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">hanamask-Setup-*.exe</code>
+            を実行し、アプリを起動したままにしておきます。ウィンドウを閉じても通知領域に残って動き続けます。
+          </p>
+        </li>
+        <li>
+          <h3 class="text-xl font-bold">2. AI エージェントに登録する（一度だけ）</h3>
+          <p class="mt-2 text-slate-600 dark:text-slate-300">Claude Code なら次の 1 行。</p>
+          <pre
+            class="mt-3 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-100"
+          ><code>claude mcp add --scope user --transport http hanamask http://127.0.0.1:39217/mcp</code></pre>
+          <p class="mt-2 text-slate-600 dark:text-slate-300">
+            他のエージェントでは設定ファイルに次を足します。登録したらエージェントを立ち上げ直してください。
+          </p>
+          <pre
+            class="mt-3 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm text-slate-100"
+          ><code>{ "mcpServers": { "hanamask": { "type": "http", "url": "http://127.0.0.1:39217/mcp" } } }</code></pre>
+        </li>
+        <li>
+          <h3 class="text-xl font-bold">3. エージェントに書く習慣を持たせる（おすすめ）</h3>
+          <p class="mt-2 text-slate-600 dark:text-slate-300">
+            ツールが使えるだけではエージェントは書きません。次の文面をエージェントの常設指示（Claude Code なら
+            <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">~/.claude/CLAUDE.md</code>）に貼り付けます。そのまま貼れる完成形なので、書き足しは要りません。
+          </p>
+          <!-- 文面の正典は src/renderer/components/StandingInstruction.tsx。あちらを変えたらここも追従させる -->
+          <pre
+            class="mt-3 overflow-x-auto rounded-lg bg-slate-900 p-4 text-sm whitespace-pre-wrap text-slate-100"
+          ><code>## 作業の記録は hanamask に書く
+
+hanamask（ローカルのノート・タスク管理アプリ。MCPサーバーを内蔵）が接続されているとき、作業の記録・決定事項は hanamask に書く。頼まれるのを待たない。**記録の基本単位は「ページ」、ページを案件ごとに束ねたものが「ノート」。**
+
+- **書く**: 作業の区切り、方針や仕様の決定、調べて分かったこと、次に持ち越すこと。`create_page` / `create_task` を使い、決定はその理由ごと本文にMarkdownで残す。タグを付けて案件を判別できるようにする（`list_tags` で既存のタグを再利用する）
+- **育てる（新規作成より更新を優先する）**: 同じ話題のページ・タスクが既にあれば、新しく作らず `update_page` / `update_task` で追記・修正する。続きの作業は既存ページに経過を書き足し、タスクは着手時に `in_progress`、終わったら `done` へステータスを進める。1つの話題が複数ページに散ると、次に検索したとき全部を読まないと経緯が分からなくなる
+- **束ねる（ページが増えたらノートにまとめ、概要を保つ）**: 1つの案件のページが増えてきたら `create_notebook` でノート（束）を作り、`move_page` で関係するページをそこへ入れる。**作業の区切りでは `update_notebook` を使い、束の概要（何の案件か・どこまで進んだか）を今の状態に合わせて書き直す。**概要は開かずに案件の現在地を知るための入口なので、古いまま置かない。利用者が手で書いた概要も、古くなっていれば書き直してよい（編集履歴に残り、復元できる）
+- **読む**: 作業を始める前に `search_notes` か `semantic_search_notes`（意味検索）で過去の経緯を引く。同じ調査を二度やる・決定済みの方針を蒸し返すのを防ぐ。引いたページの内容が古くなっていたら、その場で更新する
+- **ツールが見えないときは書かない**。アプリが起動していなければMCPサーバーも動いていない。無理に接続を試みず、その旨を伝える
+- リポジトリ内の作業ログ（`docs/TASKS.md` 等）がある場合はそちらが正。hanamaskはそれを置き換えるものではなく、そこに残らない経緯・判断を拾う場所として使う</code></pre>
+          <p class="mt-2 text-slate-600 dark:text-slate-300">
+            アプリの設定画面「エージェントに書く習慣を持たせる」からもワンクリックでコピーできます。
+          </p>
+        </li>
+      </ol>
+      <p class="mt-10 text-slate-600 dark:text-slate-300">
+        あとは普段どおり話しかけるだけ。「今日調べたことをノートにまとめて」「さっきのバグ、タスクに積んでおいて」。
+      </p>
+    </section>
+
+    <footer class="border-t border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
+      <nav class="flex flex-wrap justify-center gap-5">
+        <a href="https://github.com/Tanar-tech/hanamask" class="hover:underline">GitHub</a>
+        <a href="https://github.com/Tanar-tech/hanamask/releases" class="hover:underline">Releases</a>
+        <a href="https://github.com/Tanar-tech/hanamask/blob/main/CHANGELOG.md" class="hover:underline">変更履歴</a>
+        <a href="https://github.com/Tanar-tech/hanamask/blob/main/README.md" class="hover:underline">詳しい使い方（README）</a>
+        <a href="https://github.com/Tanar-tech/hanamask/blob/main/SECURITY.md" class="hover:underline">セキュリティ</a>
+      </nav>
+      <p class="mt-4">© Tanar · Apache-2.0</p>
+    </footer>
+  </body>
+</html>
