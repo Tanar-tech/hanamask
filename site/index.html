@@ -3,11 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>hanamask — Visualize Vibe Coding</title>
+    <title>hanamask — AIエージェントのためのローカルノート・タスク管理（MCPサーバー内蔵）</title>
     <meta
       name="description"
-      content="hanamask は MCP サーバーを内蔵したローカル完結のノート・タスク管理デスクトップアプリ。Claude Code などの AI エージェントが直接ノートを読み書きする。"
+      content="hanamask は MCP サーバーを内蔵したローカル完結のノート・タスク管理デスクトップアプリ。Claude Code などの AI エージェントが直接ノートを読み書きする。クラウド同期なし、データは PC の中だけ。無料・オープンソース（Apache-2.0）。"
     />
+    <link rel="canonical" href="https://tanar-tech.github.io/hanamask/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="hanamask" />
+    <meta property="og:title" content="hanamask — AIエージェントのためのローカルノート・タスク管理" />
+    <meta
+      property="og:description"
+      content="MCP サーバー内蔵。Claude Code などの AI エージェントが直接ノート・タスクを読み書きする、ローカル完結のデスクトップアプリ。"
+    />
+    <meta property="og:url" content="https://tanar-tech.github.io/hanamask/" />
+    <meta property="og:image" content="https://tanar-tech.github.io/hanamask/ogp.png" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "hanamask",
+        "operatingSystem": "Windows",
+        "applicationCategory": "ProductivityApplication",
+        "description": "MCPサーバーを内蔵したローカル完結のノート・タスク管理デスクトップアプリ。Claude CodeなどのAIエージェントが直接ノートを読み書きする。",
+        "url": "https://tanar-tech.github.io/hanamask/",
+        "downloadUrl": "https://github.com/Tanar-tech/hanamask/releases/latest",
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "JPY" }
+      }
+    </script>
     <link rel="icon" href="../build/icon.png" />
     <link rel="stylesheet" href="./src/site.css" />
   </head>
@@ -20,6 +46,7 @@
       <nav class="flex gap-5 text-sm">
         <a href="#features" class="hover:underline">特長</a>
         <a href="#start" class="hover:underline">使いはじめる</a>
+        <a href="#faq" class="hover:underline">FAQ</a>
         <a href="https://github.com/Tanar-tech/hanamask" class="hover:underline">GitHub</a>
       </nav>
     </header>
@@ -153,6 +180,49 @@ hanamask（ローカルのノート・タスク管理アプリ。MCPサーバー
       <p class="mt-10 text-slate-600 dark:text-slate-300">
         あとは普段どおり話しかけるだけ。「今日調べたことをノートにまとめて」「さっきのバグ、タスクに積んでおいて」。
       </p>
+    </section>
+
+
+    <section id="faq" class="bg-slate-50 py-16 dark:bg-slate-900">
+      <div class="mx-auto max-w-3xl px-6">
+        <h2 class="text-3xl font-bold">よくある質問</h2>
+        <dl class="mt-8 space-y-8">
+          <div>
+            <dt class="text-lg font-bold">MCP サーバーとは何ですか？</dt>
+            <dd class="mt-2 ml-0 text-slate-600 dark:text-slate-300">
+              MCP（Model Context Protocol）は、Claude Code などの AI
+              エージェントが外部のアプリやデータを操作するための標準プロトコルです。hanamask は MCP
+              サーバーをアプリに内蔵しているため、別のサーバーを立てたり Node.js
+              を入れたりせずに、エージェントからノート・タスクを読み書きできます。
+            </dd>
+          </div>
+          <div>
+            <dt class="text-lg font-bold">どの AI エージェントで使えますか？</dt>
+            <dd class="mt-2 ml-0 text-slate-600 dark:text-slate-300">
+              Streamable HTTP の MCP に対応したエージェントなら使えます。Claude Code のほか、MCP
+              対応の各種 CLI・エディタ拡張から接続できます。接続先は
+              <code class="rounded bg-slate-200 px-1 dark:bg-slate-800">http://127.0.0.1:39217/mcp</code>
+              の 1 つだけです。
+            </dd>
+          </div>
+          <div>
+            <dt class="text-lg font-bold">データはどこに保存されますか？クラウドに送られますか？</dt>
+            <dd class="mt-2 ml-0 text-slate-600 dark:text-slate-300">
+              すべてあなたの PC 内の SQLite
+              データベースに保存され、外部には送信されません。クラウド同期・アカウント登録はありません。書き出し・取り込み機能で別の
+              PC へ移せます。
+            </dd>
+          </div>
+          <div>
+            <dt class="text-lg font-bold">無料で使えますか？</dt>
+            <dd class="mt-2 ml-0 text-slate-600 dark:text-slate-300">
+              無料です。Apache-2.0 ライセンスのオープンソースソフトウェアとして、ソースコードも
+              <a href="https://github.com/Tanar-tech/hanamask" class="text-pink-600 underline dark:text-pink-400">GitHub</a>
+              で公開しています。
+            </dd>
+          </div>
+        </dl>
+      </div>
     </section>
 
     <footer class="border-t border-slate-200 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400">
