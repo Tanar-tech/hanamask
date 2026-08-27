@@ -164,7 +164,7 @@ describe("notebook flow (MCP tools for notebooks and pages)", () => {
       notebook_id: notebookId,
     });
 
-    const pageRow = subPane.getByRole("button", { name: /モデル選定の比較/ });
+    const pageRow = subPane.getByRole("button", { name: "モデル選定の比較", exact: true });
     await pageRow.waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "t58-01-nav.png") });
 
