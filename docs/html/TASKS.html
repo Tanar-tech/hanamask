@@ -57,9 +57,10 @@
 <tbody>
 <tr><td><a href="#t12">T12</a></td><td>AIチャットパネル</td><td>T03, T05</td><td>凍結中。実装は残したまま画面から外している（2026-08-10、管理者判断）</td></tr>
 <tr><td><a href="TASKS-local-llm.html#t48">T48</a></td><td>ローカルLLM(1) 意味検索（埋め込み）（詳細は <a href="TASKS-local-llm.html">TASKS-local-llm.html</a>）</td><td>なし</td><td>開発管理者＋開発要員（2026-08-19起票。統合ブランチ <code>feature/local-llm</code>）</td></tr>
-<tr><td><a href="TASKS-local-llm.html#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル（同上）</td><td>T48, T12</td><td>T48でランタイム同梱を固めてから</td></tr>
+<tr><td><a href="TASKS-local-llm.html#t49">T49</a></td><td>ローカルLLM(2) チャットのローカルモデル（同上）</td><td>T48, T12</td><td><strong>ドロップ（2026-08-27、管理者判断。§4.11を優先。調査はPR #225ブランチに保存）</strong></td></tr>
 <tr><td><a href="TASKS-local-llm.html#t50">T50</a></td><td>ローカルLLM(3) 提案系補助（同上）</td><td>T48</td><td>T49の後を推奨</td></tr>
 <tr><td><a href="TASKS-notebooks.html">T54〜T59</a></td><td>ノート/ページ再編（詳細は <a href="TASKS-notebooks.html">TASKS-notebooks.html</a>）</td><td>T54が起点</td><td><strong>完了（2026-08-21、v2.1.0）</strong></td></tr>
+<tr><td><a href="#t62">T62</a></td><td>双方向コミュニケーション（§4.11）</td><td>推奨: T12</td><td>開発管理者（2026-08-27起票）</td></tr>
 </tbody>
 </table>
 <p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は <strong>T43 の完了により導入可能になった</strong>（公開リポジトリが前提だった）。依存追加は <a href="GOVERNANCE.html#6">GOVERNANCE.html §6</a> の承認事項のため、まだタスク化していない。</p>
@@ -986,6 +987,18 @@ flowchart TB
 <li>禁止事項: サイト専用のフレームワーク・依存を足さないこと（アプリの <code>npm ci</code> と CI を重くしない）。<code>docs/</code> の内部向け文書（GOVERNANCE 等）をサイトに載せないこと。<code>gh-pages</code> ブランチを作らないこと。</li>
 <li>テスト: <code>npm run build:site</code> が <code>dist-site/</code> を出力すること。<code>npm run lint</code> が通ること。ライト／ダーク両テーマでの表示確認（スクリーンショット）。</li>
 <li>停止条件: リポジトリ設定（Pages の Source を GitHub Actions にする）は管理者操作。独自ドメインや <code>&lt;org&gt;.github.io</code> 直下のユーザーサイトが必要になったら、専用リポジトリが要るので管理者に確認する。</li>
+</ul>
+
+<h3 id="t62">T62: 双方向コミュニケーション（ノート・タスクのチャット欄）</h3>
+<ul>
+<li>ステータス: 未着手（SPEC未作成）</li>
+<li>優先度: 高（管理者要望、2026-08-27。T49ドロップの代替）</li>
+<li>依存: 必須: なし／推奨: T12（凍結中のチャットUI部品・会話表示の再利用可否をSPECで判断する）</li>
+<li>目的: <a href="REQUIREMENTS.html#4-11">REQUIREMENTS.html</a> §4.11。利用者がエージェント側のCUIを開かず、hanamask の画面から普段使いのAI（MCPクライアント）と対話して作業できるようにする。これが無いと、hanamask は「エージェントが書く場所」であって「エージェントと話す場所」にならない。</li>
+<li>変更範囲: <code>src/main/db/</code>（会話・メッセージの保存。<strong>着手前に MIGRATIONS.html を読む</strong>）、<code>src/main/mcp/tools/</code>（会話用ツール: 待ち受け・返信・既読）、<code>src/renderer/components/</code>（ノート・ページ・タスク詳細のチャット欄）、<code>src/shared/</code>・IPC、常設指示（StandingInstruction）の拡張。</li>
+<li>禁止事項: MCP sampling（非推奨）を前提にしないこと。ローカルLLM（§4.8-2、ドロップ済み）を持ち込まないこと。エージェントの操作を既存MCPツールの権限・確認の外に出さないこと。Anthropic API 直呼びの経路（T12）を壊さないこと。</li>
+<li>テスト: メッセージの保存・紐付け・取得。待ち受けツールのロングポーリング（届く・タイムアウトで空応答・クライアント切断時の後始末）。チャット欄のリアルタイム反映。エージェント不在表示。既存機能の回帰なし。</li>
+<li>停止条件: 会話ツールのAPI形（ロングポーリングのタイムアウト値、複数エージェント時の配送方式）はSPECで管理者に確認する。DBスキーマ変更は MIGRATIONS.html の安全な範囲（表・列の追加）を超えるなら停止。常設指示の配布文面の変更は管理者確認。</li>
 </ul>
 
 </main>
