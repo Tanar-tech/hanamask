@@ -90,6 +90,8 @@ T54 での実績（2026-08-20）: ノート（ページ）32件・タスク14件
 
 T56 での実績（2026-08-20）: `embeddings` の作り直しマイグレーション（CHECK 制約へ 'notebook' 追加）を実DBの複製に適用し、41件が bit 単位で一致（`hex(vector)` 含む全列ダンプの前後比較）、DDL に 'notebook'、`integrity_check: ok`。
 
+T60 での実績（2026-08-27）: ページ5件・ノート4件・タスク3件・編集履歴6件・埋め込み12件が保持され、`notes.pinned_at`・`notebooks.pinned_at` が追加、既存行は全件 NULL（未ピン）、`integrity_check: ok`。
+
 ## 7. 手順のまとめ
 
 1. `schema.sql` を新しい形に更新する

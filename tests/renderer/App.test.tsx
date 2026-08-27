@@ -442,7 +442,7 @@ describe("App のノート（Explorerナビ）", () => {
     await clickButton("ノート");
     await clickButton(NOTEBOOK_ROW);
     const pane = await screen.findByRole("list", { name: SUB_PANE });
-    const page = within(pane).getByRole("button", { name: new RegExp(pageInNotebook.title) });
+    const page = within(pane).getByRole("button", { name: pageInNotebook.title });
     await act(async () => {
       page.click();
     });

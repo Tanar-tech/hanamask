@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type JSX } from "react";
 import type { Note } from "../../shared/preload-api";
 import type { NotebookPages } from "./NotebookNav";
-import { PIN_MARK, isPinned } from "./PinToggleButton";
+import { PIN_MARK, PIN_ROW, PinRowToggle, isPinned } from "./PinToggleButton";
 import { toUpdatedLabel } from "../text/dateLabel";
 
 
@@ -38,6 +38,17 @@ export const NotebookSubPane = ({
     }
   }, [notebookId]);
 
+  const togglePin = useCallback(
+    async (note: Note): Promise<void> => {
+      try {
+        await window.hanamask.setNotePinned(note.id, !isPinned(note));
+      } catch (cause) {
+        setError(`ピン留めの切り替えに失敗しました: ${String(cause)}`);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     void reload();
     const stopNotes = window.hanamask.onNotesChanged(() => {
@@ -72,13 +83,15 @@ export const NotebookSubPane = ({
       ) : (
         <ul aria-label={heading} className="m-0 flex list-none flex-col gap-0.5 p-0">
           {sorted.map((note) => (
-            <li key={note.id}>
+            <li key={note.id} className={PIN_ROW}>
               <button
                 type="button"
+                // 更新日時が名前に混ざるとテスト・読み上げが不安定になるため、名前はタイトルに固定する。
+                aria-label={note.title}
                 onClick={() => {
                   onSelectPage(note.id);
                 }}
-                className={PAGE_BUTTON}
+                className={`${PAGE_BUTTON} min-w-0 flex-1`}
               >
                 <span className="flex min-w-0 items-center gap-1">
                   {isPinned(note) && (
@@ -92,6 +105,13 @@ export const NotebookSubPane = ({
                   {toUpdatedLabel(note.updatedAt)}
                 </span>
               </button>
+              <PinRowToggle
+                title={note.title}
+                pinned={isPinned(note)}
+                onToggle={() => {
+                  void togglePin(note);
+                }}
+              />
             </li>
           ))}
         </ul>
