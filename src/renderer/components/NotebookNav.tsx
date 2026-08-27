@@ -7,7 +7,7 @@ import {
   type NavNotebook,
   type NavPage,
 } from "../text/navFilter";
-import { PIN_MARK, isPinned } from "./PinToggleButton";
+import { PIN_ROW, PinRowToggle, isPinned } from "./PinToggleButton";
 
 export interface NotebookPages {
   notebook: Notebook | null;
@@ -24,11 +24,6 @@ const BADGE =
   "shrink-0 rounded-full border border-line px-2 py-0.5 font-body text-xs text-text-faint";
 const EMPTY_TEXT = "m-0 px-3 py-4 font-body text-sm text-text-faint";
 
-/* ピン留め中は常に見える。未ピンは行にマウス／フォーカスが来たときだけ現れる。 */
-const PIN_TOGGLE = `${FOCUS_RING} m-0 shrink-0 cursor-pointer appearance-none rounded-md border-0 bg-transparent px-1 py-1 font-body text-xs leading-none transition-opacity duration-[var(--duration-fast)] ease-standard`;
-const PIN_TOGGLE_PINNED = "opacity-100";
-const PIN_TOGGLE_IDLE = "opacity-0 group-hover:opacity-100 focus-visible:opacity-100";
-const ROW = "group flex items-center";
 
 const LIST_LABEL = "ノート・ページ";
 const PINNED_LABEL = "ピン留め";
@@ -70,27 +65,6 @@ const toNavItems = (notebooks: readonly Notebook[], notes: readonly Note[]): Nav
   ];
 };
 
-const PinToggle = ({
-  title,
-  pinned,
-  onToggle,
-}: {
-  title: string;
-  pinned: boolean;
-  onToggle: () => void;
-}): JSX.Element => (
-  <button
-    type="button"
-    // 行ボタンの名前（タイトル）と衝突しないよう、動作を含めた名前にする。
-    aria-label={pinned ? `${title}のピン留めを解除` : `${title}をピン留め`}
-    aria-pressed={pinned}
-    onClick={onToggle}
-    className={`${PIN_TOGGLE} ${pinned ? PIN_TOGGLE_PINNED : PIN_TOGGLE_IDLE}`}
-  >
-    <span aria-hidden="true">{PIN_MARK}</span>
-  </button>
-);
-
 const NotebookRow = ({
   notebook,
   current,
@@ -102,7 +76,7 @@ const NotebookRow = ({
   onSelect: () => void;
   onTogglePin: () => void;
 }): JSX.Element => (
-  <li className={ROW}>
+  <li className={PIN_ROW}>
     <button
       type="button"
       aria-label={`${notebook.title}（ページ${String(notebook.pageCount)}件）`}
@@ -113,7 +87,7 @@ const NotebookRow = ({
       <span className="min-w-0 flex-1 truncate">{notebook.title}</span>
       <span className={BADGE}>{notebook.pageCount}</span>
     </button>
-    <PinToggle title={notebook.title} pinned={isPinned(notebook)} onToggle={onTogglePin} />
+    <PinRowToggle title={notebook.title} pinned={isPinned(notebook)} onToggle={onTogglePin} />
   </li>
 );
 
@@ -129,7 +103,7 @@ const PageRow = ({
   onSelect: () => void;
   onTogglePin: () => void;
 }): JSX.Element => (
-  <li className={ROW}>
+  <li className={PIN_ROW}>
     <button
       type="button"
       // 見た目はノート名を薄く分けるが、読み上げは1つの名前として届くようにする。
@@ -145,7 +119,7 @@ const PageRow = ({
         {page.title}
       </span>
     </button>
-    <PinToggle title={page.title} pinned={isPinned(page)} onToggle={onTogglePin} />
+    <PinRowToggle title={page.title} pinned={isPinned(page)} onToggle={onTogglePin} />
   </li>
 );
 
