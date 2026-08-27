@@ -99,7 +99,7 @@ describe("pin flow (ピン留めのナビ・詳細画面反映)", () => {
 
     // 所属ページをページ詳細のボタンでピン留めすると、Main View の欄が置き換わる。
     const subPane = window.getByRole("list", { name: "ローカルLLM組み込み のページ" });
-    await subPane.getByRole("button", { name: /モデル選定の比較/ }).click();
+    await subPane.getByRole("button", { name: "モデル選定の比較", exact: true }).click();
     await main.getByRole("heading", { name: "モデル選定の比較" }).waitFor();
     await main.getByRole("button", { name: "ピン留め", exact: true }).click();
     await main.getByRole("button", { name: "ピン留め解除", exact: true }).waitFor();

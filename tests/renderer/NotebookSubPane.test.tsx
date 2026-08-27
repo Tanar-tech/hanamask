@@ -33,10 +33,12 @@ const OLDER: Note = {
 
 const mockSubPaneApi = (pages: () => Note[]) => {
   const getNotebook = vi.fn(async () => ({ notebook: NOTEBOOK, notes: pages() }));
+  const setNotePinned = vi.fn(async () => null);
   const noteListeners: Array<() => void> = [];
   const notebookListeners: Array<() => void> = [];
   stubHanamask({
     getNotebook,
+    setNotePinned,
     onNotesChanged: vi.fn((callback: () => void) => {
       noteListeners.push(callback);
       return () => {};
@@ -55,6 +57,7 @@ const mockSubPaneApi = (pages: () => Note[]) => {
   };
   return {
     getNotebook,
+    setNotePinned,
     emitNotesChanged: () => emit(noteListeners),
     emitNotebooksChanged: () => emit(notebookListeners),
   };
@@ -76,7 +79,10 @@ describe("NotebookSubPane", () => {
     expect(await screen.findByText("ローカルLLM組み込み のページ")).toBeTruthy();
     expect(getNotebook).toHaveBeenCalledWith("nb-1");
     expect(screen.getByText(toUpdatedLabel(OLDER.updatedAt))).toBeTruthy();
-    const titles = screen.getAllByRole("button").map((button) => button.textContent);
+    const titles = screen
+      .getAllByRole("button")
+      .map((button) => button.textContent ?? "")
+      .filter((text) => text.includes(NEWER.title) || text.includes(OLDER.title));
     expect(titles[0]).toContain(NEWER.title);
     expect(titles[1]).toContain(OLDER.title);
   });
@@ -88,7 +94,10 @@ describe("NotebookSubPane", () => {
     render(<NotebookSubPane notebookId="nb-1" onSelectPage={noop} />);
 
     expect(await screen.findByRole("img", { name: "ピン留め中" })).toBeTruthy();
-    const titles = screen.getAllByRole("button").map((button) => button.textContent);
+    const titles = screen
+      .getAllByRole("button")
+      .map((button) => button.textContent ?? "")
+      .filter((text) => text.includes(NEWER.title) || text.includes(OLDER.title));
     // ピン留めしても先頭に来ない。サブペインは全量・時系列のまま。
     expect(titles[0]).toContain(NEWER.title);
     expect(titles[1]).toContain(OLDER.title);
@@ -99,8 +108,33 @@ describe("NotebookSubPane", () => {
 
     render(<NotebookSubPane notebookId="nb-1" onSelectPage={noop} />);
 
-    await screen.findByRole("button", { name: new RegExp(NEWER.title) });
+    await screen.findByRole("button", { name: NEWER.title });
     expect(screen.queryByRole("img", { name: "ピン留め中" })).toBeNull();
+  });
+
+  it("行のトグルでピン留めできる", async () => {
+    const { setNotePinned } = mockSubPaneApi(() => [NEWER]);
+    render(<NotebookSubPane notebookId="nb-1" onSelectPage={noop} />);
+    fireEvent.click(await screen.findByRole("button", { name: `${NEWER.title}をピン留め` }));
+    expect(setNotePinned).toHaveBeenCalledWith(NEWER.id, true);
+  });
+
+  it("ピン留め中の行のトグルで解除できる", async () => {
+    const pinned: Note = { ...NEWER, pinnedAt: "2026-08-27T00:00:00.000Z" };
+    const { setNotePinned } = mockSubPaneApi(() => [pinned]);
+    render(<NotebookSubPane notebookId="nb-1" onSelectPage={noop} />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: `${pinned.title}のピン留めを解除` }),
+    );
+    expect(setNotePinned).toHaveBeenCalledWith(pinned.id, false);
+  });
+
+  it("トグルを押してもページ選択は発火しない", async () => {
+    mockSubPaneApi(() => [NEWER]);
+    const onSelectPage = vi.fn();
+    render(<NotebookSubPane notebookId="nb-1" onSelectPage={onSelectPage} />);
+    fireEvent.click(await screen.findByRole("button", { name: `${NEWER.title}をピン留め` }));
+    expect(onSelectPage).not.toHaveBeenCalled();
   });
 
   it("ページのクリックを通知する", async () => {
@@ -109,7 +143,7 @@ describe("NotebookSubPane", () => {
 
     render(<NotebookSubPane notebookId="nb-1" onSelectPage={onSelectPage} />);
 
-    fireEvent.click(await screen.findByRole("button", { name: new RegExp(NEWER.title) }));
+    fireEvent.click(await screen.findByRole("button", { name: NEWER.title }));
     expect(onSelectPage).toHaveBeenCalledWith("note-1");
   });
 
@@ -131,7 +165,7 @@ describe("NotebookSubPane", () => {
     pages = [NEWER];
     await emitNotesChanged();
 
-    expect(await screen.findByRole("button", { name: new RegExp(NEWER.title) })).toBeTruthy();
+    expect(await screen.findByRole("button", { name: NEWER.title })).toBeTruthy();
     expect(getNotebook).toHaveBeenCalledTimes(2);
 
     await emitNotebooksChanged();
