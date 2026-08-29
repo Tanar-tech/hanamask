@@ -273,6 +273,81 @@ const createV2_1DbFile = (dbFilePath: string): void => {
   legacy.close();
 };
 
+
+/* v2.2.x が配布していた形。ピン留めまで揃っているが chat_messages 表だけ無い。 */
+const V2_2_TABLES = `
+CREATE TABLE notes (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  tags TEXT NOT NULL,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  notebook_id TEXT,
+  pinned_at TEXT
+);
+CREATE TABLE notebooks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  tags TEXT NOT NULL,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  pinned_at TEXT
+);
+CREATE TABLE note_versions (
+  id TEXT PRIMARY KEY,
+  note_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  tags TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  entity_type TEXT NOT NULL DEFAULT 'note'
+);
+CREATE TABLE tasks (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL DEFAULT '',
+  tags TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL,
+  due_date TEXT,
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE images (
+  id TEXT PRIMARY KEY,
+  note_id TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  mime_type TEXT NOT NULL
+);
+CREATE TABLE links (
+  id TEXT PRIMARY KEY,
+  from_type TEXT NOT NULL,
+  from_id TEXT NOT NULL,
+  to_type TEXT NOT NULL,
+  to_id TEXT NOT NULL
+);
+CREATE TABLE embeddings (
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task','notebook')),
+  entity_id   TEXT NOT NULL,
+  model_id    TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  vector      BLOB NOT NULL,
+  updated_at  TEXT NOT NULL,
+  PRIMARY KEY (entity_type, entity_id)
+);
+`;
+
+const createV2_2DbFile = (dbFilePath: string): void => {
+  const legacy = new Database(dbFilePath);
+  legacy.exec(V2_2_TABLES);
+  insertV2_1Rows(legacy);
+  legacy.close();
+};
+
 const createLegacyDbFile = (dbFilePath: string): void => {
   const legacy = new Database(dbFilePath);
   legacy.exec(LEGACY_TASKS_TABLE);
@@ -599,6 +674,76 @@ describe("migrations", () => {
       expect(tableInfo("embeddings")).toEqual(freshColumns);
       expect(freshSql).toContain(NOTEBOOK_ENTITY_CHECK);
       expect(tableSql("embeddings")).toContain(NOTEBOOK_ENTITY_CHECK);
+    } finally {
+      rmSync(freshDbFilePath, { force: true });
+    }
+  });
+
+  it("chat_messages表を持たない既存DBを開くと表が作られる", () => {
+    createV2_2DbFile(dbFilePath);
+
+    openDb(dbFilePath);
+
+    expect(tableExists("chat_messages")).toBe(true);
+  });
+
+  it("chat_messages表の追加で既存の行が失われない", () => {
+    createV2_2DbFile(dbFilePath);
+
+    openDb(dbFilePath);
+
+    expect(getDb().prepare("SELECT * FROM notes WHERE id = ?").get(V2_0_NOTE_ID)).toMatchObject({
+      title: "旧ページ",
+      body: "本文",
+      notebook_id: V2_1_NOTEBOOK_ID,
+      pinned_at: null,
+    });
+    expect(
+      getDb().prepare("SELECT * FROM notebooks WHERE id = ?").get(V2_1_NOTEBOOK_ID),
+    ).toMatchObject({ title: "旧ノート", summary: "概要" });
+    expect(getDb().prepare("SELECT * FROM tasks WHERE id = ?").get(LEGACY_TASK_ID)).toMatchObject({
+      title: "旧タスク",
+    });
+    expect(
+      getDb().prepare("SELECT * FROM note_versions WHERE id = ?").get(V2_0_VERSION_ID),
+    ).toMatchObject({ body: "前の本文" });
+  });
+
+  it("v2.2.x相当のDBを二度開いてもマイグレーションは失敗しない", () => {
+    createV2_2DbFile(dbFilePath);
+
+    openDb(dbFilePath);
+    closeDb();
+
+    expect(() => openDb(dbFilePath)).not.toThrow();
+    expect(tableExists("chat_messages")).toBe(true);
+    expect(getDb().prepare("SELECT COUNT(*) AS n FROM notes").get()).toMatchObject({ n: 1 });
+  });
+
+  it("v2.2.x相当のDBに対してapplyを直接呼んでも失敗しない", () => {
+    createV2_2DbFile(dbFilePath);
+    openDb(dbFilePath);
+    const db = getDb();
+
+    MIGRATIONS.forEach((migration) => {
+      expect(() => {
+        migration.apply(db);
+      }, migration.name).not.toThrow();
+    });
+  });
+
+  it("新規DBとアップグレードしたDBでchat_messagesの形が一致する", () => {
+    const freshDbFilePath = join(tmpdir(), `hanamask-migration-fresh-${randomUUID()}.sqlite3`);
+    try {
+      openDb(freshDbFilePath);
+      const fresh = tableInfo("chat_messages");
+      closeDb();
+
+      createV2_2DbFile(dbFilePath);
+      openDb(dbFilePath);
+
+      expect(tableInfo("chat_messages")).toEqual(fresh);
+      expect(fresh).not.toHaveLength(0);
     } finally {
       rmSync(freshDbFilePath, { force: true });
     }

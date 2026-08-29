@@ -77,6 +77,17 @@ CREATE TABLE IF NOT EXISTS notebooks (
   updated_at TEXT NOT NULL
 )`;
 
+const CHAT_MESSAGES_TABLE = `
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  sender TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  delivered_at TEXT
+)`;
+
 const isSqlRow = (value: unknown): value is { sql: string } => {
   if (typeof value !== "object" || value === null) return false;
   const row: Record<string, unknown> = { ...value };
@@ -150,6 +161,11 @@ export const MIGRATIONS: readonly Migration[] = [
   // NULL のままなら「ピン留めしていない」。既存のページ・ノートは全てそのまま留められていない扱いになる。
   addColumnMigration("notes", "pinned_at", "TEXT"),
   addColumnMigration("notebooks", "pinned_at", "TEXT"),
+  /*
+   * embeddings・notebooks と同じく schema.sql 側でも既存DBに作られるため単独では効き目が無い。
+   * docs/MIGRATIONS.md の「スキーマを変えたら両方書く」に揃えて置いておく。
+   */
+  createTableMigration("chat_messages", CHAT_MESSAGES_TABLE),
 ];
 
 export const applyMigrations = (db: DatabaseHandle): void => {
