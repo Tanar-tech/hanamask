@@ -426,6 +426,17 @@ erDiagram
 </tbody>
 </table>
 
+<h3 id="7-4">7.4 双方向コミュニケーション用ツール（§4.11、T62）</h3>
+<p>エージェントが利用者のチャット欄と会話するためのツール。MCP sampling は使わず、エージェント側が待ち受けツールを繰り返し呼ぶ（ロングポーリング）。1回の待ち受けは既定30秒・上限45秒（MCPクライアント既定タイムアウト60秒の内側）。</p>
+<table>
+<thead><tr><th>ツール名</th><th>何をするか</th></tr></thead>
+<tbody>
+<tr><td><code>wait_for_chat_message</code></td><td>利用者が送った未配信メッセージを待つ。届けば対象（種別・ID・タイトル）付きで返し、<code>timeout_seconds</code> で空の結果（<code>timed_out: true</code>）を返す。同時に複数が待っていれば先着1体にだけ届く</td></tr>
+<tr><td><code>reply_chat_message</code></td><td>対象（ノート・ページ・タスク）のチャット欄に返信を書く。画面には手動リロードなしで反映される</td></tr>
+<tr><td><code>list_chat_messages</code></td><td>対象のチャット履歴を取得する（新しい順に <code>limit</code> 件に切り、古い順で返す）</td></tr>
+</tbody>
+</table>
+
 <h2 id="8">8. 未決定事項・今後確認したい項目</h2>
 <ul>
 <li>将来の複数マシン同期機能の具体的な方式（クラウド経由か、ローカルネットワーク直接同期か等）・時期</li>
