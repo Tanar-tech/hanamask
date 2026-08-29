@@ -9,7 +9,6 @@ import { createTask } from "../../../src/main/db/tasks-repo";
 import { createNotebook } from "../../../src/main/db/notebooks-repo";
 import {
   createChatEntry,
-  deleteChatMessagesForEntity,
   listChatEntries,
   listUndeliveredChatEntries,
   markChatEntriesDelivered,
@@ -188,26 +187,5 @@ describe("chat-repo", () => {
     markChatEntriesDelivered([], DELIVERED_AT);
 
     expect(listUndeliveredChatEntries()).toEqual([{ ...entry, entityTitle: "設計メモ" }]);
-  });
-
-  it("対象ごとの削除は件数を返し、他の対象の発言は残す", () => {
-    const note = createNote({ title: "ページ", body: "本文", tags: [] });
-    const other = createNote({ title: "別のページ", body: "本文", tags: [] });
-    createChatEntry({ entityType: "note", entityId: note.id, sender: "user", body: "1つめ" });
-    createChatEntry({ entityType: "note", entityId: note.id, sender: "agent", body: "2つめ" });
-    const kept = createChatEntry({
-      entityType: "note",
-      entityId: other.id,
-      sender: "user",
-      body: "残る",
-    });
-
-    expect(deleteChatMessagesForEntity("note", note.id)).toBe(2);
-    expect(listChatEntries("note", note.id)).toEqual([]);
-    expect(listChatEntries("note", other.id)).toEqual([kept]);
-  });
-
-  it("発言が無い対象を削除しても0件で失敗しない", () => {
-    expect(deleteChatMessagesForEntity("note", randomUUID())).toBe(0);
   });
 });

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getDb } from "./db.js";
+import { assertLiveEntityExists, findLiveEntityTitle } from "./entity-lookup.js";
 import { toEntityType } from "./links-repo.js";
 import type { ChatEntry, ChatSender, EntityType } from "../../shared/preload-api.js";
 
@@ -67,40 +68,10 @@ const toChatEntries = (rows: unknown[]): ChatEntry[] =>
     return toChatEntry(row);
   });
 
-const TABLE_OF: Readonly<Record<EntityType, "notes" | "tasks" | "notebooks">> = {
-  note: "notes",
-  task: "tasks",
-  notebook: "notebooks",
-};
-
-const isTitleRow = (value: unknown): value is { title: string } => {
-  if (typeof value !== "object" || value === null) return false;
-  const row: Record<string, unknown> = { ...value };
-  return typeof row.title === "string";
-};
-
-/*
- * links と同じく chat_messages にも外部キーが無い。エージェントがidを打ち間違えると、
- * どの画面からも開けない会話が黙って溜まる。検査はここ1か所に置き、MCPもUIも
- * createChatEntry を通す（呼び出し側ごとに書くと片方だけ抜ける）。
- */
-const findEntityTitle = (entityType: EntityType, entityId: string): string | null => {
-  const row: unknown = getDb()
-    .prepare(`SELECT title FROM ${TABLE_OF[entityType]} WHERE id = ? AND deleted_at IS NULL`)
-    .get(entityId);
-  return isTitleRow(row) ? row.title : null;
-};
-
-const assertEntityExists = (entityType: EntityType, entityId: string): void => {
-  if (findEntityTitle(entityType, entityId) === null) {
-    throw new Error(`${entityType} not found: ${entityId}`);
-  }
-};
-
 export const createChatEntry = (input: ChatEntryInput): ChatEntry => {
   const entityType = toEntityType(input.entityType);
   const sender = toChatSender(input.sender);
-  assertEntityExists(entityType, input.entityId);
+  assertLiveEntityExists(entityType, input.entityId);
   const timestamp = new Date().toISOString();
   const entry: ChatEntry = {
     id: randomUUID(),
@@ -147,7 +118,7 @@ export const listUndeliveredChatEntries = (): ChatEntryWithTitle[] => {
     )
     .all();
   return toChatEntries(rows).flatMap((entry) => {
-    const entityTitle = findEntityTitle(entry.entityType, entry.entityId);
+    const entityTitle = findLiveEntityTitle(entry.entityType, entry.entityId);
     // 対象がゴミ箱へ入った後の発言は届け先が無いので、待ち受けには渡さない。
     return entityTitle === null ? [] : [{ ...entry, entityTitle }];
   });
@@ -160,11 +131,6 @@ export const markChatEntriesDelivered = (ids: string[], deliveredAt: string): vo
     targets.forEach((id) => update.run(deliveredAt, id));
   })(ids);
 };
-
-export const deleteChatMessagesForEntity = (entityType: EntityType, entityId: string): number =>
-  getDb()
-    .prepare("DELETE FROM chat_messages WHERE entity_type = ? AND entity_id = ?")
-    .run(toEntityType(entityType), entityId).changes;
 
 // 親の表に外部キーを張っていないので、物理削除で親が消えた会話はここで揃えて落とす。
 export const deleteOrphanChatMessages = (): number =>

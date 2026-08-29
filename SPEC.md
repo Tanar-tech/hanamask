@@ -106,9 +106,9 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 ```
 
-- FK 無し（`links` と同じ）。存在確認はコード側（`links-repo.ts` の `assertEndpointExists` と同じ発想で `chat-repo.ts` に1箇所）
+- FK 無し（`links` と同じ）。存在確認はコード側（`entity-lookup.ts` の共有ヘルパー1箇所。links-repo と共用）
 - 意味検索（`embeddings`）・活動ストリーク・バックアップ件数には**含めない**。`REQUIRED_TABLE_NAMES`（import-backup.ts）にも足さない
-- `purgeSoftDeletedRecords` で親が完全削除された行を `deleteChatMessagesForEntity` で消す（Phase 4）
+- `purgeSoftDeletedRecords` で親が完全削除された行を `deleteOrphanChatMessages()`（親の表に無い行を一括削除、`deleteOrphanEmbeddings` と同型）で消す（Phase 4）
 
 #### 共有型（`src/shared/preload-api.ts` に追加）
 
@@ -143,7 +143,7 @@ createChatEntry(input: { entityType; entityId; sender; body }): ChatEntry   // �
 listChatEntries(entityType, entityId): ChatEntry[]                          // created_at 昇順
 listUndeliveredChatEntries(): ChatEntry[]                                   // sender='user' AND delivered_at IS NULL、created_at 昇順、対象タイトル付き（ChatEntryWithTitle）
 markChatEntriesDelivered(ids: string[], deliveredAt: string): void
-deleteChatMessagesForEntity(entityType, entityId): number
+deleteOrphanChatMessages(): number
 ```
 
 #### 変更通知（`src/main/mcp/change-emitter.ts` に追加）
@@ -171,7 +171,7 @@ waitForChatEntries(timeoutMs: number, signal?: AbortSignal): Promise<ChatEntryWi
 | name | 引数 | 戻り |
 |---|---|---|
 | `wait_for_chat_message` | `timeout_seconds?: integer 1..45`（既定30） | `{ messages: ChatEntryWithTitle[], timed_out: boolean }`。タイムアウトは `isError` にしない |
-| `reply_chat_message` | `entity_type`(ENTITY_TYPE_SCHEMA), `entity_id`, `body` | 作成した `ChatEntry` |
+| `reply_chat_message` | `entity_type`(ENTITY_TYPE_SCHEMA), `entity_id`, `body` | `{ message: ChatEntry }`（`link_entities` の `{ link }` と同じ包み方） |
 | `list_chat_messages` | `entity_type`, `entity_id`, `limit?: integer 1..200`（既定50、新しい順に切って昇順で返す） | `{ messages: ChatEntry[] }` |
 
 `ChatEntryWithTitle = ChatEntry & { entityTitle: string }`。description は既存ツールと同じ英語のなびかせ文（`tool-descriptions.test.ts` の対象）。登録箇所4つ: `server.ts allTools` / `chat/agent-loop.ts allTools` / `tests/main/mcp/tool-descriptions.test.ts` / `README.md` 表。
@@ -210,7 +210,7 @@ MCP SDK 1.30.0 クライアント既定 `DEFAULT_REQUEST_TIMEOUT_MSEC = 60000`�
 
 - グループ 0（先行・単独）: Set A
 - グループ 1（A 完了後に並列）: Set B, Set C, Set D — 触るファイルに重複なし
-- **Phase 4 統合ゲートでのみ編集**: `src/main/index.ts`（`ipcMain.handle` 3本、`chat:entries-changed` / `chat:presence-changed` の broadcast、emitter 購読）, `src/main/db/purge.ts`（親削除時の `deleteChatMessagesForEntity`）, `docs/REQUIREMENTS.md` §7（ツール3つを追記）, `docs/TASKS.md` T62 ステータス, `docs/MIGRATIONS.md` §6（実データ検証はリリース前・管理者と実施）
+- **Phase 4 統合ゲートでのみ編集**: `src/main/index.ts`（`ipcMain.handle` 3本、`chat:entries-changed` / `chat:presence-changed` の broadcast、emitter 購読）, `src/main/db/purge.ts`（`deleteOrphanChatMessages` の呼び出し）, `docs/REQUIREMENTS.md` §7（ツール3つを追記）, `docs/TASKS.md` T62 ステータス, `docs/MIGRATIONS.md` §6（実データ検証はリリース前・管理者と実施）
 
 ### 2.3 完了条件（機械判定）
 
