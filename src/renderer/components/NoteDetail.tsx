@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type JSX } from "react";
 import type { Image, Note } from "../../shared/preload-api";
+import { ChatSection } from "./ChatSection";
 import { EntityLinks } from "./EntityLinks";
 import { MarkdownDocument } from "./MarkdownDocument";
 import { PinToggleButton, isPinned } from "./PinToggleButton";
@@ -465,6 +466,7 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
             onRestored={setNote}
             onRestoringChange={handleRestoringChange}
           />
+          <ChatSection entityType="note" entityId={noteId} />
         </>
       )}
     </article>

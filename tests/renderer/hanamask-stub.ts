@@ -78,6 +78,11 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     relatedNotes: vi.fn(async () => ({ notes: [] })),
     readEmbeddingStatus: vi.fn(async () => UNAVAILABLE_STATUS),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
+    listChatEntries: vi.fn(async () => []),
+    postChatEntry: vi.fn(notStubbed("postChatEntry")),
+    getChatPresence: vi.fn(async () => ({ waitingAgents: 0 })),
+    onChatEntriesChanged: vi.fn(() => () => {}),
+    onChatPresenceChanged: vi.fn(() => () => {}),
   };
   const api: HanamaskPreloadApi = { ...base, ...overrides };
   window.hanamask = api;
