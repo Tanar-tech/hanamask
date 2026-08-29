@@ -87,6 +87,13 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     relatedNotes: vi.fn(async () => ({ notes: [] })),
     readEmbeddingStatus: vi.fn(async () => ({ state: "unavailable" as const, pending: 0 })),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
+    listChatEntries: vi.fn(async () => []),
+    postChatEntry: vi.fn(async () => {
+      throw new Error("postChatEntry is not stubbed");
+    }),
+    getChatPresence: vi.fn(async () => ({ waitingAgents: 0 })),
+    onChatEntriesChanged: vi.fn(() => () => {}),
+    onChatPresenceChanged: vi.fn(() => () => {}),
   };
   return { listTasks, onTasksChanged, updateTaskStatus, listeners, unsubscribe };
 };

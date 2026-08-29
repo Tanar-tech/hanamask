@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type JSX } from "react";
 import type { Note, Notebook } from "../../shared/preload-api";
+import { ChatSection } from "./ChatSection";
 import { EntityLinks } from "./EntityLinks";
 import { MarkdownBody } from "./MarkdownBody";
 import { PinToggleButton, isPinned } from "./PinToggleButton";
@@ -286,6 +287,7 @@ const NotebookView = ({
     </section>
     <RecentPages notes={notes} onSelectPage={onSelectPage} />
     <EntityLinks entityType="notebook" entityId={notebook.id} />
+    <ChatSection entityType="notebook" entityId={notebook.id} />
   </>
 );
 

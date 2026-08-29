@@ -84,3 +84,18 @@ CREATE TABLE IF NOT EXISTS embeddings (
   updated_at  TEXT NOT NULL,
   PRIMARY KEY (entity_type, entity_id)
 );
+
+-- 利用者とエージェントのやり取り（docs/REQUIREMENTS.md §4.11）。links と同じく対象は
+-- ページ・タスク・ノートをまたぐため FK は張らず、存在確認は chat-repo.ts で行う。
+-- CHECK も付けない（後から種別を増やすと表の作り直しになる）。
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  sender TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  -- エージェントが受け取った時刻。NULL なら利用者の未配信の発言。
+  -- エージェント自身の発言には created_at と同じ値が入る。
+  delivered_at TEXT
+);

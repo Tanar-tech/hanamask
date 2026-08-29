@@ -47,6 +47,13 @@ describe("STANDING_INSTRUCTION", () => {
     expect(STANDING_INSTRUCTION).toMatch(/二度|蒸し返/);
   });
 
+  it("作業の区切りでチャット欄の指示を待ち受け、返信するよう促す", () => {
+    expect(STANDING_INSTRUCTION).toContain("対話する");
+    expect(STANDING_INSTRUCTION).toContain("wait_for_chat_message");
+    expect(STANDING_INSTRUCTION).toContain("reply_chat_message");
+    expect(STANDING_INSTRUCTION).toContain("タイムアウト");
+  });
+
   it("ツールが見えないときは書かないと明記する", () => {
     expect(STANDING_INSTRUCTION).toMatch(/ツールが見えないときは書かない/);
     expect(STANDING_INSTRUCTION).toMatch(/MCP/);

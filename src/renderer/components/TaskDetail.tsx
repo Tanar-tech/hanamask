@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type JSX } from "react";
 import type { Task, TaskStatus } from "../../shared/preload-api";
+import { ChatSection } from "./ChatSection";
 import { EntityLinks } from "./EntityLinks";
 import { MarkdownDocument } from "./MarkdownDocument";
 import { TagList } from "./TagList";
@@ -349,6 +350,7 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
           )}
 
           <EntityLinks entityType="task" entityId={taskId} />
+          <ChatSection entityType="task" entityId={taskId} />
         </>
       )}
     </article>
