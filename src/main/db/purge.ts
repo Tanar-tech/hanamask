@@ -1,5 +1,6 @@
 import { getDb } from "./db.js";
 import { deleteOrphanEmbeddings } from "./embeddings-repo.js";
+import { deleteOrphanChatMessages } from "./chat-repo.js";
 import { TRASH_RETENTION_DAYS } from "../../shared/preload-api.js";
 
 const RETENTION_MS = TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
@@ -64,5 +65,6 @@ export const purgeSoftDeletedRecords = (now: Date): PurgeResult => {
   };
   // embeddings は notes/tasks への外部キーを持たないので、消えた行のベクトルはここで揃えて落とす。
   deleteOrphanEmbeddings();
+  deleteOrphanChatMessages();
   return result;
 };

@@ -19,6 +19,7 @@ import {
 } from "../../../src/main/db/notebooks-repo";
 import { purgeSoftDeletedRecords } from "../../../src/main/db/purge";
 import { upsertEmbedding } from "../../../src/main/db/embeddings-repo";
+import { createChatEntry } from "../../../src/main/db/chat-repo";
 
 const NOW = new Date("2026-08-04T00:00:00.000Z");
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -35,6 +36,14 @@ const setTaskDeletedAt = (id: string, deletedAt: string): void => {
 };
 
 const MODEL_ID = "test-model";
+
+const isCountRow = (value: unknown): value is { n: number } =>
+  typeof value === "object" && value !== null && typeof Reflect.get(value, "n") === "number";
+
+const countChatMessages = (): number => {
+  const row: unknown = getDb().prepare("SELECT COUNT(*) AS n FROM chat_messages").get();
+  return isCountRow(row) ? row.n : -1;
+};
 
 const storeEmbedding = (entityType: "note" | "task", entityId: string): void => {
   upsertEmbedding({
@@ -195,6 +204,28 @@ describe("purgeSoftDeletedRecords", () => {
     purgeSoftDeletedRecords(NOW);
 
     expect(countEmbeddings()).toBe(0);
+  });
+
+  it("物理削除したノート・タスクのチャットも消す", () => {
+    const noteId = createNote({ title: "n", body: "", tags: [] }).id;
+    const taskId = createTask({ title: "t", status: "todo", dueDate: null }).id;
+    createChatEntry({ entityType: "note", entityId: noteId, sender: "user", body: "hi" });
+    createChatEntry({ entityType: "task", entityId: taskId, sender: "agent", body: "ok" });
+    setNoteDeletedAt(noteId, daysBeforeNow(31));
+    setTaskDeletedAt(taskId, daysBeforeNow(31));
+
+    purgeSoftDeletedRecords(NOW);
+
+    expect(countChatMessages()).toBe(0);
+  });
+
+  it("残った記録のチャットは消さない", () => {
+    const noteId = createNote({ title: "n", body: "", tags: [] }).id;
+    createChatEntry({ entityType: "note", entityId: noteId, sender: "user", body: "hi" });
+
+    purgeSoftDeletedRecords(NOW);
+
+    expect(countChatMessages()).toBe(1);
   });
 
   it("残った記録の埋め込み行は消さない", () => {

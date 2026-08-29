@@ -165,3 +165,14 @@ export const deleteChatMessagesForEntity = (entityType: EntityType, entityId: st
   getDb()
     .prepare("DELETE FROM chat_messages WHERE entity_type = ? AND entity_id = ?")
     .run(toEntityType(entityType), entityId).changes;
+
+// 親の表に外部キーを張っていないので、物理削除で親が消えた会話はここで揃えて落とす。
+export const deleteOrphanChatMessages = (): number =>
+  getDb()
+    .prepare(
+      `DELETE FROM chat_messages WHERE
+         (entity_type = 'note' AND entity_id NOT IN (SELECT id FROM notes))
+         OR (entity_type = 'task' AND entity_id NOT IN (SELECT id FROM tasks))
+         OR (entity_type = 'notebook' AND entity_id NOT IN (SELECT id FROM notebooks))`,
+    )
+    .run().changes;
