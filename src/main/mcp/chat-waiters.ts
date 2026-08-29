@@ -39,20 +39,29 @@ const waitForNextEntries = (
   timeoutMs: number,
   signal?: AbortSignal,
 ): Promise<ChatEntryWithTitle[]> =>
-  new Promise((resolve) => {
+  new Promise((resolve, reject) => {
     const cleanups: (() => void)[] = [];
     let settled = false;
-    const finish = (entries: ChatEntryWithTitle[]): void => {
-      if (settled) return;
+    const settle = (): boolean => {
+      if (settled) return false;
       settled = true;
       cleanups.forEach((cleanup) => cleanup());
-      resolve(entries);
+      return true;
+    };
+    const finish = (entries: ChatEntryWithTitle[]): void => {
+      if (settle()) resolve(entries);
     };
     cleanups.push(
       onChatEntriesChanged(() => {
-        // 先を越されて手ぶらになったときは、まだ待ち続ける（空で返すのは時間切れだけ）。
-        const entries = takeUndeliveredEntries();
-        if (entries.length > 0) finish(entries);
+        // 配信済みへ倒す書き込みが失敗しても、投稿側（保存は済んでいる）へ例外を逆流させず
+        // 待ち受け側の失敗として返す。
+        try {
+          // 先を越されて手ぶらになったときは、まだ待ち続ける（空で返すのは時間切れだけ）。
+          const entries = takeUndeliveredEntries();
+          if (entries.length > 0) finish(entries);
+        } catch (error: unknown) {
+          if (settle()) reject(error instanceof Error ? error : new Error(String(error)));
+        }
       }),
     );
     const timer = setTimeout(() => finish([]), timeoutMs);

@@ -1,7 +1,6 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 // 型はレンダラーとも共有するため、共有コントラクトを唯一の定義元にする。
 import type { ChatContentBlock, ChatEvent, ChatMessage } from "../../shared/preload-api.js";
-import { chatTools } from "../mcp/tools/chat.js";
 import { linkTools } from "../mcp/tools/links.js";
 import { notebookTools } from "../mcp/tools/notebooks.js";
 import { noteTools } from "../mcp/tools/notes.js";
@@ -13,7 +12,8 @@ import { uiTools } from "../mcp/tools/ui.js";
  * チャットはhanamask独自のAIロジックを持たず、既にあるMCPツール群を
  * Claudeに渡して呼ばせるだけの薄い層（docs/REQUIREMENTS.md §1）。
  * ツール定義はMCPサーバーと同じ実体を使うので、CLIエージェントとチャットで
- * 呼べる操作が食い違うことがない。
+ * 呼べる操作が食い違うことがない。会話用ツール（wait_for_chat_message 等）は外部エージェントが
+ * 利用者と話すためのもので、このループ自身が待ち受けると中止できないまま塞がるので渡さない。
  */
 const allTools: readonly McpTool[] = [
   ...noteTools,
@@ -21,7 +21,6 @@ const allTools: readonly McpTool[] = [
   ...taskTools,
   ...linkTools,
   ...uiTools,
-  ...chatTools,
 ];
 
 const SYSTEM_PROMPT = [

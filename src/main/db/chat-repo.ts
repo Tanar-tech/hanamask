@@ -68,8 +68,18 @@ const toChatEntries = (rows: unknown[]): ChatEntry[] =>
     return toChatEntry(row);
   });
 
+// 外部のMCPクライアントから繰り返し叩かれる経路なので、本文の上限だけは設ける。
+export const MAX_CHAT_BODY_LENGTH = 20_000;
+
+const assertBodyWithinLimit = (body: string): void => {
+  if (body.length > MAX_CHAT_BODY_LENGTH) {
+    throw new Error(`chat body exceeds ${MAX_CHAT_BODY_LENGTH} characters`);
+  }
+};
+
 export const createChatEntry = (input: ChatEntryInput): ChatEntry => {
   const entityType = toEntityType(input.entityType);
+  assertBodyWithinLimit(input.body);
   const sender = toChatSender(input.sender);
   assertLiveEntityExists(entityType, input.entityId);
   const timestamp = new Date().toISOString();

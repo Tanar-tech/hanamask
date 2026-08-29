@@ -9,6 +9,7 @@ import { createTask } from "../../../src/main/db/tasks-repo";
 import { createNotebook } from "../../../src/main/db/notebooks-repo";
 import {
   createChatEntry,
+  MAX_CHAT_BODY_LENGTH,
   listChatEntries,
   listUndeliveredChatEntries,
   markChatEntriesDelivered,
@@ -187,5 +188,14 @@ describe("chat-repo", () => {
     markChatEntriesDelivered([], DELIVERED_AT);
 
     expect(listUndeliveredChatEntries()).toEqual([{ ...entry, entityTitle: "設計メモ" }]);
+  });
+
+  it("本文が上限を超えると保存しない", () => {
+    const note = createNote({ title: "n", body: "", tags: [] });
+    const body = "あ".repeat(MAX_CHAT_BODY_LENGTH + 1);
+    expect(() =>
+      createChatEntry({ entityType: "note", entityId: note.id, sender: "user", body }),
+    ).toThrow(/exceeds/);
+    expect(listChatEntries("note", note.id)).toEqual([]);
   });
 });
