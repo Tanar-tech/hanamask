@@ -53,10 +53,10 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.117.1",
+    "@anthropic-ai/sdk": "^0.120.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "better-sqlite3": "^13.0.3",
-    "mermaid": "^11.16.1",
+    "mermaid": "^11.17.0",
     "motion": "^12.43.0",
     "node-llama-cpp": "^3.20.0",
     "react": "^19.2.8",
