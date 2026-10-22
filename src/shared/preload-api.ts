@@ -194,6 +194,34 @@ export interface Link {
   toId: string;
 }
 
+/** チャット欄の発言者。T12 の ChatMessage（Anthropic wire 形）とは別系統。 */
+export type ChatSender = "user" | "agent";
+
+/*
+ * 対象（ページ・タスク・ノート）に紐付くチャットの1発言（docs/REQUIREMENTS.md §4.11）。
+ * deliveredAt はエージェントが受け取った時刻で、null なら利用者の未配信の発言。
+ */
+export interface ChatEntry {
+  id: string;
+  entityType: EntityType;
+  entityId: string;
+  sender: ChatSender;
+  body: string;
+  createdAt: string;
+  deliveredAt: string | null;
+}
+
+/** どの対象の会話が変わったか。開いている画面だけが取り直せるように対象を載せる。 */
+export interface ChatEntriesChange {
+  entityType: EntityType;
+  entityId: string;
+}
+
+/** 待ち受け中のエージェント数。0 なら送っても即座には届かない。 */
+export interface ChatPresence {
+  waitingAgents: number;
+}
+
 export interface Image {
   id: string;
   noteId: string;
@@ -296,6 +324,11 @@ export interface HanamaskPreloadApi {
   }): Promise<Link>;
   deleteLink(id: string): Promise<boolean>;
   onLinksChanged(callback: () => void): () => void;
+  listChatEntries(entityType: EntityType, entityId: string): Promise<ChatEntry[]>;
+  postChatEntry(entityType: EntityType, entityId: string, body: string): Promise<ChatEntry>;
+  getChatPresence(): Promise<ChatPresence>;
+  onChatEntriesChanged(callback: (change: ChatEntriesChange) => void): () => void;
+  onChatPresenceChanged(callback: (presence: ChatPresence) => void): () => void;
   // 保存先・読み込み元の選択はmain側のOSダイアログで行う。レンダラーはパスを組み立てない。
   exportBackup(): Promise<BackupExportResult>;
   importBackup(): Promise<BackupImportResult>;

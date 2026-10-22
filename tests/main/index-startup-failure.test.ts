@@ -63,6 +63,9 @@ vi.mock("../../src/main/db/purge", () => ({
 }));
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
+  emitChatEntriesChanged: vi.fn(),
+  onChatEntriesChanged: vi.fn(() => () => {}),
+  onChatPresenceChanged: vi.fn(() => () => {}),
   emitNotesChanged: vi.fn(),
   onNotesChanged: vi.fn(() => () => {}),
   onNotebooksChanged: vi.fn(() => () => undefined),

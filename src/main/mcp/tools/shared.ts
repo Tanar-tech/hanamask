@@ -2,7 +2,8 @@ import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 
 export interface McpTool {
   definition: Tool;
-  handler: (args: unknown) => CallToolResult | Promise<CallToolResult>;
+  // 第2引数はクライアントの中断シグナル。待ち受けツールだけが使い、他は受け取らない。
+  handler: (args: unknown, signal?: AbortSignal) => CallToolResult | Promise<CallToolResult>;
 }
 
 export type NoteTool = McpTool;

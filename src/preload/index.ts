@@ -1,7 +1,9 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import type {
+  ChatEntriesChange,
   ChatEvent,
   ChatMessage,
+  ChatPresence,
   EmbeddingStatus,
   HanamaskPreloadApi,
   NavigateTarget,
@@ -34,6 +36,11 @@ const CHAT_EVENT_CHANNEL = "chat:event";
 const CHAT_SETTINGS_SAVE_KEY_CHANNEL = "chat:save-api-key";
 const CHAT_SETTINGS_CLEAR_KEY_CHANNEL = "chat:clear-api-key";
 const CHAT_SETTINGS_SAVE_MODEL_CHANNEL = "chat:save-model";
+const CHAT_LIST_ENTRIES_CHANNEL = "chat:list-entries";
+const CHAT_POST_ENTRY_CHANNEL = "chat:post-entry";
+const CHAT_PRESENCE_CHANNEL = "chat:presence";
+const CHAT_ENTRIES_CHANGED_CHANNEL = "chat:entries-changed";
+const CHAT_PRESENCE_CHANGED_CHANNEL = "chat:presence-changed";
 const NOTES_RESTORE_CHANNEL = "notes:restore";
 const NOTES_SET_PINNED_CHANNEL = "notes:set-pinned";
 const NOTEBOOKS_SET_PINNED_CHANNEL = "notebooks:set-pinned";
@@ -75,6 +82,30 @@ const subscribeEmbeddingStatus = (
   ipcRenderer.on(EMBEDDING_STATUS_CHANGED_CHANNEL, listener);
   return () => {
     ipcRenderer.removeListener(EMBEDDING_STATUS_CHANGED_CHANNEL, listener);
+  };
+};
+
+const subscribeChatEntriesChanged = (
+  callback: (change: ChatEntriesChange) => void,
+): (() => void) => {
+  const listener = (_event: IpcRendererEvent, change: ChatEntriesChange): void => {
+    callback(change);
+  };
+  ipcRenderer.on(CHAT_ENTRIES_CHANGED_CHANNEL, listener);
+  return () => {
+    ipcRenderer.removeListener(CHAT_ENTRIES_CHANGED_CHANNEL, listener);
+  };
+};
+
+const subscribeChatPresenceChanged = (
+  callback: (presence: ChatPresence) => void,
+): (() => void) => {
+  const listener = (_event: IpcRendererEvent, presence: ChatPresence): void => {
+    callback(presence);
+  };
+  ipcRenderer.on(CHAT_PRESENCE_CHANGED_CHANNEL, listener);
+  return () => {
+    ipcRenderer.removeListener(CHAT_PRESENCE_CHANGED_CHANNEL, listener);
   };
 };
 
@@ -126,6 +157,13 @@ const api: HanamaskPreloadApi = {
   saveChatApiKey: (apiKey: string) => ipcRenderer.invoke(CHAT_SETTINGS_SAVE_KEY_CHANNEL, apiKey),
   clearChatApiKey: () => ipcRenderer.invoke(CHAT_SETTINGS_CLEAR_KEY_CHANNEL),
   saveChatModel: (model: string) => ipcRenderer.invoke(CHAT_SETTINGS_SAVE_MODEL_CHANNEL, model),
+  listChatEntries: (entityType, entityId) =>
+    ipcRenderer.invoke(CHAT_LIST_ENTRIES_CHANNEL, entityType, entityId),
+  postChatEntry: (entityType, entityId, body) =>
+    ipcRenderer.invoke(CHAT_POST_ENTRY_CHANNEL, entityType, entityId, body),
+  getChatPresence: () => ipcRenderer.invoke(CHAT_PRESENCE_CHANNEL),
+  onChatEntriesChanged: (callback) => subscribeChatEntriesChanged(callback),
+  onChatPresenceChanged: (callback) => subscribeChatPresenceChanged(callback),
   restoreNote: (id) => ipcRenderer.invoke(NOTES_RESTORE_CHANNEL, id),
   listTasks: () => ipcRenderer.invoke(TASKS_LIST_CHANNEL),
   getTask: (id) => ipcRenderer.invoke(TASKS_GET_CHANNEL, id),

@@ -63,6 +63,9 @@ vi.mock("../../src/main/db/purge", () => ({
 }));
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
+  emitChatEntriesChanged: vi.fn(),
+  onChatEntriesChanged: vi.fn(() => () => {}),
+  onChatPresenceChanged: vi.fn(() => () => {}),
   emitNotesChanged: vi.fn(),
   onNotesChanged: vi.fn(() => () => {}),
   onNotebooksChanged: vi.fn(() => () => undefined),
@@ -92,11 +95,25 @@ describe("AIチャットのIPCを登録しない", () => {
     openWindows.length = 0;
   });
 
-  it("chat: で始まるチャネルを1つも登録しない", async () => {
+  // chat:list-entries 等はチャット欄（利用者とMCPエージェントの対話）用で、APIキーを使う
+  // アプリ内蔵チャットとは別物。凍結対象は Anthropic API を呼ぶ側のチャネルだけ。
+  it("Anthropic APIを呼ぶチャットのチャネルを1つも登録しない", async () => {
     await loadMain();
 
     const channels = ipcHandle.mock.calls.map((call) => String(call[0]));
-    expect(channels.filter((channel) => channel.startsWith("chat:"))).toEqual([]);
+    const frozen = channels.filter((channel) =>
+      /^chat:(send|abort|read-settings|save-api-key|clear-api-key|save-model)$/.test(channel),
+    );
+    expect(frozen).toEqual([]);
+  });
+
+  it("チャット欄のチャネルは登録する", async () => {
+    await loadMain();
+
+    const channels = ipcHandle.mock.calls.map((call) => String(call[0]));
+    expect(channels).toContain("chat:list-entries");
+    expect(channels).toContain("chat:post-entry");
+    expect(channels).toContain("chat:presence");
   });
 
   it("ノートやタスクのIPCは今までどおり登録する", async () => {

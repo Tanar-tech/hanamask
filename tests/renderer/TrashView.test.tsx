@@ -144,6 +144,13 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
       pending: 0,
     })),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
+    listChatEntries: vi.fn(async () => []),
+    postChatEntry: vi.fn(async () => {
+      throw new Error("postChatEntry is not stubbed");
+    }),
+    getChatPresence: vi.fn(async () => ({ waitingAgents: 0 })),
+    onChatEntriesChanged: vi.fn(() => () => {}),
+    onChatPresenceChanged: vi.fn(() => () => {}),
     listDeletedNotebooks,
     restoreNotebook,
     setNotePinned: vi.fn(async () => null),

@@ -54,7 +54,12 @@ import {
 import { attachImage, setImagesDirPath } from "./images/attach-image.js";
 import { abortChat, sendChatMessage } from "./chat/session.js";
 import { CHAT_ENABLED } from "../shared/preload-api.js";
-import type { ChatMessage } from "../shared/preload-api.js";
+import type {
+  ChatEntriesChange,
+  ChatEntry,
+  ChatMessage,
+  ChatPresence,
+} from "../shared/preload-api.js";
 import {
   readAppSettings,
   saveAppSettings,
@@ -108,7 +113,12 @@ import {
   type EntityChange,
   emitNotebooksChanged,
   onNotebooksChanged,
+  emitChatEntriesChanged,
+  onChatEntriesChanged,
+  onChatPresenceChanged,
 } from "./mcp/change-emitter.js";
+import { createChatEntry, listChatEntries } from "./db/chat-repo.js";
+import { getChatPresence } from "./mcp/chat-waiters.js";
 import {
   createChangeNotifier,
   type ChangeNotification,
@@ -167,6 +177,11 @@ const IMAGES_ATTACH_CHANNEL = "images:attach";
 const CHAT_SETTINGS_READ_CHANNEL = "chat:read-settings";
 const CHAT_SEND_CHANNEL = "chat:send";
 const CHAT_ABORT_CHANNEL = "chat:abort";
+const CHAT_LIST_ENTRIES_CHANNEL = "chat:list-entries";
+const CHAT_POST_ENTRY_CHANNEL = "chat:post-entry";
+const CHAT_PRESENCE_CHANNEL = "chat:presence";
+const CHAT_ENTRIES_CHANGED_CHANNEL = "chat:entries-changed";
+const CHAT_PRESENCE_CHANGED_CHANNEL = "chat:presence-changed";
 const CHAT_EVENT_CHANNEL = "chat:event";
 const CHAT_SETTINGS_SAVE_KEY_CHANNEL = "chat:save-api-key";
 const CHAT_SETTINGS_CLEAR_KEY_CHANNEL = "chat:clear-api-key";
@@ -307,6 +322,18 @@ const broadcastNotebooksChanged = (): void => {
 export const broadcastTasksChanged = (): void => {
   BrowserWindow.getAllWindows().forEach((window) => {
     window.webContents.send(TASKS_CHANGED_CHANNEL);
+  });
+};
+
+const broadcastChatEntriesChanged = (change: ChatEntriesChange): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(CHAT_ENTRIES_CHANGED_CHANNEL, change);
+  });
+};
+
+const broadcastChatPresenceChanged = (presence: ChatPresence): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(CHAT_PRESENCE_CHANGED_CHANNEL, presence);
   });
 };
 
@@ -489,6 +516,24 @@ const findLinks = (
   entityType: EntityType,
   entityId: string,
 ): Link[] => listLinks(entityType, entityId);
+
+const findChatEntries = (
+  _event: IpcMainInvokeEvent,
+  entityType: EntityType,
+  entityId: string,
+): ChatEntry[] => listChatEntries(entityType, entityId);
+
+// MCPツール経由の返信と同じ通知経路を通すため、broadcastではなくemitChatEntriesChangedを呼ぶ
+const postChatEntry = (
+  _event: IpcMainInvokeEvent,
+  entityType: EntityType,
+  entityId: string,
+  body: string,
+): ChatEntry => {
+  const entry = createChatEntry({ entityType, entityId, sender: "user", body });
+  emitChatEntriesChanged({ entityType, entityId });
+  return entry;
+};
 
 const addLink = (_event: IpcMainInvokeEvent, input: LinkInput): Link =>
   createLink(input);
@@ -800,6 +845,8 @@ const start = async (): Promise<void> => {
   onNotebooksChanged(handleNotebooksChanged);
   onTasksChanged(handleTasksChanged);
   onLinksChanged(broadcastLinksChanged);
+  onChatEntriesChanged(broadcastChatEntriesChanged);
+  onChatPresenceChanged(broadcastChatPresenceChanged);
   setUpEmbeddings();
   const mcpServer = await startMcpServer();
   mcpPort = mcpServer.port;
@@ -875,6 +922,9 @@ const registerChatHandlers = (): void => {
 if (CHAT_ENABLED) registerChatHandlers();
 ipcMain.handle(IMAGES_LIST_CHANNEL, findImages);
 ipcMain.handle(LINKS_LIST_CHANNEL, findLinks);
+ipcMain.handle(CHAT_LIST_ENTRIES_CHANNEL, findChatEntries);
+ipcMain.handle(CHAT_POST_ENTRY_CHANNEL, postChatEntry);
+ipcMain.handle(CHAT_PRESENCE_CHANNEL, () => getChatPresence());
 ipcMain.handle(LINKS_CREATE_CHANNEL, addLink);
 ipcMain.handle(LINKS_DELETE_CHANNEL, removeLink);
 ipcMain.handle(BACKUP_EXPORT_CHANNEL, exportBackupToFile);

@@ -127,6 +127,9 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
+  emitChatEntriesChanged: vi.fn(),
+  onChatEntriesChanged: vi.fn(() => () => {}),
+  onChatPresenceChanged: vi.fn(() => () => {}),
   emitNotebooksChanged,
   onNotebooksChanged: vi.fn(() => () => {}),
   emitNotesChanged,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { chatTools } from "../../../src/main/mcp/tools/chat";
 import { linkTools } from "../../../src/main/mcp/tools/links";
 import { notebookTools } from "../../../src/main/mcp/tools/notebooks";
 import { noteTools } from "../../../src/main/mcp/tools/notes";
@@ -17,6 +18,7 @@ const allTools: readonly McpTool[] = [
   ...taskTools,
   ...linkTools,
   ...uiTools,
+  ...chatTools,
 ];
 
 const describedText = (tool: McpTool): string => tool.definition.description ?? "";

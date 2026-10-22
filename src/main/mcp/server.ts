@@ -11,6 +11,7 @@ import {
   ListToolsRequestSchema,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
+import { chatTools } from "./tools/chat.js";
 import { linkTools } from "./tools/links.js";
 import { notebookTools } from "./tools/notebooks.js";
 import { noteTools } from "./tools/notes.js";
@@ -45,14 +46,19 @@ const allTools: readonly McpTool[] = [
   ...taskTools,
   ...linkTools,
   ...uiTools,
+  ...chatTools,
 ];
 
-const callTool = async (name: string, args: unknown): Promise<CallToolResult> => {
+const callTool = async (
+  name: string,
+  args: unknown,
+  signal?: AbortSignal,
+): Promise<CallToolResult> => {
   const tool = allTools.find((candidate) => candidate.definition.name === name);
   if (tool === undefined) {
     return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
   }
-  return tool.handler(args);
+  return tool.handler(args, signal);
 };
 
 const createNoteMcpServer = (): Server => {
@@ -63,8 +69,9 @@ const createNoteMcpServer = (): Server => {
   server.setRequestHandler(ListToolsRequestSchema, () => ({
     tools: allTools.map((tool) => tool.definition),
   }));
-  server.setRequestHandler(CallToolRequestSchema, (request) =>
-    callTool(request.params.name, request.params.arguments),
+  // 待ち受けツールは切断まで返らないので、SDKの中断シグナルを渡して解けるようにする。
+  server.setRequestHandler(CallToolRequestSchema, (request, extra) =>
+    callTool(request.params.name, request.params.arguments, extra.signal),
   );
   return server;
 };
