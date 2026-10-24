@@ -954,3 +954,20 @@ T54〜T59の詳細は **[docs/TASKS-notebooks.md](TASKS-notebooks.md)** にあ�
 - テスト: `npm run build:site` が `dist-site/` を出力すること。`npm run lint` が通ること。ライト／ダーク両テーマでの表示確認（スクリーンショット）。
 - 停止条件: リポジトリ設定（Pages の Source を GitHub Actions にする）は管理者操作。独自ドメインや `<org>.github.io` 直下のユーザーサイトが必要になったら、専用リポジトリが要るので管理者に確認する。
 
+## セキュリティ対応
+
+### T63: HTTP2Shell（Brotli デコーダーの境界外書き込み CVE-2026-111497）への対応
+
+- ステータス: アプリ側の緩和は実装済み（2026-10-25）。**同梱ランタイム（Electron の Node 24.22.1 化）は Electron の修正版待ち**
+- 優先度: 高（管理者指示、2026-10-25）
+- 依存: 必須: なし
+- 目的: Brotli 1.0.3〜1.2.0 のデコーダーは、細工した圧縮データを展開するとヒープの境界外へ書き込む（Node.js は 22.23.4 / 24.22.1 / 26.12.1 で修正）。hanamask が同梱する Electron 43.4.0 は Node 24.x・Brotli 1.2.0 で該当し、2026-10-25 時点で修正版の Node を同梱した Electron は出ていない。そこで**攻撃者の Brotli データがアプリ内の展開器に届く経路を塞ぐ**。
+- 調査結果（経路ごと）:
+  - MCPサーバー（受信）: SDK の Streamable HTTP トランスポートは本文を展開しない（`Content-Encoding: br` の本文は JSON として壊れて 400 になることを実測）。**現状は到達しない**が、将来 SDK や前段が展開を始めても届かないよう、圧縮本文は 415 で拒否する
+  - mainプロセス（送信）: 外向きの HTTP 通信は無い（埋め込みモデルは同梱、自動更新は未実装）
+  - レンダラー: CSP がすべての外部オリジンを禁じているため、外部の応答を展開しない
+  - **本文中のリンク: `target="_blank"` のリンクが新しい Electron ウィンドウとして外部ページを開いていた。**この経路では任意のサーバーの Brotli 応答を同梱の Chromium が展開する。加えて新しいウィンドウは親の preload を引き継ぐため、外部ページに IPC ブリッジが渡っていた。新規ウィンドウを作らずシステムのブラウザで開き（http/https のみ）、メインウィンドウの遷移も止める
+- 変更範囲: `src/main/window-guard.ts`（新規）、`src/main/index.ts`（メインウィンドウへの適用）、`src/main/mcp/server.ts`（圧縮本文の拒否）、テスト、`SECURITY.md`、README。
+- 禁止事項: 依存の追加・Electron のメジャー更新をこのタスクで行わないこと（`docs/GOVERNANCE.md` §6）。
+- テスト: 圧縮本文（br / gzip）の拒否と `identity` の通過。新規ウィンドウの拒否と http/https のみの外部起動（`file:` / `javascript:` 等は開かない）。メインウィンドウの遷移阻止。外部起動の失敗でアプリが落ちないこと。
+- 残作業: Node 24.22.1 以降を同梱した Electron 43.x（または 44/45 系）が出たら更新してリリースする。開発機の Node（WSL の nodesource パッケージ・Windows の winget パッケージ）と Ubuntu の `libbrotli1`（1.1.0-2ubuntu0.1 以降）の更新は管理者操作。
