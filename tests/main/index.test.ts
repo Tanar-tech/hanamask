@@ -16,6 +16,8 @@ interface FakeWindow {
     send: ReturnType<typeof vi.fn>;
     isLoading: ReturnType<typeof vi.fn>;
     once: ReturnType<typeof vi.fn>;
+    setWindowOpenHandler: ReturnType<typeof vi.fn>;
+    on: ReturnType<typeof vi.fn>;
   };
   loadFile: ReturnType<typeof vi.fn>;
   loadURL: ReturnType<typeof vi.fn>;
@@ -63,7 +65,13 @@ const openWindows: FakeWindow[] = [];
 // Declared as a function expression because the module under test calls it with `new`.
 const BrowserWindowMock = vi.fn(function createFakeWindow(): FakeWindow {
   const window: FakeWindow = {
-    webContents: { send: vi.fn(), isLoading: vi.fn(() => false), once: vi.fn() },
+    webContents: {
+        send: vi.fn(),
+        isLoading: vi.fn(() => false),
+        once: vi.fn(),
+        setWindowOpenHandler: vi.fn(),
+        on: vi.fn(),
+      },
     loadFile: vi.fn(() => Promise.resolve()),
     loadURL: vi.fn(() => Promise.resolve()),
     show: vi.fn(),
@@ -598,6 +606,13 @@ describe("main process entry", () => {
   it("opens the database and starts the MCP server on startup", () => {
     expect(openDb).toHaveBeenCalledTimes(1);
     expect(startMcpServer).toHaveBeenCalledTimes(1);
+  });
+
+  it("メインウィンドウでは外部ページを開かせない（新規ウィンドウと遷移を塞ぐ）", () => {
+    openWindows.forEach((window) => {
+      expect(window.webContents.setWindowOpenHandler).toHaveBeenCalledWith(expect.any(Function));
+      expect(window.webContents.on).toHaveBeenCalledWith("will-navigate", expect.any(Function));
+    });
   });
 
   it("purges expired soft-deleted records on startup, after opening the database", () => {

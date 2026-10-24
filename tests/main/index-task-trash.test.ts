@@ -2,7 +2,11 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DeletedTask, Task } from "../../src/shared/preload-api";
 
 interface FakeWindow {
-  webContents: { send: ReturnType<typeof vi.fn> };
+  webContents: {
+    send: ReturnType<typeof vi.fn>;
+    setWindowOpenHandler: ReturnType<typeof vi.fn>;
+    on: ReturnType<typeof vi.fn>;
+  };
   loadFile: ReturnType<typeof vi.fn>;
   loadURL: ReturnType<typeof vi.fn>;
 }
@@ -20,7 +24,7 @@ const tasksChangedListeners: Array<() => void> = [];
 // Declared as a function expression because the module under test calls it with `new`.
 const BrowserWindowMock = vi.fn(function createFakeWindow(): FakeWindow {
   const window: FakeWindow = {
-    webContents: { send: vi.fn() },
+    webContents: { send: vi.fn(), setWindowOpenHandler: vi.fn(), on: vi.fn() },
     loadFile: vi.fn(() => Promise.resolve()),
     loadURL: vi.fn(() => Promise.resolve()),
   };

@@ -23,6 +23,8 @@ const HOST = "127.0.0.1";
 const MCP_PATH = "/mcp";
 const NOT_FOUND_STATUS = 404;
 const INTERNAL_ERROR_STATUS = 500;
+const UNSUPPORTED_MEDIA_TYPE_STATUS = 415;
+const IDENTITY_ENCODING = "identity";
 
 export interface McpServerHandle {
   port: number;
@@ -106,9 +108,22 @@ const handleMcpRequest = async (
   await transport.handleRequest(req, res);
 };
 
+// MCPクライアントは本文を圧縮して送らない。展開器は攻撃者の入力をそのままメモリ上で解釈する
+// 攻撃面で、Brotliデコーダーの境界外書き込み（CVE-2026-111497）のような欠陥を直接踏むため、
+// 将来SDKや前段が展開を始めても届かないよう、ここで圧縮本文そのものを受け取らない。
+const hasCompressedBody = (req: IncomingMessage): boolean => {
+  const encoding = req.headers["content-encoding"];
+  if (encoding === undefined) return false;
+  return encoding.trim().toLowerCase() !== IDENTITY_ENCODING;
+};
+
 const routeRequest = (req: IncomingMessage, res: ServerResponse, port: number): void => {
   if (req.url === undefined || !req.url.startsWith(MCP_PATH)) {
     res.writeHead(NOT_FOUND_STATUS).end();
+    return;
+  }
+  if (hasCompressedBody(req)) {
+    res.writeHead(UNSUPPORTED_MEDIA_TYPE_STATUS).end();
     return;
   }
   handleMcpRequest(req, res, port).catch(() => {

@@ -5,6 +5,7 @@ import {
   ipcMain,
   Notification,
   session,
+  shell,
   type IpcMainInvokeEvent,
   type Tray,
 } from "electron";
@@ -93,6 +94,7 @@ import type {
   TaskStatus,
 } from "../shared/preload-api.js";
 import { setUiNavigator } from "./ui/navigate.js";
+import { keepRemoteContentOutOfApp } from "./window-guard.js";
 import { createBackupArchive } from "./backup/export-backup.js";
 import {
   applyBackupArchive,
@@ -507,6 +509,7 @@ const createMainWindow = (): BrowserWindow => {
       nodeIntegration: false,
     },
   });
+  keepRemoteContentOutOfApp(window.webContents, (url) => shell.openExternal(url));
   const loaded =
     devServerUrl === undefined
       ? window.loadFile(RENDERER_HTML_PATH)

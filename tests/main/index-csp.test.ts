@@ -28,7 +28,7 @@ vi.mock("electron", () => ({
   BrowserWindow: Object.assign(
     vi.fn(function createFakeWindow() {
       return {
-        webContents: { send: vi.fn() },
+        webContents: { send: vi.fn(), setWindowOpenHandler: vi.fn(), on: vi.fn() },
         loadFile: vi.fn(() => Promise.resolve()),
         loadURL: vi.fn(() => Promise.resolve()),
       };
