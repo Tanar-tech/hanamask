@@ -970,4 +970,4 @@ T54〜T59の詳細は **[docs/TASKS-notebooks.md](TASKS-notebooks.md)** にあ�
 - 変更範囲: `src/main/window-guard.ts`（新規）、`src/main/index.ts`（メインウィンドウへの適用）、`src/main/mcp/server.ts`（圧縮本文の拒否）、テスト、`SECURITY.md`、README。
 - 禁止事項: 依存の追加・Electron のメジャー更新をこのタスクで行わないこと（`docs/GOVERNANCE.md` §6）。
 - テスト: 圧縮本文（br / gzip）の拒否と `identity` の通過。新規ウィンドウの拒否と http/https のみの外部起動（`file:` / `javascript:` 等は開かない）。メインウィンドウの遷移阻止。外部起動の失敗でアプリが落ちないこと。
-- 残作業: Node 24.22.1 以降を同梱した Electron 43.x（または 44/45 系）が出たら更新してリリースする。開発機の Node（WSL の nodesource パッケージ・Windows の winget パッケージ）と Ubuntu の `libbrotli1`（1.1.0-2ubuntu0.1 以降）の更新は管理者操作。
+- 残作業: Node 24.22.1 以降を同梱した Electron 43.x（または 44/45 系）が出たら更新してリリースする。Electron 側は同梱 Node を 24.22.1 へ上げる変更を 43-x-y に取り込み済み（electron/electron#55161、2026-10-22）で、**43.8.4 以降に入る見込み**（43.8.3 は取り込み前のリリース）。開発機の Node（WSL の nodesource パッケージ・Windows の winget パッケージ）と Ubuntu の `libbrotli1`（1.1.0-2ubuntu0.1 以降）の更新は管理者操作。

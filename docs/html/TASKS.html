@@ -1007,7 +1007,7 @@ flowchart TB
 <li>変更範囲: <code>src/main/window-guard.ts</code>（新規）、<code>src/main/index.ts</code>（メインウィンドウへの適用）、<code>src/main/mcp/server.ts</code>（圧縮本文の拒否）、テスト、<code>SECURITY.md</code>、README。</li>
 <li>禁止事項: 依存の追加・Electron のメジャー更新をこのタスクで行わないこと（<a href="GOVERNANCE.html">GOVERNANCE.html</a> §6）。</li>
 <li>テスト: 圧縮本文（br / gzip）の拒否と <code>identity</code> の通過。新規ウィンドウの拒否と http/https のみの外部起動（<code>file:</code> / <code>javascript:</code> 等は開かない）。メインウィンドウの遷移阻止。外部起動の失敗でアプリが落ちないこと。</li>
-<li>残作業: Node 24.22.1 以降を同梱した Electron 43.x（または 44/45 系）が出たら更新してリリースする。開発機の Node（WSL の nodesource パッケージ・Windows の winget パッケージ）と Ubuntu の <code>libbrotli1</code>（1.1.0-2ubuntu0.1 以降）の更新は管理者操作。</li>
+<li>残作業: Node 24.22.1 以降を同梱した Electron 43.x（または 44/45 系）が出たら更新してリリースする。Electron 側は同梱 Node を 24.22.1 へ上げる変更を 43-x-y に取り込み済み（electron/electron#55161、2026-10-22）で、<strong>43.8.4 以降に入る見込み</strong>（43.8.3 は取り込み前のリリース）。開発機の Node（WSL の nodesource パッケージ・Windows の winget パッケージ）と Ubuntu の <code>libbrotli1</code>（1.1.0-2ubuntu0.1 以降）の更新は管理者操作。</li>
 </ul>
 
 </main>
