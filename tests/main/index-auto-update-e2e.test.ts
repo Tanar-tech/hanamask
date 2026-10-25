@@ -46,10 +46,6 @@ vi.mock("electron", () => ({
   ipcMain: { handle: ipcHandle },
 }));
 
-// 配布ビルドとして起動するので自動更新も動き出す。本物の更新器はElectronの実体を要するため差し替える。
-vi.mock("electron-updater", () => ({
-  autoUpdater: { on: vi.fn(), checkForUpdates: vi.fn(async () => null), quitAndInstall: vi.fn() },
-}));
 vi.mock("electron-updater", () => ({ autoUpdater: fakeUpdater }));
 vi.mock("../../src/main/db/db", () => ({ openDb: vi.fn(), closeDb: vi.fn() }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords: vi.fn() }));
