@@ -114,7 +114,18 @@ import {
   type EntityChange,
   emitNotebooksChanged,
   onNotebooksChanged,
+  emitCommentsChanged,
+  emitViewsChanged,
+  onCommentsChanged,
+  onViewsChanged,
+  type CommentChange,
 } from "./mcp/change-emitter.js";
+import { ensureViewBaseline, markViewed } from "./db/views-repo.js";
+import {
+  COMMENTS_CHANGED_CHANNEL,
+  registerReviewIpc,
+  VIEWS_CHANGED_CHANNEL,
+} from "./review-ipc.js";
 import {
   createChangeNotifier,
   type ChangeNotification,
@@ -327,6 +338,24 @@ export const broadcastLinksChanged = (): void => {
   });
 };
 
+const broadcastViewsChanged = (): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(VIEWS_CHANGED_CHANNEL);
+  });
+};
+
+const broadcastCommentsChanged = (): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(COMMENTS_CHANGED_CHANNEL);
+  });
+};
+
+// 画面から自分で保存した記録は、保存で動いた更新日時より後を既読にして、自分の編集で未読にしない。
+const markSavedAsViewed = (entityType: "note" | "notebook" | "task", id: string): void => {
+  markViewed(entityType, id, new Date());
+  emitViewsChanged();
+};
+
 const listNotes = (): Note[] => searchNotes("");
 
 const findNotes = (_event: IpcMainInvokeEvent, query: string): Note[] =>
@@ -350,7 +379,10 @@ const editNote = (
   input: NoteUpdateInput,
 ): Note | null => {
   const updated = updateNote(id, input);
-  if (updated !== null) emitNotesChanged();
+  if (updated !== null) {
+    emitNotesChanged();
+    markSavedAsViewed("note", id);
+  }
   return updated;
 };
 
@@ -440,6 +472,7 @@ const changeNotebook = (_event: IpcMainInvokeEvent, id: string, input: unknown) 
   const updated = updateNotebook(id, readNotebookUpdateInput(input));
   if (updated !== null) {
     emitNotebooksChanged({ entity: "notebook", action: "updated", id, title: updated.title });
+    markSavedAsViewed("notebook", id);
   }
   return updated;
 };
@@ -456,7 +489,9 @@ const updateTaskStatus = (
   id: string,
   status: TaskStatus,
 ): void => {
-  if (updateTask(id, { status }) !== null) emitTasksChanged();
+  if (updateTask(id, { status }) === null) return;
+  emitTasksChanged();
+  markSavedAsViewed("task", id);
 };
 
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
@@ -466,7 +501,10 @@ const editTask = (
   input: TaskUpdateInput,
 ): Task | null => {
   const updated = updateTask(id, input);
-  if (updated !== null) emitTasksChanged();
+  if (updated !== null) {
+    emitTasksChanged();
+    markSavedAsViewed("task", id);
+  }
   return updated;
 };
 
@@ -594,6 +632,21 @@ const handleTasksChanged = (change?: EntityChange): void => {
   if (change !== undefined) changeNotifier.recordChange(change);
 };
 
+const entityTitle = (change: CommentChange): string =>
+  (change.entityType === "note" ? getNote(change.entityId) : getTask(change.entityId))?.title ?? "";
+
+// エージェントの返信・解決は、記録の更新と同じOS通知に載せる（§4.12）。コメント本文は通知に出さない。
+const handleCommentsChanged = (change?: CommentChange): void => {
+  broadcastCommentsChanged();
+  if (change?.by !== "agent") return;
+  changeNotifier.recordChange({
+    entity: change.entityType,
+    action: "updated",
+    id: change.entityId,
+    title: entityTitle(change),
+  });
+};
+
 // Trayは参照を保持しないとGCされてアイコンが消える。
 let tray: Tray | null = null;
 let mcpPort: number | null = null;
@@ -661,6 +714,9 @@ const importBackupFromFile = async (): Promise<BackupImportResult> => {
   emitNotesChanged();
   emitTasksChanged();
   broadcastLinksChanged();
+  ensureViewBaseline(new Date());
+  emitCommentsChanged();
+  emitViewsChanged();
   return { status: "imported", counts, safetyCopyPath };
 };
 
@@ -811,6 +867,7 @@ const findRelated = (
 
 const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
+  ensureViewBaseline(new Date());
   removeImportLeftovers(resolveImagesDirPath());
   setImagesDirPath(resolveImagesDirPath());
   setChatSettingsPath(join(resolveDataDirPath(), CHAT_SETTINGS_FILE_NAME));
@@ -840,6 +897,8 @@ const start = async (): Promise<void> => {
   onNotebooksChanged(handleNotebooksChanged);
   onTasksChanged(handleTasksChanged);
   onLinksChanged(broadcastLinksChanged);
+  onCommentsChanged(handleCommentsChanged);
+  onViewsChanged(broadcastViewsChanged);
   setUpEmbeddings();
   const mcpServer = await startMcpServer();
   mcpPort = mcpServer.port;
@@ -852,6 +911,7 @@ ipcMain.handle(TASKS_LIST_CHANNEL, () => listTasks());
 ipcMain.handle(NOTES_GET_CHANNEL, findNote);
 ipcMain.handle(TASKS_GET_CHANNEL, findTask);
 ipcMain.handle(NOTES_UPDATE_CHANNEL, editNote);
+registerReviewIpc(ipcMain);
 ipcMain.handle(NOTES_LIST_VERSIONS_CHANNEL, findNoteVersions);
 ipcMain.handle(NOTES_RESTORE_VERSION_CHANNEL, restoreVersion);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);

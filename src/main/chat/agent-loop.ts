@@ -1,9 +1,11 @@
 import type { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 // 型はレンダラーとも共有するため、共有コントラクトを唯一の定義元にする。
 import type { ChatContentBlock, ChatEvent, ChatMessage } from "../../shared/preload-api.js";
+import { commentTools } from "../mcp/tools/comments.js";
 import { linkTools } from "../mcp/tools/links.js";
 import { notebookTools } from "../mcp/tools/notebooks.js";
 import { noteTools } from "../mcp/tools/notes.js";
+import { pageEditTools } from "../mcp/tools/page-edits.js";
 import type { McpTool } from "../mcp/tools/shared.js";
 import { taskTools } from "../mcp/tools/tasks.js";
 import { uiTools } from "../mcp/tools/ui.js";
@@ -16,9 +18,11 @@ import { uiTools } from "../mcp/tools/ui.js";
  */
 const allTools: readonly McpTool[] = [
   ...noteTools,
+  ...pageEditTools,
   ...notebookTools,
   ...taskTools,
   ...linkTools,
+  ...commentTools,
   ...uiTools,
 ];
 

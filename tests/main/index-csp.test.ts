@@ -38,6 +38,15 @@ vi.mock("electron", () => ({
   ipcMain: { handle: vi.fn() },
 }));
 
+vi.mock("../../src/main/db/views-repo", () => ({
+  ensureViewBaseline: vi.fn(),
+  markViewed: vi.fn(),
+}));
+vi.mock("../../src/main/review-ipc", () => ({
+  registerReviewIpc: vi.fn(),
+  VIEWS_CHANGED_CHANNEL: "views:changed",
+  COMMENTS_CHANGED_CHANNEL: "comments:changed",
+}));
 vi.mock("../../src/main/db/db", () => ({ openDb: vi.fn(), closeDb: vi.fn() }));
 vi.mock("../../src/main/db/notes-repo", () => ({ searchNotes: vi.fn() }));
 vi.mock("../../src/main/db/notebooks-repo", () => ({ listDeletedNotebooks: vi.fn(() => []), restoreNotebook: vi.fn(() => null) }));
@@ -49,6 +58,10 @@ vi.mock("../../src/main/mcp/server", () => ({
   startMcpServer: vi.fn(async () => ({ port: 39217, close: vi.fn(async () => {}) })),
 }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
+  emitCommentsChanged: vi.fn(),
+  emitViewsChanged: vi.fn(),
+  onCommentsChanged: vi.fn(() => () => {}),
+  onViewsChanged: vi.fn(() => () => {}),
   emitNotesChanged: vi.fn(),
   onNotesChanged: vi.fn(() => () => {}),
   onNotebooksChanged: vi.fn(() => () => undefined),

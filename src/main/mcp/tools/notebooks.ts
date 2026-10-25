@@ -8,6 +8,7 @@ import {
   updateNotebook,
 } from "../../db/notebooks-repo.js";
 import { emitNotebooksChanged } from "../change-emitter.js";
+import { conflictFor, EXPECTED_UPDATED_AT_SCHEMA } from "./expected-updated-at.js";
 import {
   errorResult,
   jsonResult,
@@ -110,6 +111,7 @@ const updateNotebookTool: McpTool = {
         title: { type: "string", description: "New title" },
         summary: SUMMARY_SCHEMA,
         tags: TAGS_SCHEMA,
+        expected_updated_at: EXPECTED_UPDATED_AT_SCHEMA,
       },
       required: ["id"],
     },
@@ -117,9 +119,12 @@ const updateNotebookTool: McpTool = {
   handler: toToolHandler((args) => {
     const id = readString(args, "id");
     // ゴミ箱の中の束は一覧にも出ないので、そこへの書き込みは取り違えとみなして断る。
-    if (getActiveNotebook(id) === null) {
+    const active = getActiveNotebook(id);
+    if (active === null) {
       return errorResult(`Notebook not found or deleted: ${id}`);
     }
+    const conflict = conflictFor(args, active.updatedAt);
+    if (conflict !== null) return conflict;
     const notebook = updateNotebook(id, {
       title: readOptionalString(args, "title"),
       summary: readOptionalString(args, "summary"),

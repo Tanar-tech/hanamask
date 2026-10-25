@@ -1,4 +1,5 @@
 import { getDb } from "./db.js";
+import { deleteCommentsForMissingEntities } from "./comments-repo.js";
 import { deleteOrphanEmbeddings } from "./embeddings-repo.js";
 import { TRASH_RETENTION_DAYS } from "../../shared/preload-api.js";
 
@@ -64,5 +65,7 @@ export const purgeSoftDeletedRecords = (now: Date): PurgeResult => {
   };
   // embeddings は notes/tasks への外部キーを持たないので、消えた行のベクトルはここで揃えて落とす。
   deleteOrphanEmbeddings();
+  // ゴミ箱にある記録のコメントは復元に備えて残し、記録が完全に消えたものだけ片付ける。
+  deleteCommentsForMissingEntities();
   return result;
 };

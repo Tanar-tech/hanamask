@@ -18,6 +18,16 @@ export const readOptionalExpectedUpdatedAt = (
 export const isStaleUpdate = (expected: string | undefined, current: string): boolean =>
   expected !== undefined && expected !== current;
 
+// 記録が見つからないときは呼び出し側の「見つからない」に任せるので、ここでは衝突だけを見る。
+export const conflictFor = (
+  args: Record<string, unknown>,
+  currentUpdatedAt: string | undefined,
+): CallToolResult | null => {
+  if (currentUpdatedAt === undefined) return null;
+  const expected = readOptionalExpectedUpdatedAt(args);
+  return isStaleUpdate(expected, currentUpdatedAt) ? conflictResult(currentUpdatedAt) : null;
+};
+
 export const conflictResult = (current: string): CallToolResult =>
   errorResult(
     `Conflict: the record was updated at ${current}, after the expected_updated_at you sent. ` +

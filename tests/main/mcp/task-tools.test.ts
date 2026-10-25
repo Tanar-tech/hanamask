@@ -68,7 +68,7 @@ describe("mcp task tools", () => {
     );
     expect(
       Object.keys(findTaskTool("update_task")?.definition.inputSchema.properties ?? {}).sort(),
-    ).toEqual(["body", "due_date", "id", "status", "tags", "title"]);
+    ).toEqual(["body", "due_date", "expected_updated_at", "id", "status", "tags", "title"]);
   });
 
   // 本文なしのタスク作成は今後も許すため、bodyはrequiredに入れない。
