@@ -6,6 +6,7 @@ import { PinToggleButton, isPinned } from "./PinToggleButton";
 import { TagList } from "./TagList";
 import { toBodyPreview } from "../text/bodyPreview";
 import { toUpdatedLabel } from "../text/dateLabel";
+import { ChangesSinceView } from "./ChangesSinceView";
 
 interface NotebookDetailProps {
   notebookId: string;
@@ -275,6 +276,13 @@ const NotebookView = ({
         />
       </div>
     </header>
+    <ChangesSinceView
+      key={notebook.updatedAt}
+      entityType="notebook"
+      id={notebook.id}
+      currentTitle={notebook.title}
+      currentBody={notebook.summary}
+    />
     <TagList tags={notebook.tags} />
     <section className="flex flex-col gap-2">
       <h3 className={SECTION_HEADING}>{SUMMARY_HEADING}</h3>

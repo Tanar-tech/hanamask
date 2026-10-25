@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { EntityType, UnreadEntry } from "../../shared/preload-api";
 
-interface UnreadState {
+export interface UnreadState {
   isUnread(entityType: EntityType, id: string): boolean;
   markAllViewed(): Promise<void>;
 }

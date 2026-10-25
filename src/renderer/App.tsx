@@ -23,6 +23,7 @@ import { TaskList } from "./components/TaskList";
 import { TrashView } from "./components/TrashView";
 import { REDUCED_MOTION_POLICY, loadMotionFeatures } from "./styles/motion";
 import type { NavigateTarget } from "../shared/preload-api";
+import { UnreadProvider } from "./hooks/UnreadContext";
 
 const LIST_VIEW: NavigateTarget = { kind: "list" };
 const TRASH_VIEW: NavigateTarget = { kind: "trash" };
@@ -88,6 +89,7 @@ export const App = (): JSX.Element => {
   return (
     <LazyMotion features={loadMotionFeatures} strict>
       <MotionConfig reducedMotion={REDUCED_MOTION_POLICY}>
+        <UnreadProvider>
         <AppShell
           current={currentSection()}
           onSelect={selectSection}
@@ -183,6 +185,7 @@ export const App = (): JSX.Element => {
             </div>
           )}
         </AppShell>
+        </UnreadProvider>
       </MotionConfig>
     </LazyMotion>
   );

@@ -812,9 +812,11 @@ describe("NoteDetail の外部更新反映", () => {
     expect(screen.getByText("MCPが書き換えた")).toBeTruthy();
   });
 
-  it("編集中の保存後は通知が残らない", async () => {
+  // 保存を押してもすぐには上書きせず、上書きを選んだときだけ書く（§4.13）。
+  it("編集中に外から更新されたあとの保存は、確認で上書きを選んだときだけ書き、通知も消える", async () => {
     const { onNotesChanged, updateExternally } = mockChangingNote();
-    window.hanamask.updateNote = vi.fn(async () => makeNote({ title: "利用者の保存結果" }));
+    const updateNote = vi.fn(async () => makeNote({ title: "利用者の保存結果" }));
+    window.hanamask.updateNote = updateNote;
 
     render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
     await screen.findByText("設計メモ");
@@ -826,8 +828,33 @@ describe("NoteDetail の外部更新反映", () => {
     await screen.findByText(EXTERNAL_NOTICE);
     await clickButton("保存");
 
+    expect(await screen.findByRole("alertdialog")).toBeTruthy();
+    expect(updateNote).not.toHaveBeenCalled();
+    await clickButton("自分の内容で上書きする");
+
     expect(await screen.findByText("利用者の保存結果")).toBeTruthy();
     expect(screen.queryByText(EXTERNAL_NOTICE)).toBeNull();
+    expect(updateNote).toHaveBeenCalledTimes(1);
+  });
+
+  it("確認で最新を読み込むと、自分の編集は書かずにエージェントの内容を表示する", async () => {
+    const { onNotesChanged, updateExternally } = mockChangingNote();
+    const updateNote = vi.fn(async () => makeNote());
+    window.hanamask.updateNote = updateNote;
+
+    render(<NoteDetail noteId="note-1" onBack={vi.fn()} onSelectNote={vi.fn()} />);
+    await screen.findByText("設計メモ");
+    await startEditing();
+    typeInto("タイトル", "利用者の保存結果");
+
+    updateExternally({ title: "MCPが書き換えた" });
+    await emitNotesChanged(onNotesChanged);
+    await screen.findByText(EXTERNAL_NOTICE);
+    await clickButton("保存");
+    await clickButton("最新を読み込む（自分の編集は破棄）");
+
+    expect(await screen.findByText("MCPが書き換えた")).toBeTruthy();
+    expect(updateNote).not.toHaveBeenCalled();
   });
 
   it("復元の応答待ち中の変更通知では表示中のノートを取り直さない", async () => {

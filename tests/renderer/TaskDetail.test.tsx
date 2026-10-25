@@ -532,7 +532,7 @@ describe("TaskDetail の編集", () => {
     expect(screen.queryByText(/別の場所で更新されました/)).toBeNull();
   });
 
-  it("編集中の保存後は外部更新の通知が残らない", async () => {
+  it("編集中に外から更新されたあとの保存は、確認で上書きを選ぶと書き、通知も消える", async () => {
     let stored = makeTask({ body: "元の本文" });
     const { onTasksChanged } = mockHanamask(async () => stored);
 
@@ -545,6 +545,9 @@ describe("TaskDetail の編集", () => {
     await emitTasksChanged(onTasksChanged);
     await screen.findByText(/別の場所で更新されました/);
     await clickButton("保存");
+    // 保存を押してもすぐには上書きせず、上書きを選んだときだけ書く（§4.13）。
+    expect(await screen.findByRole("alertdialog")).toBeTruthy();
+    await clickButton("自分の内容で上書きする");
 
     expect(await screen.findByText("利用者の保存結果")).toBeTruthy();
     expect(screen.queryByText(/別の場所で更新されました/)).toBeNull();

@@ -6,6 +6,7 @@ import { useNewlyArrived } from "../hooks/useNewlyArrived";
 import { TagList } from "./TagList";
 import { ENTRY_MOTION } from "../styles/motion";
 import type { Note, Task, TaskStatus } from "../../shared/preload-api";
+import { UnreadMarkFor, useUnreadState } from "../hooks/UnreadContext";
 
 const RECENT_NOTE_LIMIT = 6;
 const ACTIVE_TASK_LIMIT = 5;
@@ -102,6 +103,23 @@ const SearchBar = ({ onSearch }: { onSearch: (query: string) => void }): JSX.Ele
   );
 };
 
+const MARK_ALL_READ_LABEL = "すべて既読にする";
+
+const MarkAllReadButton = (): JSX.Element => {
+  const { markAllViewed } = useUnreadState();
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        void markAllViewed();
+      }}
+      className={`${RESET_TEXT} cursor-pointer rounded-md border border-solid border-line bg-transparent px-3 py-1 font-body text-xs text-text-soft hover:border-ink-aqua focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow`}
+    >
+      {MARK_ALL_READ_LABEL}
+    </button>
+  );
+};
+
 const NoteCard = ({
   note,
   justUpdated,
@@ -117,9 +135,12 @@ const NoteCard = ({
     {...(justArrived ? ENTRY_MOTION : {})}
     className={`${CARD} border-l-4 ${justUpdated ? "border-l-ink-pink" : "border-l-line"}`}
   >
-    <button type="button" onClick={onSelect} className={TITLE_BUTTON}>
-      {note.title}
-    </button>
+    <div className="flex items-center gap-2">
+      <button type="button" onClick={onSelect} className={`${TITLE_BUTTON} min-w-0`}>
+        {note.title}
+      </button>
+      <UnreadMarkFor entityType="note" id={note.id} />
+    </div>
     {justUpdated && (
       <p className={`${RESET_TEXT} mt-1 font-body text-xs text-ink-pink`}>{AGENT_UPDATE_MARK}</p>
     )}
@@ -151,6 +172,7 @@ const TaskRow = ({
     <button type="button" onClick={onSelect} className={`${TITLE_BUTTON} flex-1`}>
       {task.title}
     </button>
+    <UnreadMarkFor entityType="task" id={task.id} />
     <span className={`${RESET_TEXT} font-body text-xs text-text-faint`}>
       {task.dueDate === null ? "期限なし" : `期限 ${task.dueDate}`}
     </span>
@@ -241,7 +263,10 @@ export const Home = ({ onSelectNote, onSelectTask, onSearch }: HomeProps): JSX.E
     <div className="flex flex-col gap-6 p-6 font-body text-text">
       <SearchBar onSearch={onSearch} />
 
-      {activity !== null && <ActivityLine activity={activity} nowMs={nowMs} />}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {activity !== null && <ActivityLine activity={activity} nowMs={nowMs} />}
+        <MarkAllReadButton />
+      </div>
 
       <section aria-labelledby="home-notes-heading" className="flex flex-col gap-3">
         <h2 id="home-notes-heading" className={SECTION_HEADING}>

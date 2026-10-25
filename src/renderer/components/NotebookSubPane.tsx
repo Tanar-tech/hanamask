@@ -3,6 +3,7 @@ import type { Note } from "../../shared/preload-api";
 import type { NotebookPages } from "./NotebookNav";
 import { PIN_MARK, PIN_ROW, PinRowToggle, isPinned } from "./PinToggleButton";
 import { toUpdatedLabel } from "../text/dateLabel";
+import { UnreadMarkFor } from "../hooks/UnreadContext";
 
 
 /* preflight を入れていないため、ブラウザ既定のマージン・リストマーカー・ボタン外観を各所で打ち消している */
@@ -105,6 +106,7 @@ export const NotebookSubPane = ({
                   {toUpdatedLabel(note.updatedAt)}
                 </span>
               </button>
+              <UnreadMarkFor entityType="note" id={note.id} />
               <PinRowToggle
                 title={note.title}
                 pinned={isPinned(note)}
