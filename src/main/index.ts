@@ -9,6 +9,8 @@ import {
   type IpcMainInvokeEvent,
   type Tray,
 } from "electron";
+// CommonJS の getter で公開されており、ESM からの名前付き import では見つからない（起動時に SyntaxError）。
+import electronUpdater from "electron-updater";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -81,6 +83,7 @@ import type {
   BackupExportResult,
   BackupImportResult,
   EmbeddingStatus,
+  UpdateStatus,
   EntityType,
   Image,
   Link,
@@ -95,6 +98,7 @@ import type {
 } from "../shared/preload-api.js";
 import { setUiNavigator } from "./ui/navigate.js";
 import { keepRemoteContentOutOfApp } from "./window-guard.js";
+import { createAutoUpdate } from "./update/auto-updater.js";
 import { createBackupArchive } from "./backup/export-backup.js";
 import {
   applyBackupArchive,
@@ -201,6 +205,11 @@ const EMBEDDING_SEARCH_CHANNEL = "embedding:search";
 const EMBEDDING_RELATED_NOTES_CHANNEL = "embedding:related-notes";
 const EMBEDDING_STATUS_READ_CHANNEL = "embedding:read-status";
 const EMBEDDING_STATUS_CHANGED_CHANNEL = "embedding:status-changed";
+const UPDATE_READ_STATUS_CHANNEL = "update:read-status";
+const UPDATE_CHECK_CHANNEL = "update:check";
+const UPDATE_INSTALL_CHANNEL = "update:install";
+const UPDATE_STATUS_CHANGED_CHANNEL = "update:status-changed";
+const UPDATE_READY_TITLE = "hanamask の新しい版の準備ができました";
 const MODELS_DIR_NAME = "models";
 const DEV_MODELS_DIR_PATH = "../../resources/models";
 const DEFAULT_RELATED_NOTES_LIMIT = 5;
@@ -684,6 +693,33 @@ const broadcastEmbeddingStatus = (status: EmbeddingStatus): void => {
   });
 };
 
+const broadcastUpdateStatus = (status: UpdateStatus): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(UPDATE_STATUS_CHANGED_CHANNEL, status);
+  });
+};
+
+const announceUpdateReady = (version: string): void => {
+  showOsNotification({
+    title: UPDATE_READY_TITLE,
+    body: `v${version} に更新できます。再起動するか、次に終了したときに入れ替わります。`,
+    onClick: () => {
+      showMainWindow();
+    },
+  });
+};
+
+// 開発時とE2E（DBを差し替えた起動）では、更新を取りに行かない。
+const autoUpdate = createAutoUpdate({
+  loadUpdater: () => electronUpdater.autoUpdater,
+  readCurrentVersion: () => app.getVersion(),
+  isSupported: app.isPackaged && dbPathOverride() === undefined,
+  isEnabled: () => readAppSettings().autoUpdate,
+  onStatusChanged: broadcastUpdateStatus,
+  onDownloaded: announceUpdateReady,
+  now: () => new Date(),
+});
+
 const readEntityForEmbedding = (
   entityType: EmbeddedEntityType,
   entityId: string,
@@ -793,6 +829,7 @@ const start = async (): Promise<void> => {
   });
   // ログインのたびに窓が出てくると邪魔なので、自動起動で立ち上がったときは通知領域だけに入る。
   if (!process.argv.includes(OPEN_AT_LOGIN_ARG)) createMainWindow();
+  autoUpdate.start();
   setUiNavigator({
     showWindow: () => {
       showMainWindow();
@@ -893,7 +930,8 @@ const isAppSettings = (value: unknown): value is AppSettings =>
   typeof value === "object" &&
   value !== null &&
   typeof (value as Record<string, unknown>).closeToTray === "boolean" &&
-  typeof (value as Record<string, unknown>).openAtLogin === "boolean";
+  typeof (value as Record<string, unknown>).openAtLogin === "boolean" &&
+  typeof (value as Record<string, unknown>).autoUpdate === "boolean";
 
 const applyOpenAtLogin = (openAtLogin: boolean): void => {
   app.setLoginItemSettings({ openAtLogin, args: [OPEN_AT_LOGIN_ARG] });
@@ -905,6 +943,7 @@ const applyAppSettings = (value: unknown): AppSettings => {
   }
   const saved = saveAppSettings(value);
   applyOpenAtLogin(saved.openAtLogin);
+  autoUpdate.refreshSchedule();
   return saved;
 };
 
@@ -914,6 +953,11 @@ ipcMain.handle(MCP_ENDPOINT_READ_CHANNEL, () => {
   return { port: mcpPort, url: buildMcpUrl(mcpPort) };
 });
 ipcMain.handle(APP_SETTINGS_READ_CHANNEL, () => readAppSettings());
+ipcMain.handle(UPDATE_READ_STATUS_CHANNEL, () => autoUpdate.status());
+ipcMain.handle(UPDATE_CHECK_CHANNEL, () => autoUpdate.checkNow());
+ipcMain.handle(UPDATE_INSTALL_CHANNEL, () => {
+  autoUpdate.install();
+});
 ipcMain.handle(APP_SETTINGS_SAVE_CHANNEL, (_event, settings: unknown) =>
   applyAppSettings(settings),
 );
@@ -944,6 +988,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   isQuitting = true;
+  autoUpdate.stop();
   embeddingIndexer?.stop();
   tray?.destroy();
   tray = null;

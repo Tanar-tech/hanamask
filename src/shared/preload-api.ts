@@ -55,6 +55,24 @@ export interface McpEndpoint {
 export interface AppSettings {
   closeToTray: boolean;
   openAtLogin: boolean;
+  autoUpdate: boolean;
+}
+
+/*
+ * unsupported は開発時・E2E（HANAMASK_DB_PATH 指定）の起動で、更新の仕組み自体が動かない。
+ * 設定で止められている場合は idle のまま確認を走らせない（画面は設定のチェックで区別できる）。
+ */
+export type UpdateState =
+  | { kind: "unsupported" }
+  | { kind: "idle"; lastCheckedAt: string | null }
+  | { kind: "checking" }
+  | { kind: "downloading"; version: string; percent: number }
+  | { kind: "downloaded"; version: string }
+  | { kind: "error"; message: string };
+
+export interface UpdateStatus {
+  currentVersion: string;
+  state: UpdateState;
 }
 
 export interface ChatSettings {
@@ -303,4 +321,8 @@ export interface HanamaskPreloadApi {
   relatedNotes(noteId: string, limit?: number): Promise<RelatedNotesResult>;
   readEmbeddingStatus(): Promise<EmbeddingStatus>;
   onEmbeddingStatusChanged(callback: (status: EmbeddingStatus) => void): () => void;
+  readUpdateStatus(): Promise<UpdateStatus>;
+  checkForUpdates(): Promise<UpdateStatus>;
+  installUpdate(): Promise<void>;
+  onUpdateStatusChanged(callback: (status: UpdateStatus) => void): () => void;
 }

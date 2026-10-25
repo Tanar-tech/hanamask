@@ -10,6 +10,7 @@ import type {
   Note,
   Task,
 } from "../../src/shared/preload-api";
+import { UNSUPPORTED_UPDATE } from "./hanamask-stub";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const isoDaysAgo = (days: number): string =>
@@ -104,6 +105,7 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
     readAppSettings: vi.fn(async () => ({
       closeToTray: true,
       openAtLogin: false,
+      autoUpdate: true,
     })),
     saveAppSettings: vi.fn(async (settings: AppSettings) => settings),
     readChatSettings: vi.fn(async () => ({
@@ -144,6 +146,10 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
       pending: 0,
     })),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
+    readUpdateStatus: vi.fn(async () => UNSUPPORTED_UPDATE),
+    checkForUpdates: vi.fn(async () => UNSUPPORTED_UPDATE),
+    installUpdate: vi.fn(async () => {}),
+    onUpdateStatusChanged: vi.fn(() => () => {}),
     listDeletedNotebooks,
     restoreNotebook,
     setNotePinned: vi.fn(async () => null),

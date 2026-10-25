@@ -62,7 +62,7 @@
 <tr><td><a href="TASKS-notebooks.html">T54〜T59</a></td><td>ノート/ページ再編（詳細は <a href="TASKS-notebooks.html">TASKS-notebooks.html</a>）</td><td>T54が起点</td><td><strong>完了（2026-08-21、v2.1.0）</strong></td></tr>
 </tbody>
 </table>
-<p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は <strong>T43 の完了により導入可能になった</strong>（公開リポジトリが前提だった）。依存追加は <a href="GOVERNANCE.html#6">GOVERNANCE.html §6</a> の承認事項のため、まだタスク化していない。</p>
+<p><code>electron-updater</code> による自動更新（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>）は <strong>T43 の完了により導入可能になった</strong>（公開リポジトリが前提だった）。依存追加は <a href="GOVERNANCE.html#6">GOVERNANCE.html §6</a> の承認事項で、2026-10-25 に管理者が承認し、T64 としてタスク化した。</p>
 
 <pre class="mermaid">
 flowchart LR
@@ -306,7 +306,7 @@ flowchart LR
 <li>依存: 必須: なし（<code>electron-builder</code>設定自体は他タスクと無関係に着手できる）／推奨: 主要機能タスク（T03〜T12）の完了後（インストーラーで配布する内容が固まってからの方が手戻りが無い）</li>
 <li>目的: <code>docs/REQUIREMENTS.md</code> §5。<code>electron-builder</code>でWindows向けインストーラー（.exe）を作成できるようにする。</li>
 <li>変更範囲: <code>package.json</code>（<code>electron-builder</code>設定）, ビルドスクリプト。</li>
-<li>禁止事項: 自動更新機構は<code>docs/REQUIREMENTS.md</code>で初期スコープ外と明記されているため実装しない。macOS/Linux向けパッケージングも対応OS優先順位（Windows優先）に従い、このタスクでは行わない。</li>
+<li>禁止事項: 自動更新機構は<code>docs/REQUIREMENTS.md</code>で初期スコープ外と明記されているため実装しない（当時の方針。2026-10-25 に T64 でスコープへ入れた）。macOS/Linux向けパッケージングも対応OS優先順位（Windows優先）に従い、このタスクでは行わない。</li>
 <li>テスト: <code>.claude/skills/e2e-runner/SKILL.md</code>に従い、実際にビルドしたインストーラーからのインストール・起動を手動確認する（自動テスト化は困難なため手動検証を基本とする）。</li>
 <li>停止条件: リリース・タグ付け・公開リポジトリへのpushは<code>docs/GOVERNANCE.md</code> §6により管理者の承認が必要。ビルド設定の作成まではここで進めてよいが、実際のリリース物公開は別途確認する（未実施のまま）。</li>
 <li>実績（ビルド設定, PR #22）: <code>electron-builder.yml</code>（<code>appId</code>=<code>dev.tanar.hanamask</code>, <code>win.target</code>=<code>nsis</code>, 出力先<code>release/</code>）と<code>package:win</code>スクリプトを追加。ネイティブアドオンの<code>.node</code>がasarアーカイブから<code>dlopen</code>できないため<code>better-sqlite3</code>を<code>asarUnpack</code>で展開する。レンダラーのバンドルに取り込み済みの<code>react</code>/<code>react-dom</code>/<code>mermaid</code>は<code>files</code>から除外しインストーラーサイズを抑えている。NSISはユーザー単位インストール（<code>perMachine: false</code>）でインストール先変更可。自動更新機構・コード署名・macOS/Linuxターゲットは要求定義どおり非対応。</li>
@@ -992,14 +992,14 @@ flowchart TB
 
 <h3 id="t63">T63: HTTP2Shell（Brotli デコーダーの境界外書き込み CVE-2026-111497）への対応</h3>
 <ul>
-<li>ステータス: アプリ側の緩和は実装済み（2026-10-25）。<strong>同梱ランタイム（Electron の Node 24.22.1 化）は Electron の修正版待ち</strong></li>
+<li>ステータス: アプリ側の緩和は実装済み（2026-10-25、PR #249 でマージ）。<strong>同梱ランタイム（Electron の Node 24.22.1 化）は Electron の修正版待ち</strong></li>
 <li>優先度: 高（管理者指示、2026-10-25）</li>
 <li>依存: 必須: なし</li>
 <li>目的: Brotli 1.0.3〜1.2.0 のデコーダーは、細工した圧縮データを展開するとヒープの境界外へ書き込む（Node.js は 22.23.4 / 24.22.1 / 26.12.1 で修正）。hanamask が同梱する Electron 43.4.0 は Node 24.x・Brotli 1.2.0 で該当し、2026-10-25 時点で修正版の Node を同梱した Electron は出ていない。そこで<strong>攻撃者の Brotli データがアプリ内の展開器に届く経路を塞ぐ</strong>。</li>
 <li>調査結果（経路ごと）:
 <ul>
 <li>MCPサーバー（受信）: SDK の Streamable HTTP トランスポートは本文を展開しない（<code>Content-Encoding: br</code> の本文は JSON として壊れて 400 になることを実測）。<strong>現状は到達しない</strong>が、将来 SDK や前段が展開を始めても届かないよう、圧縮本文は 415 で拒否する</li>
-<li>mainプロセス（送信）: 外向きの HTTP 通信は無い（埋め込みモデルは同梱、自動更新は未実装）</li>
+<li>mainプロセス（送信）: 外向きの HTTP 通信は無い（埋め込みモデルは同梱、自動更新は未実装。調査した 2026-10-25 時点。自動更新は T64 で入れた）</li>
 <li>レンダラー: CSP がすべての外部オリジンを禁じているため、外部の応答を展開しない</li>
 <li><strong>本文中のリンク: <code>target="_blank"</code> のリンクが新しい Electron ウィンドウとして外部ページを開いていた。</strong>この経路では任意のサーバーの Brotli 応答を同梱の Chromium が展開する。加えて新しいウィンドウは親の preload を引き継ぐため、外部ページに IPC ブリッジが渡っていた。新規ウィンドウを作らずシステムのブラウザで開き（http/https のみ）、メインウィンドウの遷移も止める</li>
 </ul>
@@ -1007,7 +1007,42 @@ flowchart TB
 <li>変更範囲: <code>src/main/window-guard.ts</code>（新規）、<code>src/main/index.ts</code>（メインウィンドウへの適用）、<code>src/main/mcp/server.ts</code>（圧縮本文の拒否）、テスト、<code>SECURITY.md</code>、README。</li>
 <li>禁止事項: 依存の追加・Electron のメジャー更新をこのタスクで行わないこと（<a href="GOVERNANCE.html">GOVERNANCE.html</a> §6）。</li>
 <li>テスト: 圧縮本文（br / gzip）の拒否と <code>identity</code> の通過。新規ウィンドウの拒否と http/https のみの外部起動（<code>file:</code> / <code>javascript:</code> 等は開かない）。メインウィンドウの遷移阻止。外部起動の失敗でアプリが落ちないこと。</li>
-<li>残作業: Node 24.22.1 以降を同梱した Electron 43.x（または 44/45 系）が出たら更新してリリースする。Electron 側は同梱 Node を 24.22.1 へ上げる変更を 43-x-y に取り込み済み（electron/electron#55161、2026-10-22）で、<strong>43.8.4 以降に入る見込み</strong>（43.8.3 は取り込み前のリリース）。開発機の Node（WSL の nodesource パッケージ・Windows の winget パッケージ）と Ubuntu の <code>libbrotli1</code>（1.1.0-2ubuntu0.1 以降）の更新は管理者操作。</li>
+<li>残作業: Node 24.22.1 以降を同梱した Electron 43.x（または 44/45 系）が出たら更新してリリースする。Electron 側は同梱 Node を 24.22.1 へ上げる変更を 43-x-y に取り込み済み（electron/electron#55161、2026-10-22）で、<strong>43.8.4 以降に入る見込み</strong>（43.8.3 は取り込み前のリリース）。開発機の Node は WSL・Windows とも 24.22.1 に更新済み（2026-10-25、管理者操作。Node は Brotli を同梱しており OS の libbrotli を使わない）。<strong>Ubuntu 24.04 の <code>libbrotli1</code> は修正版が未配信</strong>（Ubuntu の CVE ページは「Needs evaluation」。当初書いた「1.1.0-2ubuntu0.1 で修正」は二次情報で裏が取れていなかった）。WSL で使っているのは curl と freetype で、配信されたら通常の <code>apt upgrade</code> で入る。</li>
+</ul>
+
+<h3 id="t64">T64: 自動更新</h3>
+<ul>
+<li>ステータス: 実装済み・マージ待ち（2026-10-25 計画承認、PR #250。停止②は管理者判断 A: Major 3件を修正、Minor は T65。管理者決定: 既定オン・設定で止められる／裏でダウンロード→通知→「再起動して更新」か次回終了時に適用／未署名のまま）</li>
+<li>優先度: 高（管理者要望、2026-10-25。HTTP2Shell の修正を届ける手段が無かったことが契機）</li>
+<li>依存: 必須: なし（T43 のパブリック化が前提。済み）</li>
+<li>目的: 新しい版を GitHub Releases から自動で取ってきて、利用者が選んだタイミングで入れ替える。仕組みと判断は <a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>、要求は <a href="REQUIREMENTS.html">REQUIREMENTS.html</a> §5「自動更新」、仕様は <code>SPEC.md</code>。</li>
+<li>変更範囲: <code>package.json</code>（<code>electron-updater</code>）、<code>src/main/update/</code>（新規）、<code>src/main/index.ts</code>・<code>src/main/settings/app-settings.ts</code>・<code>src/preload/index.ts</code>・<code>src/shared/preload-api.ts</code>、<code>src/renderer/components/UpdateSettings.tsx</code>・<code>UpdateBanner.tsx</code>（新規）・<code>App.tsx</code>、<code>tests/main/no-network.test.ts</code>、公開サイト（「外部との通信は自動更新だけ」）、README・SECURITY.md・CHANGELOG・docs。</li>
+<li>禁止事項: 勝手に再起動しないこと。記録の中身を送る経路を作らないこと。開発時・E2E で更新確認を走らせないこと。</li>
+<li>テスト: 状態遷移、動かさない条件（開発時・E2E・設定オフ）、確認失敗で例外を出さない、「再起動して更新」が終了中の印を立ててから適用する、設定の既定値と旧設定ファイルの読み込み、画面の状態ごとの表示。<strong>実際の更新経路は v2.2.0 → v2.2.1 の実地で確かめる</strong>（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a> §4）。</li>
+<li>停止条件: 署名の導入が必要と判断した場合は管理者に確認する（別タスク）。</li>
+</ul>
+
+<h3 id="t65">T65: 自動更新の残り（T64 停止②の Minor 指摘）</h3>
+<ul>
+<li>ステータス: 未着手（2026-10-25 起票。T64 の停止②で管理者が「Major だけ直してマージ、Minor は別タスク」を選んだ）</li>
+<li>優先度: 低</li>
+<li>依存: 必須: T64</li>
+<li>目的: T64 の構造化レビューで見送った Minor 指摘を片付ける。</li>
+<li>対象:
+<ul>
+<li>確認に失敗すると <code>error</code> が2回通知される（electron-updater の <code>error</code> イベントと <code>runCheck</code> の catch）</li>
+<li>ダウンロード中に定期確認・手動確認が走ると、状態が「確認中」に戻り進捗が0%からになる</li>
+<li><code>useUpdateStatus</code> の初回取得が、先に届いた新しい状態通知を上書きしうる（アンマウント後の setState も）</li>
+<li>進捗率の NaN・範囲外の保護、<code>lastCheckedAt</code> の不正な日付の保護</li>
+<li>「再起動して更新」ボタンが帯と設定欄に重複／ボタンのクラス定数の共通化／帯が設定欄から定数を import している向き</li>
+<li>main と preload の IPC チャンネル名の一致を検査するテスト</li>
+<li>結線のテスト不足（通知クリック、<code>before-quit</code> での停止、<code>isAppSettings</code> の拒否、「あとで」の後に別の版が来た場合）、テストのモック群の共通化</li>
+<li>自動確認をオフにしているとき、状態欄でオフと分かるようにする</li>
+<li>「再起動して更新」が失敗したとき（インストーラーを起動できない）に画面へ知らせる</li>
+<li><code>isAppSettings</code> を通った値を余分なキーごと保存しない</li>
+</ul>
+</li>
+<li>テスト: 各項目に回帰テストを付ける。</li>
 </ul>
 
 </main>

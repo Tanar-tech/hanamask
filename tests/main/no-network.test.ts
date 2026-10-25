@@ -4,6 +4,8 @@ import { join, relative, sep } from "node:path";
 
 /*
  * 記録の内容がどこにも送られないことを、実装が通信の手段を持たないことで担保する（SPEC S3）。
+ * 唯一の外向き通信は自動更新（electron-updater が GitHub Releases を見に行く）で、記録には触れない。
+ * その入口を結線の1ファイルに閉じ込め、他のモジュールが更新ライブラリ経由で通信できないようにする。
  * 埋め込み周りだけでなく main プロセス全体を見るのは、結線側に通信が紛れ込んでも気付けるようにするため。
  * モデルの取得はビルド時のスクリプト（scripts/）だけが行い、実行時のコードには入れない。
  */
@@ -29,6 +31,9 @@ const listSourceFiles = (dir: string): string[] =>
     if (entry.isDirectory()) return listSourceFiles(path);
     return entry.name.endsWith(".ts") ? [path] : [];
   });
+
+const UPDATER_IMPORT = /\bfrom\s+"electron-updater"/;
+const UPDATER_WIRING_FILE = "index.ts";
 
 const sourceFiles = listSourceFiles(MAIN_DIR).map((path) =>
   relative(MAIN_DIR, path).split(sep).join("/"),
@@ -57,5 +62,14 @@ describe("src/main は外部通信を行わない", () => {
     FORBIDDEN_PATTERNS.forEach((pattern) => {
       expect(pattern.test(source), `${name} matches ${String(pattern)}`).toBe(false);
     });
+  });
+});
+
+describe("自動更新の通信は結線の1ファイルに閉じている", () => {
+  it(`electron-updater を読み込むのは ${UPDATER_WIRING_FILE} だけ`, () => {
+    const importers = sourceFiles.filter((name) =>
+      UPDATER_IMPORT.test(readFileSync(join(MAIN_DIR, name), "utf8")),
+    );
+    expect(importers).toEqual([UPDATER_WIRING_FILE]);
   });
 });

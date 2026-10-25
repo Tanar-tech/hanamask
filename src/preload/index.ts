@@ -5,6 +5,7 @@ import type {
   EmbeddingStatus,
   HanamaskPreloadApi,
   NavigateTarget,
+  UpdateStatus,
 } from "../shared/preload-api.js";
 
 const NOTES_CHANGED_CHANNEL = "notes:changed";
@@ -57,6 +58,10 @@ const EMBEDDING_SEARCH_CHANNEL = "embedding:search";
 const EMBEDDING_RELATED_NOTES_CHANNEL = "embedding:related-notes";
 const EMBEDDING_STATUS_READ_CHANNEL = "embedding:read-status";
 const EMBEDDING_STATUS_CHANGED_CHANNEL = "embedding:status-changed";
+const UPDATE_READ_STATUS_CHANNEL = "update:read-status";
+const UPDATE_CHECK_CHANNEL = "update:check";
+const UPDATE_INSTALL_CHANNEL = "update:install";
+const UPDATE_STATUS_CHANGED_CHANNEL = "update:status-changed";
 
 const subscribe = (channel: string, callback: () => void): (() => void) => {
   const listener = (): void => callback();
@@ -66,15 +71,16 @@ const subscribe = (channel: string, callback: () => void): (() => void) => {
   };
 };
 
-const subscribeEmbeddingStatus = (
-  callback: (status: EmbeddingStatus) => void,
+const subscribeStatus = <Status>(
+  channel: string,
+  callback: (status: Status) => void,
 ): (() => void) => {
-  const listener = (_event: IpcRendererEvent, status: EmbeddingStatus): void => {
+  const listener = (_event: IpcRendererEvent, status: Status): void => {
     callback(status);
   };
-  ipcRenderer.on(EMBEDDING_STATUS_CHANGED_CHANNEL, listener);
+  ipcRenderer.on(channel, listener);
   return () => {
-    ipcRenderer.removeListener(EMBEDDING_STATUS_CHANGED_CHANNEL, listener);
+    ipcRenderer.removeListener(channel, listener);
   };
 };
 
@@ -150,7 +156,13 @@ const api: HanamaskPreloadApi = {
   relatedNotes: (noteId, limit) =>
     ipcRenderer.invoke(EMBEDDING_RELATED_NOTES_CHANNEL, noteId, limit),
   readEmbeddingStatus: () => ipcRenderer.invoke(EMBEDDING_STATUS_READ_CHANNEL),
-  onEmbeddingStatusChanged: (callback) => subscribeEmbeddingStatus(callback),
+  onEmbeddingStatusChanged: (callback) =>
+    subscribeStatus<EmbeddingStatus>(EMBEDDING_STATUS_CHANGED_CHANNEL, callback),
+  readUpdateStatus: () => ipcRenderer.invoke(UPDATE_READ_STATUS_CHANNEL),
+  checkForUpdates: () => ipcRenderer.invoke(UPDATE_CHECK_CHANNEL),
+  installUpdate: () => ipcRenderer.invoke(UPDATE_INSTALL_CHANNEL),
+  onUpdateStatusChanged: (callback) =>
+    subscribeStatus<UpdateStatus>(UPDATE_STATUS_CHANGED_CHANNEL, callback),
 };
 
 contextBridge.exposeInMainWorld("hanamask", api);

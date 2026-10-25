@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState, type JSX } from "react";
 import { AppShell, type ShellSection } from "./components/AppShell";
 import { BackupSettings } from "./components/BackupSettings";
 import { StartupSettings } from "./components/StartupSettings";
+import { UpdateBanner } from "./components/UpdateBanner";
+import { UpdateSettings } from "./components/UpdateSettings";
 import { AgentSetup } from "./components/AgentSetup";
 import { StandingInstruction } from "./components/StandingInstruction";
 import { CHAT_ENABLED } from "../shared/preload-api";
@@ -120,12 +122,14 @@ export const App = (): JSX.Element => {
             ) : undefined
           }
         >
+          <UpdateBanner />
           {view.kind === "list" && section === "settings" ? (
             <>
               {CHAT_ENABLED && <ChatSettings />}
               <AgentSetup />
               <StandingInstruction />
               <StartupSettings />
+              <UpdateSettings />
               <BackupSettings />
             </>
           ) : view.kind === "list" && section === "home" ? (
