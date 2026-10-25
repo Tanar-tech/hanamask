@@ -3,6 +3,7 @@ import type {
   AppSettings,
   EmbeddingStatus,
   HanamaskPreloadApi,
+  UpdateStatus,
 } from "../../src/shared/preload-api";
 
 const CHAT_SETTINGS = { apiKeyMask: null, model: "claude-sonnet-4-5" };
@@ -14,6 +15,11 @@ const notStubbed = (name: string) => (): never => {
 const UNAVAILABLE_STATUS: EmbeddingStatus = {
   state: "unavailable",
   pending: 0,
+};
+
+export const UNSUPPORTED_UPDATE: UpdateStatus = {
+  currentVersion: "0.0.0",
+  state: { kind: "unsupported" },
 };
 
 /** 何もしない既定のpreload API。関心のある口だけを差し替えて使う。 */
@@ -48,6 +54,7 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     readAppSettings: vi.fn(async () => ({
       closeToTray: true,
       openAtLogin: false,
+      autoUpdate: true,
     })),
     saveAppSettings: vi.fn(async (settings: AppSettings) => settings),
     readChatSettings: vi.fn(async () => CHAT_SETTINGS),
@@ -78,6 +85,10 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     relatedNotes: vi.fn(async () => ({ notes: [] })),
     readEmbeddingStatus: vi.fn(async () => UNAVAILABLE_STATUS),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
+    readUpdateStatus: vi.fn(async () => UNSUPPORTED_UPDATE),
+    checkForUpdates: vi.fn(async () => UNSUPPORTED_UPDATE),
+    installUpdate: vi.fn(async () => {}),
+    onUpdateStatusChanged: vi.fn(() => () => {}),
   };
   const api: HanamaskPreloadApi = { ...base, ...overrides };
   window.hanamask = api;

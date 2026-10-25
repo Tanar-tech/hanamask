@@ -8,7 +8,7 @@ import type { AppSettings } from "../../src/shared/preload-api";
 const OPEN_AT_LOGIN_LABEL = "パソコンの起動時に hanamask を開始する";
 const QUIT_ON_CLOSE_LABEL = "ウィンドウを閉じたら終了する";
 
-const RESIDENT: AppSettings = { closeToTray: true, openAtLogin: false };
+const RESIDENT: AppSettings = { closeToTray: true, openAtLogin: false, autoUpdate: true };
 
 const findSwitch = (name: string): Promise<HTMLInputElement> =>
   screen.findByRole<HTMLInputElement>("checkbox", { name });
@@ -30,7 +30,7 @@ describe("StartupSettings", () => {
     stubHanamask({
       readActivity: vi.fn(async () => ({ lastRecordedAt: null, recentCount: 0 })),
       readMcpEndpoint: vi.fn(async () => ({ port: 39217, url: "http://127.0.0.1:39217/mcp" })),
-      readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: true })),
+      readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: true, autoUpdate: true })),
     });
 
     render(<StartupSettings />);
@@ -42,7 +42,7 @@ describe("StartupSettings", () => {
   /* 「閉じたら終了する」は closeToTray の反転。取り違えると常駐が黙って無効になる。 */
   it("closeToTray が false のとき「閉じたら終了する」がオンになる", async () => {
     stubHanamask({
-      readAppSettings: vi.fn(async () => ({ closeToTray: false, openAtLogin: false })),
+      readAppSettings: vi.fn(async () => ({ closeToTray: false, openAtLogin: false, autoUpdate: true })),
     });
 
     render(<StartupSettings />);
@@ -57,7 +57,7 @@ describe("StartupSettings", () => {
     render(<StartupSettings />);
     await toggle(OPEN_AT_LOGIN_LABEL);
 
-    expect(saveAppSettings).toHaveBeenCalledWith({ closeToTray: true, openAtLogin: true });
+    expect(saveAppSettings).toHaveBeenCalledWith({ closeToTray: true, openAtLogin: true, autoUpdate: true });
     expect((await findSwitch(OPEN_AT_LOGIN_LABEL)).checked).toBe(true);
   });
 
@@ -68,7 +68,7 @@ describe("StartupSettings", () => {
     render(<StartupSettings />);
     await toggle(QUIT_ON_CLOSE_LABEL);
 
-    expect(saveAppSettings).toHaveBeenCalledWith({ closeToTray: false, openAtLogin: false });
+    expect(saveAppSettings).toHaveBeenCalledWith({ closeToTray: false, openAtLogin: false, autoUpdate: true });
     expect((await findSwitch(QUIT_ON_CLOSE_LABEL)).checked).toBe(true);
   });
 

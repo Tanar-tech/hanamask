@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { SearchResults } from "../../src/renderer/components/SearchResults";
 import type { AppSettings, Image, Note } from "../../src/shared/preload-api";
+import { UNSUPPORTED_UPDATE } from "./hanamask-stub";
 
 const stubImage: Image = {
   id: "image-1",
@@ -65,7 +66,7 @@ const mockHanamask = (searchNotes: () => Promise<Note[]>) => {
     onChatEvent: vi.fn(() => () => {}),
     readActivity: vi.fn(async () => ({ lastRecordedAt: null, recentCount: 0 })),
     readMcpEndpoint: vi.fn(async () => ({ port: 39217, url: "http://127.0.0.1:39217/mcp" })),
-    readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: false })),
+    readAppSettings: vi.fn(async () => ({ closeToTray: true, openAtLogin: false, autoUpdate: true })),
     saveAppSettings: vi.fn(async (settings: AppSettings) => settings),
     readChatSettings: vi.fn(async () => ({ apiKeyMask: null, model: "claude-sonnet-4-5" })),
     saveChatApiKey: vi.fn(async () => ({ apiKeyMask: "4f2a", model: "claude-sonnet-4-5" })),
@@ -75,6 +76,10 @@ const mockHanamask = (searchNotes: () => Promise<Note[]>) => {
     relatedNotes: vi.fn(async () => ({ notes: [] })),
     readEmbeddingStatus: vi.fn(async () => ({ state: "unavailable" as const, pending: 0 })),
     onEmbeddingStatusChanged: vi.fn(() => () => {}),
+    readUpdateStatus: vi.fn(async () => UNSUPPORTED_UPDATE),
+    checkForUpdates: vi.fn(async () => UNSUPPORTED_UPDATE),
+    installUpdate: vi.fn(async () => {}),
+    onUpdateStatusChanged: vi.fn(() => () => {}),
   };
   return search;
 };
