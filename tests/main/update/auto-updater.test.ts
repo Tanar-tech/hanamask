@@ -5,6 +5,7 @@ import {
   INITIAL_CHECK_DELAY_MS,
   createAutoUpdate,
   type AutoUpdateDeps,
+  type UpdateCheckResult,
   type Updater,
   type UpdaterListeners,
 } from "../../../src/main/update/auto-updater";
@@ -31,7 +32,7 @@ const createFakeUpdater = () => {
         listeners[event] = listener;
       },
     ),
-    checkForUpdates: vi.fn(async () => null),
+    checkForUpdates: vi.fn(async (): Promise<UpdateCheckResult | null> => null),
     quitAndInstall: vi.fn(),
   } satisfies Updater;
   return { updater, listeners };
@@ -42,7 +43,6 @@ const setup = (overrides: Partial<AutoUpdateDeps> = {}) => {
   const enabled = { value: true };
   const onStatusChanged = vi.fn<(status: UpdateStatus) => void>();
   const onDownloaded = vi.fn<(version: string) => void>();
-  const prepareToQuit = vi.fn();
   const loadUpdater = vi.fn(() => updater);
   const autoUpdate = createAutoUpdate({
     loadUpdater,
@@ -51,7 +51,6 @@ const setup = (overrides: Partial<AutoUpdateDeps> = {}) => {
     isEnabled: () => enabled.value,
     onStatusChanged,
     onDownloaded,
-    prepareToQuit,
     now: () => new Date(NOW_ISO),
     ...overrides,
   });
@@ -63,7 +62,6 @@ const setup = (overrides: Partial<AutoUpdateDeps> = {}) => {
     enabled,
     onStatusChanged,
     onDownloaded,
-    prepareToQuit,
   };
 };
 
@@ -126,11 +124,10 @@ describe("auto update", () => {
     });
 
     it("install は何もしない", () => {
-      const { autoUpdate, updater, prepareToQuit } = setup({
+      const { autoUpdate, updater } = setup({
         isSupported: false,
       });
       autoUpdate.install();
-      expect(prepareToQuit).not.toHaveBeenCalled();
       expect(updater.quitAndInstall).not.toHaveBeenCalled();
     });
   });
@@ -209,11 +206,46 @@ describe("auto update", () => {
       expect(updater.checkForUpdates).toHaveBeenCalledTimes(1);
     });
 
+    it("有効のまま呼んでも、予約済みの確認を先送りしない", async () => {
+      const { autoUpdate, updater } = setup();
+      autoUpdate.start();
+      await vi.advanceTimersByTimeAsync(INITIAL_CHECK_DELAY_MS / 2);
+      autoUpdate.refreshSchedule();
+      await vi.advanceTimersByTimeAsync(INITIAL_CHECK_DELAY_MS / 2);
+      expect(updater.checkForUpdates).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(CHECK_INTERVAL_MS / 2);
+      autoUpdate.refreshSchedule();
+      await vi.advanceTimersByTimeAsync(CHECK_INTERVAL_MS / 2);
+      expect(updater.checkForUpdates).toHaveBeenCalledTimes(2);
+    });
+
     it("start 前は何も予約しない", async () => {
       const { autoUpdate, updater } = setup();
       autoUpdate.refreshSchedule();
       await vi.advanceTimersByTimeAsync(CHECK_INTERVAL_MS);
       expect(updater.checkForUpdates).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("ダウンロードの失敗", () => {
+    it("ダウンロードの Promise の reject を未処理のまま残さず、ログに出す", async () => {
+      const { autoUpdate, updater } = setup();
+      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+      const unhandled = vi.fn();
+      process.on("unhandledRejection", unhandled);
+      updater.checkForUpdates.mockResolvedValueOnce({
+        downloadPromise: Promise.reject(new Error("network down")),
+      });
+      await autoUpdate.checkNow();
+      // unhandledRejection はマイクロタスクの後に出るので、本物の setImmediate で1周待つ。
+      vi.useRealTimers();
+      await new Promise((resolve) => setImmediate(resolve));
+      vi.useFakeTimers();
+      process.off("unhandledRejection", unhandled);
+      expect(unhandled).not.toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalledWith(expect.stringContaining("network down"));
+      consoleError.mockRestore();
     });
   });
 
@@ -320,27 +352,20 @@ describe("auto update", () => {
   });
 
   describe("install", () => {
-    it("downloaded なら prepareToQuit の後に quitAndInstall(true, true) を呼ぶ", () => {
-      const { autoUpdate, updater, listeners, prepareToQuit } = setup();
-      const calls: string[] = [];
-      prepareToQuit.mockImplementation(() => calls.push("prepareToQuit"));
-      updater.quitAndInstall.mockImplementation(() =>
-        calls.push("quitAndInstall"),
-      );
+    it("downloaded なら quitAndInstall(true, true) を呼ぶ", () => {
+      const { autoUpdate, updater, listeners } = setup();
       autoUpdate.start();
       emitDownloaded(listeners, "1.2.0");
       autoUpdate.install();
-      expect(calls).toEqual(["prepareToQuit", "quitAndInstall"]);
       expect(updater.quitAndInstall).toHaveBeenCalledWith(true, true);
     });
 
     it("downloaded でなければ何もしない", () => {
-      const { autoUpdate, updater, listeners, prepareToQuit } = setup();
+      const { autoUpdate, updater, listeners } = setup();
       autoUpdate.start();
       autoUpdate.install();
       listeners["update-available"]?.({ version: "1.2.0" });
       autoUpdate.install();
-      expect(prepareToQuit).not.toHaveBeenCalled();
       expect(updater.quitAndInstall).not.toHaveBeenCalled();
     });
   });

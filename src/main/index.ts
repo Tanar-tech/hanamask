@@ -717,9 +717,6 @@ const autoUpdate = createAutoUpdate({
   isEnabled: () => readAppSettings().autoUpdate,
   onStatusChanged: broadcastUpdateStatus,
   onDownloaded: announceUpdateReady,
-  prepareToQuit: () => {
-    isQuitting = true;
-  },
   now: () => new Date(),
 });
 

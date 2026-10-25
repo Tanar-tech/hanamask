@@ -51,8 +51,13 @@ export interface Updater {
     listener: UpdaterListeners["update-downloaded"],
   ): unknown;
   on(event: "error", listener: UpdaterListeners["error"]): unknown;
-  checkForUpdates(): Promise<unknown>;
+  checkForUpdates(): Promise<UpdateCheckResult | null>;
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void;
+}
+
+// 新しい版があると、ダウンロードの完了を待つ Promise が付いて返る。
+export interface UpdateCheckResult {
+  readonly downloadPromise?: Promise<unknown> | null;
 }
 
 type CancelTimer = () => void;
@@ -81,7 +86,6 @@ export interface AutoUpdateDeps {
   isEnabled: () => boolean;
   onStatusChanged: (status: UpdateStatus) => void;
   onDownloaded: (version: string) => void;
-  prepareToQuit: () => void;
   now: () => Date;
   timers?: UpdateTimers;
 }
@@ -161,9 +165,14 @@ export const createAutoUpdate = (deps: AutoUpdateDeps): AutoUpdate => {
     return updater;
   };
 
+  // ダウンロードの失敗は error イベントで状態に出るので、ここでは未処理の reject にしないことだけを担う。
+  const watchDownload = (result: UpdateCheckResult | null): void => {
+    result?.downloadPromise?.catch(logUpdateError);
+  };
+
   const runCheck = async (): Promise<void> => {
     try {
-      await useUpdater().checkForUpdates();
+      watchDownload(await useUpdater().checkForUpdates());
     } catch (error) {
       logUpdateError(error);
       dispatch({ type: "error" });
@@ -175,9 +184,13 @@ export const createAutoUpdate = (deps: AutoUpdateDeps): AutoUpdate => {
     void runCheck();
   };
 
+  // 設定の保存のたびに呼ばれる。有効のまま予約済みなら張り直さない（周期が保存のたびに最初からになるため）。
   const refreshSchedule = (): void => {
-    cancelSchedule();
-    if (!started || !deps.isEnabled() || state.kind === "downloaded") return;
+    if (!started || !deps.isEnabled() || state.kind === "downloaded") {
+      cancelSchedule();
+      return;
+    }
+    if (scheduled.length > 0) return;
     scheduled.push(
       timers.after(() => {
         runScheduledCheck();
@@ -201,7 +214,8 @@ export const createAutoUpdate = (deps: AutoUpdateDeps): AutoUpdate => {
 
   const install = (): void => {
     if (state.kind !== "downloaded") return;
-    deps.prepareToQuit();
+    // 終了中の印は app の before-quit で立つ。quitAndInstall はインストーラーを起動できたときだけ
+    // app.quit() を呼び、before-quit はウィンドウを閉じる前に出るので、通知領域に逃げずに終わる。
     useUpdater().quitAndInstall(true, true);
   };
 
