@@ -7,6 +7,8 @@ interface FakeWindow {
     send: ReturnType<typeof vi.fn>;
     isLoading: ReturnType<typeof vi.fn>;
     once: ReturnType<typeof vi.fn>;
+    setWindowOpenHandler: ReturnType<typeof vi.fn>;
+    on: ReturnType<typeof vi.fn>;
   };
   loadFile: ReturnType<typeof vi.fn>;
   loadURL: ReturnType<typeof vi.fn>;
@@ -34,7 +36,13 @@ const isNotificationSupported = vi.fn(() => true);
 // Declared as a function expression because the module under test calls it with `new`.
 const BrowserWindowMock = vi.fn(function createFakeWindow(): FakeWindow {
   const window: FakeWindow = {
-    webContents: { send: vi.fn(), isLoading: vi.fn(() => false), once: vi.fn() },
+    webContents: {
+        send: vi.fn(),
+        isLoading: vi.fn(() => false),
+        once: vi.fn(),
+        setWindowOpenHandler: vi.fn(),
+        on: vi.fn(),
+      },
     loadFile: vi.fn(() => Promise.resolve()),
     loadURL: vi.fn(() => Promise.resolve()),
     show: vi.fn(),

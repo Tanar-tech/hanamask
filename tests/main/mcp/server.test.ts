@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { request } from "node:http";
+import { brotliCompressSync, gzipSync } from "node:zlib";
 import { startMcpServer, type McpServerHandle } from "../../../src/main/mcp/server";
 
 const PORT_RANGE_START = 40000;
@@ -7,6 +8,7 @@ const PORT_RANGE_SIZE = 10000;
 const MAX_PORT_ATTEMPTS = 20;
 const OK_STATUS = 200;
 const FORBIDDEN_STATUS = 403;
+const UNSUPPORTED_MEDIA_TYPE_STATUS = 415;
 
 const INITIALIZE_BODY = JSON.stringify({
   jsonrpc: "2.0",
@@ -34,6 +36,7 @@ const startOnFreePort = async (attemptsLeft = MAX_PORT_ATTEMPTS): Promise<McpSer
 const postInitialize = (
   port: number,
   extraHeaders: Record<string, string>,
+  requestBody: Buffer | string = INITIALIZE_BODY,
 ): Promise<{ status: number; body: string }> =>
   new Promise((resolve, reject) => {
     const req = request(
@@ -45,7 +48,7 @@ const postInitialize = (
         headers: {
           "content-type": "application/json",
           accept: "application/json, text/event-stream",
-          "content-length": Buffer.byteLength(INITIALIZE_BODY),
+          "content-length": Buffer.byteLength(requestBody),
           ...extraHeaders,
         },
       },
@@ -58,7 +61,7 @@ const postInitialize = (
       },
     );
     req.on("error", reject);
-    req.end(INITIALIZE_BODY);
+    req.end(requestBody);
   });
 
 describe("MCPサーバーのDNSリバインディング対策", () => {
@@ -94,5 +97,36 @@ describe("MCPサーバーのDNSリバインディング対策", () => {
     const response = await postInitialize(handle.port, { host: `evil.example:${handle.port}` });
     expect(response.status).toBe(FORBIDDEN_STATUS);
     expect(response.body).not.toContain("serverInfo");
+  });
+});
+
+describe("MCPサーバーの圧縮リクエスト拒否", () => {
+  let handle: McpServerHandle;
+
+  beforeEach(async () => {
+    handle = await startOnFreePort();
+  });
+
+  afterEach(async () => {
+    await handle.close();
+    delete process.env.HANAMASK_MCP_PORT;
+  });
+
+  it("Brotli圧縮された本文は展開せずに拒否する", async () => {
+    const compressed = brotliCompressSync(INITIALIZE_BODY);
+    const response = await postInitialize(handle.port, { "content-encoding": "br" }, compressed);
+    expect(response.status).toBe(UNSUPPORTED_MEDIA_TYPE_STATUS);
+    expect(response.body).not.toContain("serverInfo");
+  });
+
+  it("gzip等の他の圧縮形式も拒否する", async () => {
+    const compressed = gzipSync(INITIALIZE_BODY);
+    const response = await postInitialize(handle.port, { "content-encoding": "gzip" }, compressed);
+    expect(response.status).toBe(UNSUPPORTED_MEDIA_TYPE_STATUS);
+  });
+
+  it("Content-Encoding: identity は非圧縮として通す", async () => {
+    const response = await postInitialize(handle.port, { "content-encoding": "identity" });
+    expect(response.status).toBe(OK_STATUS);
   });
 });

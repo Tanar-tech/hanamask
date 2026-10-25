@@ -988,6 +988,28 @@ flowchart TB
 <li>停止条件: リポジトリ設定（Pages の Source を GitHub Actions にする）は管理者操作。独自ドメインや <code>&lt;org&gt;.github.io</code> 直下のユーザーサイトが必要になったら、専用リポジトリが要るので管理者に確認する。</li>
 </ul>
 
+<h2 id="security">セキュリティ対応</h2>
+
+<h3 id="t63">T63: HTTP2Shell（Brotli デコーダーの境界外書き込み CVE-2026-111497）への対応</h3>
+<ul>
+<li>ステータス: アプリ側の緩和は実装済み（2026-10-25）。<strong>同梱ランタイム（Electron の Node 24.22.1 化）は Electron の修正版待ち</strong></li>
+<li>優先度: 高（管理者指示、2026-10-25）</li>
+<li>依存: 必須: なし</li>
+<li>目的: Brotli 1.0.3〜1.2.0 のデコーダーは、細工した圧縮データを展開するとヒープの境界外へ書き込む（Node.js は 22.23.4 / 24.22.1 / 26.12.1 で修正）。hanamask が同梱する Electron 43.4.0 は Node 24.x・Brotli 1.2.0 で該当し、2026-10-25 時点で修正版の Node を同梱した Electron は出ていない。そこで<strong>攻撃者の Brotli データがアプリ内の展開器に届く経路を塞ぐ</strong>。</li>
+<li>調査結果（経路ごと）:
+<ul>
+<li>MCPサーバー（受信）: SDK の Streamable HTTP トランスポートは本文を展開しない（<code>Content-Encoding: br</code> の本文は JSON として壊れて 400 になることを実測）。<strong>現状は到達しない</strong>が、将来 SDK や前段が展開を始めても届かないよう、圧縮本文は 415 で拒否する</li>
+<li>mainプロセス（送信）: 外向きの HTTP 通信は無い（埋め込みモデルは同梱、自動更新は未実装）</li>
+<li>レンダラー: CSP がすべての外部オリジンを禁じているため、外部の応答を展開しない</li>
+<li><strong>本文中のリンク: <code>target="_blank"</code> のリンクが新しい Electron ウィンドウとして外部ページを開いていた。</strong>この経路では任意のサーバーの Brotli 応答を同梱の Chromium が展開する。加えて新しいウィンドウは親の preload を引き継ぐため、外部ページに IPC ブリッジが渡っていた。新規ウィンドウを作らずシステムのブラウザで開き（http/https のみ）、メインウィンドウの遷移も止める</li>
+</ul>
+</li>
+<li>変更範囲: <code>src/main/window-guard.ts</code>（新規）、<code>src/main/index.ts</code>（メインウィンドウへの適用）、<code>src/main/mcp/server.ts</code>（圧縮本文の拒否）、テスト、<code>SECURITY.md</code>、README。</li>
+<li>禁止事項: 依存の追加・Electron のメジャー更新をこのタスクで行わないこと（<a href="GOVERNANCE.html">GOVERNANCE.html</a> §6）。</li>
+<li>テスト: 圧縮本文（br / gzip）の拒否と <code>identity</code> の通過。新規ウィンドウの拒否と http/https のみの外部起動（<code>file:</code> / <code>javascript:</code> 等は開かない）。メインウィンドウの遷移阻止。外部起動の失敗でアプリが落ちないこと。</li>
+<li>残作業: Node 24.22.1 以降を同梱した Electron 43.x（または 44/45 系）が出たら更新してリリースする。Electron 側は同梱 Node を 24.22.1 へ上げる変更を 43-x-y に取り込み済み（electron/electron#55161、2026-10-22）で、<strong>43.8.4 以降に入る見込み</strong>（43.8.3 は取り込み前のリリース）。開発機の Node（WSL の nodesource パッケージ・Windows の winget パッケージ）と Ubuntu の <code>libbrotli1</code>（1.1.0-2ubuntu0.1 以降）の更新は管理者操作。</li>
+</ul>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
