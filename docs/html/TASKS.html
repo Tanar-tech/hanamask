@@ -1045,6 +1045,45 @@ flowchart TB
 <li>テスト: 各項目に回帰テストを付ける。</li>
 </ul>
 
+<h2 id="v230">v2.3.0「読んで、返す」（2026-10-25起票）</h2>
+<p>要求定義 <a href="REQUIREMENTS.html#4-11">REQUIREMENTS.html</a> §4.11〜§4.13・§7.4、仕様は <code>SPEC.md</code>。T62（双方向コミュニケーション、チャット欄）は T67 で置き換える。</p>
+
+<h3 id="t66">T66: 前回から変わったところ</h3>
+<ul>
+<li>ステータス: SPEC 作成済み・停止①待ち（2026-10-25）</li>
+<li>優先度: 高（管理者決定、2026-10-25）</li>
+<li>依存: 必須: なし</li>
+<li>目的: 人が最後に見た時点を記録し、そこから変わった記録に未読の印を付け、ページとノートの概要は差分を示す（§4.11）。</li>
+<li>変更範囲: <code>src/main/db/</code>（<code>views</code> 表とマイグレーション、repo）、<code>src/main/views/</code>、IPC、<code>src/renderer/</code>（未読の印・差分表示・既存の一覧と詳細への組み込み）。</li>
+<li>禁止事項: 既読を MCP に出さないこと。見ただけで記録の更新日時を動かさないこと。</li>
+<li>テスト: 未読の判定（導入時刻・自分の保存）、最後に見た時点の版の選び方、差分表示、マイグレーション（<a href="MIGRATIONS.html">MIGRATIONS.html</a> §5）。</li>
+<li>停止条件: 依存（<code>diff</code>）の追加は管理者の承認が要る。</li>
+</ul>
+
+<h3 id="t67">T67: レビューコメント</h3>
+<ul>
+<li>ステータス: SPEC 作成済み・停止①待ち（2026-10-25）</li>
+<li>優先度: 高（管理者決定、2026-10-25）</li>
+<li>依存: 必須: なし</li>
+<li>目的: 本文の範囲にコメントを付け、エージェントが MCP で読んで返信・解決する（§4.12）。</li>
+<li>変更範囲: <code>src/main/db/</code>（<code>comments</code> 表とマイグレーション、repo）、<code>src/main/mcp/tools/comments.ts</code>、IPC・通知、<code>src/renderer/</code>（コメント欄・選択からのコメント・該当箇所のハイライト）、常設指示、README・SECURITY。</li>
+<li>禁止事項: コメントの文字を HTML・Markdown として描画しないこと。本文の DOM を書き換えて光らせないこと（CSS Custom Highlight API を使う）。</li>
+<li>テスト: スレッド・状態の遷移、引用の再検出と「元の箇所が変わった」、MCP ツール、ゴミ箱とパージ、表示の無害化。</li>
+<li>停止条件: 常設指示の文面を変えるので、利用者への案内をリリースノートに含める。</li>
+</ul>
+
+<h3 id="t68">T68: 部分編集</h3>
+<ul>
+<li>ステータス: SPEC 作成済み・停止①待ち（2026-10-25）</li>
+<li>優先度: 中（管理者決定、2026-10-25）</li>
+<li>依存: 必須: なし</li>
+<li>目的: ページへの追記と節の置き換えを MCP で行えるようにし、更新系ツールで衝突を検出する。画面の保存でエージェントの更新を黙って上書きしない（§4.13）。</li>
+<li>変更範囲: <code>src/main/markdown/sections.ts</code>、<code>src/main/mcp/tools/page-edits.ts</code>、既存の更新系ツール（<code>expected_updated_at</code>）、<code>NoteDetail</code> / <code>TaskDetail</code> の保存時の確認、README のツール表。</li>
+<li>禁止事項: <code>*_note</code> の互換名を作らないこと。書き換えは既存の <code>updateNote</code> を通すこと（履歴・通知・索引を分けない）。</li>
+<li>テスト: コードブロック内の <code>#</code>、見出しの不一致・重複、末尾・節末への追記、衝突の検出、保存時の確認。</li>
+<li>停止条件: 依存（<code>mdast-util-from-markdown</code>）の追加は管理者の承認が要る。</li>
+</ul>
+
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 <script>
