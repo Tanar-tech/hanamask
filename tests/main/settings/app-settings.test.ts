@@ -23,7 +23,18 @@ afterEach(() => {
 
 describe("readAppSettings", () => {
   it("設定ファイルが無ければ既定値を返す", () => {
-    expect(readAppSettings()).toEqual({ closeToTray: true, openAtLogin: false });
+    expect(readAppSettings()).toEqual({ closeToTray: true, openAtLogin: false, autoUpdate: true });
+  });
+
+  it("自動更新の既定値はオン", () => {
+    // 設定画面を開かない利用者にも修正を届けるため（2026-10-25 管理者決定）。
+    expect(readAppSettings().autoUpdate).toBe(true);
+  });
+
+  it("自動更新を切った設定を読み戻せる", () => {
+    saveAppSettings({ closeToTray: true, openAtLogin: false, autoUpdate: false });
+
+    expect(readAppSettings().autoUpdate).toBe(false);
   });
 
   it("自動起動の既定値はオフ", () => {
@@ -32,27 +43,27 @@ describe("readAppSettings", () => {
   });
 
   it("保存した内容を読み戻せる", () => {
-    saveAppSettings({ closeToTray: false, openAtLogin: true });
+    saveAppSettings({ closeToTray: false, openAtLogin: true, autoUpdate: true });
 
-    expect(readAppSettings()).toEqual({ closeToTray: false, openAtLogin: true });
+    expect(readAppSettings()).toEqual({ closeToTray: false, openAtLogin: true, autoUpdate: true });
   });
 
   it("壊れた設定ファイルでも既定値で続行する", () => {
     writeFileSync(settingsPath, "{ これはJSONではない", "utf-8");
 
-    expect(readAppSettings()).toEqual({ closeToTray: true, openAtLogin: false });
+    expect(readAppSettings()).toEqual({ closeToTray: true, openAtLogin: false, autoUpdate: true });
   });
 
   it("値の型が違う項目は既定値で補う", () => {
     writeFileSync(settingsPath, JSON.stringify({ closeToTray: "yes", openAtLogin: 1 }), "utf-8");
 
-    expect(readAppSettings()).toEqual({ closeToTray: true, openAtLogin: false });
+    expect(readAppSettings()).toEqual({ closeToTray: true, openAtLogin: false, autoUpdate: true });
   });
 
   it("片方だけ保存された設定ファイルでも、もう片方は既定値になる", () => {
     writeFileSync(settingsPath, JSON.stringify({ openAtLogin: true }), "utf-8");
 
-    expect(readAppSettings()).toEqual({ closeToTray: true, openAtLogin: true });
+    expect(readAppSettings()).toEqual({ closeToTray: true, openAtLogin: true, autoUpdate: true });
   });
 });
 
@@ -61,15 +72,16 @@ describe("saveAppSettings", () => {
     const nested = join(directory, "deep", "app-settings.json");
     setAppSettingsPath(nested);
 
-    saveAppSettings({ closeToTray: true, openAtLogin: true });
+    saveAppSettings({ closeToTray: true, openAtLogin: true, autoUpdate: true });
 
     expect(readAppSettings().openAtLogin).toBe(true);
   });
 
   it("保存した設定を返す", () => {
-    expect(saveAppSettings({ closeToTray: false, openAtLogin: true })).toEqual({
+    expect(saveAppSettings({ closeToTray: false, openAtLogin: true, autoUpdate: true })).toEqual({
       closeToTray: false,
       openAtLogin: true,
+      autoUpdate: true,
     });
   });
 });
@@ -80,7 +92,7 @@ describe("setAppSettingsPath", () => {
 
     expect(() => readAppSettings()).toThrow();
     expect(() => {
-      saveAppSettings({ closeToTray: true, openAtLogin: false });
+      saveAppSettings({ closeToTray: true, openAtLogin: false, autoUpdate: true });
     }).toThrow();
   });
 });

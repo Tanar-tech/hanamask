@@ -9,8 +9,10 @@ import type { AppSettings } from "../../shared/preload-api.js";
  *
  * openAtLogin の既定は false。利用者の同意なくOSのログイン項目を書き換えないため、
  * ここを true にしてはいけない。
+ *
+ * autoUpdate の既定は true（2026-10-25 管理者決定）。設定画面を開かない利用者にも修正を届けるため。
  */
-const DEFAULTS: AppSettings = { closeToTray: true, openAtLogin: false };
+const DEFAULTS: AppSettings = { closeToTray: true, openAtLogin: false, autoUpdate: true };
 
 let settingsFilePath = "";
 
@@ -34,10 +36,11 @@ export const readAppSettings = (): AppSettings => {
   try {
     const parsed: unknown = JSON.parse(readFileSync(path, "utf-8"));
     if (typeof parsed !== "object" || parsed === null) return DEFAULTS;
-    const { closeToTray, openAtLogin } = parsed as Record<string, unknown>;
+    const { closeToTray, openAtLogin, autoUpdate } = parsed as Record<string, unknown>;
     return {
       closeToTray: booleanOr(closeToTray, DEFAULTS.closeToTray),
       openAtLogin: booleanOr(openAtLogin, DEFAULTS.openAtLogin),
+      autoUpdate: booleanOr(autoUpdate, DEFAULTS.autoUpdate),
     };
   } catch {
     return DEFAULTS;
