@@ -84,3 +84,38 @@ CREATE TABLE IF NOT EXISTS embeddings (
   updated_at  TEXT NOT NULL,
   PRIMARY KEY (entity_type, entity_id)
 );
+
+-- 利用者が最後に詳細を見た時刻（§4.11）。記録の表に列を足すと、見ただけで行が更新されて
+-- 更新日時や索引の判定を巻き込むので、別の表に持つ。既読は利用者の状態で、MCPには出さない。
+CREATE TABLE IF NOT EXISTS views (
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task','notebook')),
+  entity_id   TEXT NOT NULL,
+  viewed_at   TEXT NOT NULL,
+  PRIMARY KEY (entity_type, entity_id)
+);
+
+-- レビューコメント（§4.12）。parent_id が NULL の行がスレッドの先頭で、引用（quote と前後の文字）と
+-- 状態を持つ。返信は先頭の id を parent_id に持つ。links と同じく記録への外部キーは張らない。
+CREATE TABLE IF NOT EXISTS comments (
+  id          TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task')),
+  entity_id   TEXT NOT NULL,
+  parent_id   TEXT,
+  author      TEXT NOT NULL CHECK (author IN ('user','agent')),
+  body        TEXT NOT NULL,
+  quote       TEXT,
+  prefix      TEXT,
+  suffix      TEXT,
+  status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved')),
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL,
+  resolved_at TEXT,
+  deleted_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS comments_entity ON comments (entity_type, entity_id);
+
+-- アプリ全体で1つだけ持つ値。views_baseline（既読の記録を始めた時刻）など。
+CREATE TABLE IF NOT EXISTS app_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

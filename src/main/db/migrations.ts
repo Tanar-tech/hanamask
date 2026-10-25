@@ -66,6 +66,39 @@ CREATE TABLE IF NOT EXISTS embeddings (
   PRIMARY KEY (entity_type, entity_id)
 )`;
 
+const VIEWS_TABLE = `
+CREATE TABLE IF NOT EXISTS views (
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task','notebook')),
+  entity_id   TEXT NOT NULL,
+  viewed_at   TEXT NOT NULL,
+  PRIMARY KEY (entity_type, entity_id)
+)`;
+
+const COMMENTS_TABLE = `
+CREATE TABLE IF NOT EXISTS comments (
+  id          TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL CHECK (entity_type IN ('note','task')),
+  entity_id   TEXT NOT NULL,
+  parent_id   TEXT,
+  author      TEXT NOT NULL CHECK (author IN ('user','agent')),
+  body        TEXT NOT NULL,
+  quote       TEXT,
+  prefix      TEXT,
+  suffix      TEXT,
+  status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','resolved')),
+  created_at  TEXT NOT NULL,
+  updated_at  TEXT NOT NULL,
+  resolved_at TEXT,
+  deleted_at  TEXT
+);
+CREATE INDEX IF NOT EXISTS comments_entity ON comments (entity_type, entity_id)`;
+
+const APP_META_TABLE = `
+CREATE TABLE IF NOT EXISTS app_meta (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+)`;
+
 const NOTEBOOKS_TABLE = `
 CREATE TABLE IF NOT EXISTS notebooks (
   id TEXT PRIMARY KEY,
@@ -150,6 +183,10 @@ export const MIGRATIONS: readonly Migration[] = [
   // NULL のままなら「ピン留めしていない」。既存のページ・ノートは全てそのまま留められていない扱いになる。
   addColumnMigration("notes", "pinned_at", "TEXT"),
   addColumnMigration("notebooks", "pinned_at", "TEXT"),
+  // v2.3.0。3つとも新しい表なので既存の行には触れない（schema.sql でも作られるが、両方に書く規約に揃える）。
+  createTableMigration("views", VIEWS_TABLE),
+  createTableMigration("comments", COMMENTS_TABLE),
+  createTableMigration("app_meta", APP_META_TABLE),
 ];
 
 export const applyMigrations = (db: DatabaseHandle): void => {
