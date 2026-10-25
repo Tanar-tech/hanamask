@@ -11,7 +11,7 @@
 <p class="source-note">元ファイル: <a href="../AUTO_UPDATE.md">docs/AUTO_UPDATE.md</a></p>
 
 <h1>自動更新</h1>
-<p><strong>v2.2.0 から、hanamask は自分で新しい版を取ってきて入れ替わる。</strong>それまでは修正を配っても利用者が Releases から入れ直すしかなく、<strong>古いまま気付かれなかった</strong>（0.2.0 の「エージェントがノート本文を書き換えられない」不具合、2026-10 の HTTP2Shell 対応がその例）。</p>
+<p><strong>v2.2.0 から、hanamask は自分で新しい版を取ってきて入れ替わる。</strong>それまでは修正を配っても利用者が Releases から入れ直すしかなく、<strong>古い版のまま使われていても気付かれなかった</strong>（0.2.0 の「エージェントがノート本文を書き換えられない」不具合、2026-10 の HTTP2Shell 対応がその例）。</p>
 <p>対象読者は管理者。仕組み・判断の経緯・リリース時の運用をまとめる。</p>
 <h2 id="s1">1. 使っている道具</h2>
 <p><code>electron-updater</code>（6.8.11、MIT）。直接依存は8件（<code>semver</code> / <code>js-yaml</code> / <code>fs-extra</code> / <code>lazy-val</code> / <code>lodash.isequal</code> / <code>tiny-typed-emitter</code> / <code>lodash.escaperegexp</code> / <code>builder-util-runtime</code>）。追加は 2026-10-25 に管理者が承認した（<a href="GOVERNANCE.html">GOVERNANCE.html</a> §6）。</p>
@@ -31,7 +31,7 @@
 <p>実装: <code>src/main/update/update-state.ts</code>（イベントから状態を作る純粋関数）、<code>src/main/update/auto-updater.ts</code>（スケジュールと適用）、<code>src/main/index.ts</code>（結線とIPC）、<code>src/renderer/components/UpdateSettings.tsx</code>・<code>UpdateBanner.tsx</code>（画面）。</p>
 <h2 id="s3">3. 未署名との組み合わせ（最重要）</h2>
 <p>インストーラーには署名を付けない判断をしている（<a href="SIGNING.html">SIGNING.md</a>）。この状態で自動更新を入れるとどうなるかを、<code>electron-updater</code> の実装を読んで確かめた（2026-08-10）。<strong>2026-10-25、管理者はこの前提を受け入れて未署名のまま自動更新を入れると決めた。</strong>署名は別タスクで検討する。</p>
-<p><strong>署名の検証は、丸ごとスキップされる。</strong></p>
+<p><strong>署名の検証は丸ごとスキップされる</strong>。</p>
 <pre><code>// NsisUpdater.js
 async verifySignature(tempUpdateFile) {
   publisherName = (await this.configOnDisk.value).publisherName;
@@ -41,7 +41,7 @@ async verifySignature(tempUpdateFile) {
   ...
 }</code></pre>
 <p><code>publisherName</code> は署名証明書から作られる値で、<strong>未署名のビルドでは存在しない。</strong>つまり「検証に失敗する」のではなく「検証されない」。</p>
-<h3>では何が守られているのか</h3>
+<h3>未署名でも効く守り</h3>
 <table><thead><tr><th>守り</th><th>未署名でも効くか</th></tr></thead><tbody>
 <tr><td>配信経路の暗号化（HTTPS）</td><td><strong>効く</strong></td></tr>
 <tr><td><code>latest.yml</code> に書かれた <strong>sha512 との照合</strong></td><td><strong>効く</strong>（<code>DownloadedUpdateHelper</code> が突き合わせる）</td></tr>
@@ -54,8 +54,8 @@ async verifySignature(tempUpdateFile) {
 <h2 id="s4">4. リリースの運用</h2>
 <ul>
 <li><strong>v2.1.1 以前の利用者には更新の仕組みが無い。</strong>自動更新入りの最初の版（v2.2.0）だけは手で入れ直してもらう。リリースノートに書く</li>
-<li>以降は今までどおりタグを打てば <code>release.yml</code> が <code>latest.yml</code> を添付し、利用中のアプリが拾う。<strong><code>latest.yml</code> を添付し忘れると誰にも届かない</strong>（<code>release.yml</code> の添付ループが <code>release/latest.yml</code> を含むことを確認する）</li>
-<li><strong>実際の更新経路は、リリース済みの版同士でしか確かめられない。</strong>v2.2.0 → v2.2.1（Electron 43.8.4 で同梱 Node を HTTP2Shell の修正版にする更新）を初回の実地確認とする: v2.2.0 を入れた PC で通知が出る → 「再起動して更新」で 2.2.1 になる → データがそのまま残る → ログで差分ダウンロード（blockmap）が使われたか見る</li>
+<li>以降は今までどおりタグを打てば <code>release.yml</code> が <code>latest.yml</code> を添付し、利用中のアプリがそれを読む。<strong><code>latest.yml</code> を添付し忘れると誰にも届かない</strong>（<code>release.yml</code> の添付ループが <code>release/latest.yml</code> を含むことを確認する）</li>
+<li><strong>実際の更新経路はリリース済みの版同士でしか確かめられない</strong>。v2.2.0 → v2.2.1（Electron 43.8.4 で同梱 Node を HTTP2Shell の修正版にする更新）を初回の実地確認とする: v2.2.0 を入れた PC で通知が出る → 「再起動して更新」で 2.2.1 になる → データがそのまま残る → ログで差分ダウンロード（blockmap）が使われたか見る</li>
 <li>更新を止めたい緊急時は、該当リリースを draft に戻すか <code>latest.yml</code> を外す（アプリは「最新です」のまま何もしない）</li>
 </ul>
 </main>
