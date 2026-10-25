@@ -24,7 +24,7 @@
 
 **外部との通信はこの自動更新だけ**で、ノート・タスクの中身は送らない。公開サイト・README・SECURITY.md にも同じことを書いている。`tests/main/no-network.test.ts` は「mainプロセスは通信APIを持たない」ことに加え、**`electron-updater` を読み込んでよいのは結線する `src/main/index.ts` だけ**であることを検査する。
 
-ウィンドウを閉じても通知領域に残る設定（close-to-tray）では、ウィンドウを閉じる処理が終了を通知領域へ逃がしてしまう。「再起動して更新」は**終了中の印（`isQuitting`）を先に立ててから** `quitAndInstall` を呼ぶ。
+ウィンドウを閉じても通知領域に残る設定（close-to-tray）でも、「再起動して更新」は確実に終了する。`quitAndInstall` はインストーラーを起動できたときだけ `app.quit()` を呼び、`app.quit()` はウィンドウを閉じる**前に** `before-quit` を出すため、そこで終了中の印（`isQuitting`）が立つからである。**インストーラーを起動できなかったときは何もせず、印も立たない**（先に印を立てると、失敗したあとでウィンドウを閉じただけでアプリとMCPサーバーが終了してしまう。レビューで見つかり、直した）。
 
 実装: `src/main/update/update-state.ts`（イベントから状態を作る純粋関数）、`src/main/update/auto-updater.ts`（スケジュールと適用）、`src/main/index.ts`（結線とIPC）、`src/renderer/components/UpdateSettings.tsx`・`UpdateBanner.tsx`（画面）。
 

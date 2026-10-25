@@ -48,11 +48,11 @@
 - `update-state.ts`（純粋関数）: electron-updater のイベント（`checking-for-update` / `update-available` / `update-not-available` / `download-progress` / `update-downloaded` / `error`）から次の `UpdateState` を作る reducer。`update-not-available` は `idle(lastCheckedAt = 現在時刻ISO)`。エラーの `message` は利用者向けの日本語「更新を確認できませんでした」に固定し、詳細はログへ
 - `auto-updater.ts`: `createAutoUpdate(deps)` を export。deps は注入する（テストで差し替え）:
   - `updater`: electron-updater の `AppUpdater` のうち使う部分だけの最小インターフェース（`autoDownload` / `autoInstallOnAppQuit` / `logger` / `on` / `checkForUpdates` / `quitAndInstall`）。本物の `autoUpdater` が型として代入できること
-  - `currentVersion: string`、`isSupported: boolean`（`app.isPackaged && DB上書き無し` は結線側で計算）、`isEnabled: () => boolean`、`onStatusChanged(status)`、`onDownloaded(version)`（OS通知用）、`prepareToQuit()`（`isQuitting = true` 用）、`now()`、タイマー（`setTimeout` / `setInterval` 相当を注入できる形）
-  - 返り値: `start()`（`isSupported` でなければ何もしない。有効なら初回確認を `INITIAL_CHECK_DELAY_MS`（10秒）後、以降 `CHECK_INTERVAL_MS`（6時間）ごと）、`refreshSchedule()`（設定変更時。オフでタイマー停止、オンで再開）、`checkNow(): Promise<UpdateStatus>`（手動確認。設定オフでも動く。unsupported なら何もしない）、`install()`（`downloaded` のときだけ。**`prepareToQuit()` を呼んでから** `quitAndInstall(true, true)`）、`status(): UpdateStatus`、`stop()`
+  - `currentVersion: string`、`isSupported: boolean`（`app.isPackaged && DB上書き無し` は結線側で計算）、`isEnabled: () => boolean`、`onStatusChanged(status)`、`onDownloaded(version)`（OS通知用）、`now()`、タイマー（`setTimeout` / `setInterval` 相当を注入できる形）
+  - 返り値: `start()`（`isSupported` でなければ何もしない。有効なら初回確認を `INITIAL_CHECK_DELAY_MS`（10秒）後、以降 `CHECK_INTERVAL_MS`（6時間）ごと）、`refreshSchedule()`（設定変更時。オフでタイマー停止、オンで再開）、`checkNow(): Promise<UpdateStatus>`（手動確認。設定オフでも動く。unsupported なら何もしない）、`install()`（`downloaded` のときだけ `quitAndInstall(true, true)`。終了中の印は app の `before-quit` で立つ。停止②で `prepareToQuit` を廃止）、`status(): UpdateStatus`、`stop()`
   - `autoDownload = true`、`autoInstallOnAppQuit = true`
   - `checkForUpdates()` の reject は握りつぶして状態を `error` にする（例外を外へ出さない）。`downloaded` 以降は定期確認をしない
-- テスト: reducer の全遷移、unsupported で何も呼ばない、設定オフで自動確認しないが `checkNow` は動く、`refreshSchedule` の停止・再開、reject で例外を投げず error になる、`install` の呼び出し順（prepareToQuit → quitAndInstall）、downloaded 以外で `install` しない
+- テスト: reducer の全遷移、unsupported で何も呼ばない、設定オフで自動確認しないが `checkNow` は動く、`refreshSchedule` の停止・再開、reject で例外を投げず error になる、downloaded 以外で `install` しない
 
 ### セット B: 画面
 

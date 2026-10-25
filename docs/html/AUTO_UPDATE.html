@@ -27,7 +27,7 @@
 <tr><td>動かない起動</td><td>開発時（<code>app.isPackaged</code> が false）と E2E（<code>HANAMASK_DB_PATH</code> 指定時）</td></tr>
 </tbody></table>
 <p><strong>外部との通信はこの自動更新だけ</strong>で、ノート・タスクの中身は送らない。公開サイト・README・SECURITY.md にも同じことを書いている。<code>tests/main/no-network.test.ts</code> は「mainプロセスは通信APIを持たない」ことに加え、<strong><code>electron-updater</code> を読み込んでよいのは結線する <code>src/main/index.ts</code> だけ</strong>であることを検査する。</p>
-<p>ウィンドウを閉じても通知領域に残る設定（close-to-tray）では、ウィンドウを閉じる処理が終了を通知領域へ逃がしてしまう。「再起動して更新」は<strong>終了中の印（<code>isQuitting</code>）を先に立ててから</strong> <code>quitAndInstall</code> を呼ぶ。</p>
+<p>ウィンドウを閉じても通知領域に残る設定（close-to-tray）でも、「再起動して更新」は確実に終了する。<code>quitAndInstall</code> はインストーラーを起動できたときだけ <code>app.quit()</code> を呼び、<code>app.quit()</code> はウィンドウを閉じる<strong>前に</strong> <code>before-quit</code> を出すため、そこで終了中の印（<code>isQuitting</code>）が立つからである。<strong>インストーラーを起動できなかったときは何もせず、印も立たない</strong>（先に印を立てると、失敗したあとでウィンドウを閉じただけでアプリとMCPサーバーが終了してしまう。レビューで見つかり、直した）。</p>
 <p>実装: <code>src/main/update/update-state.ts</code>（イベントから状態を作る純粋関数）、<code>src/main/update/auto-updater.ts</code>（スケジュールと適用）、<code>src/main/index.ts</code>（結線とIPC）、<code>src/renderer/components/UpdateSettings.tsx</code>・<code>UpdateBanner.tsx</code>（画面）。</p>
 <h2 id="s3">3. 未署名との組み合わせ（最重要）</h2>
 <p>インストーラーには署名を付けない判断をしている（<a href="SIGNING.html">SIGNING.md</a>）。この状態で自動更新を入れるとどうなるかを、<code>electron-updater</code> の実装を読んで確かめた（2026-08-10）。<strong>2026-10-25、管理者はこの前提を受け入れて未署名のまま自動更新を入れると決めた。</strong>署名は別タスクで検討する。</p>
