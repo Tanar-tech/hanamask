@@ -18,7 +18,7 @@ Last run: 2026-08-19T12:20Z (dev-loop, shipped — **v1.0.1 リリース**。PR 
 
 - **E2Eのスクリーンショットが長期間保存されていなかった**（PR #192で解消）。**3つが重なって静かに壊れていた**: ①保存ステップの条件が `failure()` で普段走らない ②`if-no-files-found: ignore` でファイルが無くても警告すら出ずステップは `success` ③`.artifacts` が隠しディレクトリで `upload-artifact` v4.4.0 以降の既定で除外。**緑でも赤でも異常に見えない組み合わせ**だった。
 - **`production-runtime` の分離が実際に効いた。**`electron` 43.4.0 のPR（#190）で `dependency-type` は `direct:development` だが `dependency-group` は `production-runtime`。**型だけで判定していたらマイナー更新として自動マージされていた**（配布物のランタイムが黙って変わる）。
-- **`electron-updater` による自動更新が未導入。**前提は揃った（公開リポジトリ、`latest.yml` が2リリース連続で正しく発行）。**依存追加は `docs/GOVERNANCE.md` §6 の承認事項**で、まだタスク化していない。
+- **`electron-updater` による自動更新は T64 で実装中（2026-10-25 承認、`feat/auto-update`）。**v2.2.0 で入り、v2.2.0 → v2.2.1 が初回の実地確認（`docs/AUTO_UPDATE.md` §4）。
 - **インストーラーが未署名。**public化により Certum Open Source Code Signing（年$50〜70）の条件を満たすようになった（`docs/SIGNING.md` 選択肢C）。方針は据え置きで、費用判断は管理者。
 - **CIはパッケージ後の挙動を見ていない。**Electronのようにランタイムが変わる更新は、リリース時のインストール確認が最後の砦。
 - **単体テストの上限は40秒**（WindowsのI/O停滞対策）。**E2Eは 1.0.1 のリリース前に1度フレークした**（`task-flow.spec.ts`）。単独実行・全体実行2回・CIいずれも緑で再現せず。**失敗時の詳細ログを取り逃がしたので、再発したら詳細を取る。**
