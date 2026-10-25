@@ -62,6 +62,17 @@ const UPDATE_READ_STATUS_CHANNEL = "update:read-status";
 const UPDATE_CHECK_CHANNEL = "update:check";
 const UPDATE_INSTALL_CHANNEL = "update:install";
 const UPDATE_STATUS_CHANGED_CHANNEL = "update:status-changed";
+const VIEWS_MARK_CHANNEL = "views:mark";
+const VIEWS_MARK_ALL_CHANNEL = "views:mark-all";
+const VIEWS_LIST_UNREAD_CHANNEL = "views:list-unread";
+const VIEWS_CHANGES_CHANNEL = "views:changes-since-view";
+const VIEWS_CHANGED_CHANNEL = "views:changed";
+const COMMENTS_LIST_CHANNEL = "comments:list";
+const COMMENTS_CREATE_CHANNEL = "comments:create";
+const COMMENTS_REPLY_CHANNEL = "comments:reply";
+const COMMENTS_SET_STATUS_CHANNEL = "comments:set-status";
+const COMMENTS_DELETE_CHANNEL = "comments:delete";
+const COMMENTS_CHANGED_CHANNEL = "comments:changed";
 
 const subscribe = (channel: string, callback: () => void): (() => void) => {
   const listener = (): void => callback();
@@ -163,6 +174,20 @@ const api: HanamaskPreloadApi = {
   installUpdate: () => ipcRenderer.invoke(UPDATE_INSTALL_CHANNEL),
   onUpdateStatusChanged: (callback) =>
     subscribeStatus<UpdateStatus>(UPDATE_STATUS_CHANGED_CHANNEL, callback),
+  markViewed: (entityType, id) => ipcRenderer.invoke(VIEWS_MARK_CHANNEL, entityType, id),
+  markAllViewed: () => ipcRenderer.invoke(VIEWS_MARK_ALL_CHANNEL),
+  listUnread: () => ipcRenderer.invoke(VIEWS_LIST_UNREAD_CHANNEL),
+  readChangesSinceView: (entityType, id) =>
+    ipcRenderer.invoke(VIEWS_CHANGES_CHANNEL, entityType, id),
+  onViewsChanged: (callback) => subscribe(VIEWS_CHANGED_CHANNEL, callback),
+  listComments: (entityType, entityId) =>
+    ipcRenderer.invoke(COMMENTS_LIST_CHANNEL, entityType, entityId),
+  createComment: (input) => ipcRenderer.invoke(COMMENTS_CREATE_CHANNEL, input),
+  replyComment: (threadId, body) => ipcRenderer.invoke(COMMENTS_REPLY_CHANNEL, threadId, body),
+  setCommentStatus: (threadId, status) =>
+    ipcRenderer.invoke(COMMENTS_SET_STATUS_CHANNEL, threadId, status),
+  deleteComment: (threadId) => ipcRenderer.invoke(COMMENTS_DELETE_CHANNEL, threadId),
+  onCommentsChanged: (callback) => subscribe(COMMENTS_CHANGED_CHANNEL, callback),
 };
 
 contextBridge.exposeInMainWorld("hanamask", api);

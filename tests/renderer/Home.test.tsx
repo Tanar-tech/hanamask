@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-libra
 import { renderWithMotion as render } from "./motion-render";
 import { Home } from "../../src/renderer/components/Home";
 import type { AppSettings, Image, Note, Task } from "../../src/shared/preload-api";
-import { UNSUPPORTED_UPDATE } from "./hanamask-stub";
+import { UNSUPPORTED_UPDATE, V230_DEFAULTS } from "./hanamask-stub";
 
 const MINUTE_MS = 60_000;
 const now = Date.now();
@@ -140,6 +140,7 @@ const mockHanamask = (notesByCall: Note[][], tasksByCall: Task[][] = [[]]) => {
     checkForUpdates: vi.fn(async () => UNSUPPORTED_UPDATE),
     installUpdate: vi.fn(async () => {}),
     onUpdateStatusChanged: vi.fn(() => () => {}),
+    ...V230_DEFAULTS,
     onNotebooksChanged: vi.fn(() => () => undefined),
     listDeletedNotebooks: vi.fn(async () => []),
     listNotebooks: vi.fn(async () => []),

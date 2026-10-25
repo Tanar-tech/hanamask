@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { KanbanView } from "../../src/renderer/components/KanbanView";
 import type { AppSettings, Image, Task } from "../../src/shared/preload-api";
-import { UNSUPPORTED_UPDATE } from "./hanamask-stub";
+import { UNSUPPORTED_UPDATE, V230_DEFAULTS } from "./hanamask-stub";
 
 const stubImage: Image = {
   id: "image-1",
@@ -92,6 +92,7 @@ const mockHanamask = (tasksByCall: Task[][]) => {
     checkForUpdates: vi.fn(async () => UNSUPPORTED_UPDATE),
     installUpdate: vi.fn(async () => {}),
     onUpdateStatusChanged: vi.fn(() => () => {}),
+    ...V230_DEFAULTS,
   };
   return { listTasks, onTasksChanged, updateTaskStatus, listeners, unsubscribe };
 };
