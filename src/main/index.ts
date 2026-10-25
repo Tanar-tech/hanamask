@@ -9,7 +9,8 @@ import {
   type IpcMainInvokeEvent,
   type Tray,
 } from "electron";
-import { autoUpdater } from "electron-updater";
+// CommonJS の getter で公開されており、ESM からの名前付き import では見つからない（起動時に SyntaxError）。
+import electronUpdater from "electron-updater";
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -710,7 +711,7 @@ const announceUpdateReady = (version: string): void => {
 
 // 開発時とE2E（DBを差し替えた起動）では、更新を取りに行かない。
 const autoUpdate = createAutoUpdate({
-  loadUpdater: () => autoUpdater,
+  loadUpdater: () => electronUpdater.autoUpdater,
   readCurrentVersion: () => app.getVersion(),
   isSupported: app.isPackaged && dbPathOverride() === undefined,
   isEnabled: () => readAppSettings().autoUpdate,

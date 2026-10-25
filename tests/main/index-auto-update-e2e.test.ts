@@ -46,7 +46,7 @@ vi.mock("electron", () => ({
   ipcMain: { handle: ipcHandle },
 }));
 
-vi.mock("electron-updater", () => ({ autoUpdater: fakeUpdater }));
+vi.mock("electron-updater", () => ({ default: { autoUpdater: fakeUpdater } }));
 vi.mock("../../src/main/db/db", () => ({ openDb: vi.fn(), closeDb: vi.fn() }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords: vi.fn() }));
 vi.mock("../../src/main/mcp/server", () => ({
