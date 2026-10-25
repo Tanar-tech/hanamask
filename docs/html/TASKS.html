@@ -1007,12 +1007,12 @@ flowchart TB
 <li>変更範囲: <code>src/main/window-guard.ts</code>（新規）、<code>src/main/index.ts</code>（メインウィンドウへの適用）、<code>src/main/mcp/server.ts</code>（圧縮本文の拒否）、テスト、<code>SECURITY.md</code>、README。</li>
 <li>禁止事項: 依存の追加・Electron のメジャー更新をこのタスクで行わないこと（<a href="GOVERNANCE.html">GOVERNANCE.html</a> §6）。</li>
 <li>テスト: 圧縮本文（br / gzip）の拒否と <code>identity</code> の通過。新規ウィンドウの拒否と http/https のみの外部起動（<code>file:</code> / <code>javascript:</code> 等は開かない）。メインウィンドウの遷移阻止。外部起動の失敗でアプリが落ちないこと。</li>
-<li>残作業: Node 24.22.1 以降を同梱した Electron 43.x（または 44/45 系）が出たら更新してリリースする。Electron 側は同梱 Node を 24.22.1 へ上げる変更を 43-x-y に取り込み済み（electron/electron#55161、2026-10-22）で、<strong>43.8.4 以降に入る見込み</strong>（43.8.3 は取り込み前のリリース）。開発機の Node（WSL の nodesource パッケージ・Windows の winget パッケージ）と Ubuntu の <code>libbrotli1</code>（1.1.0-2ubuntu0.1 以降）の更新は管理者操作。</li>
+<li>残作業: Node 24.22.1 以降を同梱した Electron 43.x（または 44/45 系）が出たら更新してリリースする。Electron 側は同梱 Node を 24.22.1 へ上げる変更を 43-x-y に取り込み済み（electron/electron#55161、2026-10-22）で、<strong>43.8.4 以降に入る見込み</strong>（43.8.3 は取り込み前のリリース）。開発機の Node は WSL・Windows とも 24.22.1 に更新済み（2026-10-25、管理者操作。Node は Brotli を同梱しており OS の libbrotli を使わない）。<strong>Ubuntu 24.04 の <code>libbrotli1</code> は修正版が未配信</strong>（Ubuntu の CVE ページは「Needs evaluation」。当初書いた「1.1.0-2ubuntu0.1 で修正」は二次情報で裏が取れていなかった）。WSL で使っているのは curl と freetype で、配信されたら通常の <code>apt upgrade</code> で入る。</li>
 </ul>
 
 <h3 id="t64">T64: 自動更新</h3>
 <ul>
-<li>ステータス: 実装中（2026-10-25 計画承認。管理者決定: 既定オン・設定で止められる／裏でダウンロード→通知→「再起動して更新」か次回終了時に適用／未署名のまま）</li>
+<li>ステータス: 実装済み・マージ待ち（2026-10-25 計画承認、PR #250。停止②は管理者判断 A: Major 3件を修正、Minor は T65。管理者決定: 既定オン・設定で止められる／裏でダウンロード→通知→「再起動して更新」か次回終了時に適用／未署名のまま）</li>
 <li>優先度: 高（管理者要望、2026-10-25。HTTP2Shell の修正を届ける手段が無かったことが契機）</li>
 <li>依存: 必須: なし（T43 のパブリック化が前提。済み）</li>
 <li>目的: 新しい版を GitHub Releases から自動で取ってきて、利用者が選んだタイミングで入れ替える。仕組みと判断は <a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a>、要求は <a href="REQUIREMENTS.html">REQUIREMENTS.html</a> §5「自動更新」、仕様は <code>SPEC.md</code>。</li>
@@ -1020,6 +1020,29 @@ flowchart TB
 <li>禁止事項: 勝手に再起動しないこと。記録の中身を送る経路を作らないこと。開発時・E2E で更新確認を走らせないこと。</li>
 <li>テスト: 状態遷移、動かさない条件（開発時・E2E・設定オフ）、確認失敗で例外を出さない、「再起動して更新」が終了中の印を立ててから適用する、設定の既定値と旧設定ファイルの読み込み、画面の状態ごとの表示。<strong>実際の更新経路は v2.2.0 → v2.2.1 の実地で確かめる</strong>（<a href="AUTO_UPDATE.html">AUTO_UPDATE.html</a> §4）。</li>
 <li>停止条件: 署名の導入が必要と判断した場合は管理者に確認する（別タスク）。</li>
+</ul>
+
+<h3 id="t65">T65: 自動更新の残り（T64 停止②の Minor 指摘）</h3>
+<ul>
+<li>ステータス: 未着手（2026-10-25 起票。T64 の停止②で管理者が「Major だけ直してマージ、Minor は別タスク」を選んだ）</li>
+<li>優先度: 低</li>
+<li>依存: 必須: T64</li>
+<li>目的: T64 の構造化レビューで見送った Minor 指摘を片付ける。</li>
+<li>対象:
+<ul>
+<li>確認に失敗すると <code>error</code> が2回通知される（electron-updater の <code>error</code> イベントと <code>runCheck</code> の catch）</li>
+<li>ダウンロード中に定期確認・手動確認が走ると、状態が「確認中」に戻り進捗が0%からになる</li>
+<li><code>useUpdateStatus</code> の初回取得が、先に届いた新しい状態通知を上書きしうる（アンマウント後の setState も）</li>
+<li>進捗率の NaN・範囲外の保護、<code>lastCheckedAt</code> の不正な日付の保護</li>
+<li>「再起動して更新」ボタンが帯と設定欄に重複／ボタンのクラス定数の共通化／帯が設定欄から定数を import している向き</li>
+<li>main と preload の IPC チャンネル名の一致を検査するテスト</li>
+<li>結線のテスト不足（通知クリック、<code>before-quit</code> での停止、<code>isAppSettings</code> の拒否、「あとで」の後に別の版が来た場合）、テストのモック群の共通化</li>
+<li>自動確認をオフにしているとき、状態欄でオフと分かるようにする</li>
+<li>「再起動して更新」が失敗したとき（インストーラーを起動できない）に画面へ知らせる</li>
+<li><code>isAppSettings</code> を通った値を余分なキーごと保存しない</li>
+</ul>
+</li>
+<li>テスト: 各項目に回帰テストを付ける。</li>
 </ul>
 
 </main>
