@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { EntityType, UnreadEntry } from "../../shared/preload-api";
 
 export interface UnreadState {
+  hasUnread: boolean;
   isUnread(entityType: EntityType, id: string): boolean;
   markAllViewed(): Promise<void>;
 }
@@ -61,5 +62,5 @@ export const useUnread = (): UnreadState => {
     await reload();
   }, [reload]);
 
-  return { isUnread, markAllViewed };
+  return { hasUnread: unreadKeys.size > 0, isUnread, markAllViewed };
 };

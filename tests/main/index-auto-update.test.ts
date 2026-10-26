@@ -49,6 +49,7 @@ vi.mock("electron", () => ({
 vi.mock("electron-updater", () => ({ default: { autoUpdater: fakeUpdater } }));
 vi.mock("../../src/main/db/views-repo", () => ({
   ensureViewBaseline: vi.fn(),
+  hasUnseenUpdate: vi.fn(() => false),
   markViewed: vi.fn(),
 }));
 vi.mock("../../src/main/review-ipc", () => ({

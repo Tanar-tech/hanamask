@@ -16,6 +16,8 @@ const openDb = vi.fn();
 const startMcpServer = vi.fn(async () => ({ port: 39217, close: vi.fn(async () => {}) }));
 const listTasks = vi.fn();
 const updateTask = vi.fn();
+const hasUnseenUpdate = vi.fn(() => false);
+const markViewed = vi.fn();
 const openWindows: FakeWindow[] = [];
 
 // Declared as a function expression because the module under test calls it with `new`.
@@ -54,7 +56,8 @@ vi.mock("electron", () => ({
 
 vi.mock("../../src/main/db/views-repo", () => ({
   ensureViewBaseline: vi.fn(),
-  markViewed: vi.fn(),
+  hasUnseenUpdate,
+  markViewed,
 }));
 vi.mock("../../src/main/review-ipc", () => ({
   registerReviewIpc: vi.fn(),
@@ -137,6 +140,23 @@ describe("main process tasks:update handler", () => {
       body: "新しい本文",
     });
     expect(updated).toEqual(sampleTask);
+  });
+
+  it("見ていない更新が無ければ、自分の保存のあとで既読にする", () => {
+    hasUnseenUpdate.mockReturnValueOnce(false);
+    updateTask.mockReturnValueOnce(sampleTask);
+    markViewed.mockClear();
+    findUpdateTaskHandler()(undefined, "task-1", { title: "t" });
+    expect(markViewed).toHaveBeenCalledWith("task", "task-1", expect.any(Date));
+  });
+
+  // エージェントの変更を見ないまま保存しても、その変更の未読の印と差分を消さない。
+  it("見ていない更新があれば、自分で保存しても既読にしない", () => {
+    hasUnseenUpdate.mockReturnValueOnce(true);
+    updateTask.mockReturnValueOnce(sampleTask);
+    markViewed.mockClear();
+    findUpdateTaskHandler()(undefined, "task-1", { title: "t" });
+    expect(markViewed).not.toHaveBeenCalled();
   });
 
   it("存在しないタスクの更新ではnullを返す", () => {

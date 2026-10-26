@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  bodyRegion,
   SCREENSHOT_DIR,
   callMcpTool,
   createNoteViaMcp,
@@ -98,7 +99,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
 
     // No manual reload and no navigation: the detail view re-fetches on the change notification.
     await window.getByRole("heading", { name: "反映後タイトル" }).waitFor();
-    await window.getByText("反映後の本文").waitFor();
+    await bodyRegion(window).getByText("反映後の本文").waitFor();
     await window.getByText("after", { exact: true }).waitFor();
     await expect.poll(() => window.getByText("反映前の本文").count()).toBe(0);
     await expect.poll(() => window.getByText("before", { exact: true }).count()).toBe(0);
@@ -142,7 +143,7 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     // Discarding the draft is what pulls the external update into the view.
     await window.getByRole("button", { name: "破棄して最新を読み込む" }).click();
     await window.getByRole("heading", { name: "外部更新タイトル" }).waitFor();
-    await window.getByText("外部更新の本文").waitFor();
+    await bodyRegion(window).getByText("外部更新の本文").waitFor();
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-07-discarded.png") });
   });
 });

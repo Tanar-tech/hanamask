@@ -3,12 +3,14 @@ import { rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { closeDb, openDb } from "../../../src/main/db/db";
+import { closeDb, getDb, openDb } from "../../../src/main/db/db";
 import { createNote, softDeleteNote, updateNote } from "../../../src/main/db/notes-repo";
 import { createNotebook, softDeleteNotebook, updateNotebook } from "../../../src/main/db/notebooks-repo";
 import { createTask, softDeleteTask, updateTask } from "../../../src/main/db/tasks-repo";
 import {
+  deleteViewsForMissingEntities,
   ensureViewBaseline,
+  hasUnseenUpdate,
   listUnread,
   markAllViewed,
   markViewed,
@@ -51,6 +53,51 @@ describe("views repo", () => {
     it("keeps the first recorded time", () => {
       expect(ensureViewBaseline(new Date(BASELINE))).toBe(BASELINE);
       expect(ensureViewBaseline(new Date(T3))).toBe(BASELINE);
+    });
+  });
+
+  describe("hasUnseenUpdate", () => {
+    it("見たあとに更新されていれば true、見たあとは false", () => {
+      at(T0);
+      const note = createPage();
+      ensureViewBaseline(at(BASELINE));
+      expect(hasUnseenUpdate("note", note.id)).toBe(false);
+
+      at(T2);
+      updateNote(note.id, { body: "エージェントの変更" });
+      expect(hasUnseenUpdate("note", note.id)).toBe(true);
+
+      markViewed("note", note.id, at(T3));
+      expect(hasUnseenUpdate("note", note.id)).toBe(false);
+    });
+
+    it("ノートは中のページの未読を数えない（自身の概要だけを見る）", () => {
+      at(T0);
+      const notebook = createNotebook({ title: "ノート", summary: "概要", tags: [] });
+      const page = createPage("本文", notebook.id);
+      ensureViewBaseline(at(BASELINE));
+      at(T2);
+      updateNote(page.id, { body: "変更" });
+      expect(hasUnseenUpdate("notebook", notebook.id)).toBe(false);
+    });
+  });
+
+  describe("deleteViewsForMissingEntities", () => {
+    it("記録が消えた既読の行だけを消し、ゴミ箱の記録の行は残す", () => {
+      at(T0);
+      const kept = createPage();
+      const trashed = createPage();
+      const purged = createPage();
+      markViewed("note", kept.id, at(T2));
+      markViewed("note", trashed.id, at(T2));
+      markViewed("note", purged.id, at(T2));
+      softDeleteNote(trashed.id);
+      getDb().prepare("DELETE FROM notes WHERE id = ?").run(purged.id);
+
+      expect(deleteViewsForMissingEntities()).toBe(1);
+      expect(readViewedAt("note", kept.id)).toBe(T2);
+      expect(readViewedAt("note", trashed.id)).toBe(T2);
+      expect(readViewedAt("note", purged.id)).toBeNull();
     });
   });
 

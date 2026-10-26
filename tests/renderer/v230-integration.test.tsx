@@ -64,4 +64,15 @@ describe("v2.3.0 の画面の結線", () => {
     });
     expect(markAllViewed).toHaveBeenCalledTimes(1);
   });
+
+  it("未読が無ければ「すべて既読にする」は押せない", async () => {
+    stubHanamask({ listNotes: vi.fn(async () => [makeNote()]) });
+    render(
+      <UnreadProvider>
+        <Home onSelectNote={vi.fn()} onSelectTask={vi.fn()} onSearch={vi.fn()} />
+      </UnreadProvider>,
+    );
+    const button = await screen.findByRole<HTMLButtonElement>("button", { name: "すべて既読にする" });
+    expect(button.disabled).toBe(true);
+  });
 });

@@ -5,6 +5,10 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { closeDb, getDb, openDb } from "../../../src/main/db/db";
 import {
+  MAX_QUOTE_LENGTH,
+  MAX_COMMENT_BODY_LENGTH,
+  MAX_ANCHOR_CONTEXT_LENGTH,
+  replyAndResolve,
   createCommentThread,
   deleteCommentsForMissingEntities,
   deleteThread,
@@ -127,7 +131,8 @@ describe("comments-repo", () => {
   });
 
   describe("replyToThread", () => {
-    it("返信を作成順に重ね、スレッドの更新日時を進める。状態は変えない", () => {
+    // 解決済みのまま返信すると既定の一覧（未解決）から見えず、返信が見落とされるので開き直す。
+    it("返信を作成順に重ね、スレッドの更新日時を進め、解決済みなら未解決に戻す", () => {
       const thread = createOnNote();
       setThreadStatus(thread.id, "resolved", T1);
       replyToThread(thread.id, "agent", "直しました", T2);
@@ -140,7 +145,50 @@ describe("comments-repo", () => {
       ]);
       expect(replied.updatedAt).toBe(T3.toISOString());
       expect(replied.createdAt).toBe(T0.toISOString());
-      expect(replied.status).toBe("resolved");
+      expect(replied.status).toBe("open");
+      expect(replied.resolvedAt).toBeNull();
+    });
+
+    it("長すぎる本文と引用は書き込まず、前後の文字は引用に近い側を残して切り詰める", () => {
+      const tooLong = "あ".repeat(MAX_COMMENT_BODY_LENGTH + 1);
+      expect(() => replyToThread(createOnNote().id, "user", tooLong, T1)).toThrow(/too long/);
+      expect(() =>
+        createCommentThread(
+          { entityType: "note", entityId: noteId, body: "x", anchor: { quote: "q".repeat(MAX_QUOTE_LENGTH + 1), prefix: "", suffix: "" } },
+          "user",
+          T1,
+        ),
+      ).toThrow(/too long/);
+      const thread = createCommentThread(
+        {
+          entityType: "note",
+          entityId: noteId,
+          body: "x",
+          anchor: { quote: "q", prefix: "p".repeat(300) + "近", suffix: "近" + "s".repeat(300) },
+        },
+        "user",
+        T1,
+      );
+      expect(thread.anchor?.prefix).toHaveLength(MAX_ANCHOR_CONTEXT_LENGTH);
+      expect(thread.anchor?.prefix.endsWith("近")).toBe(true);
+      expect(thread.anchor?.suffix.startsWith("近")).toBe(true);
+    });
+
+    it("返信して解決すると、返信が付いた状態で解決済みになる", () => {
+      const thread = createOnNote();
+      const resolved = replyAndResolve(thread.id, "agent", "直しました", T2);
+      expect(resolved.status).toBe("resolved");
+      expect(resolved.messages.at(-1)?.body).toBe("直しました");
+    });
+
+    it("返信して解決するとき、解決に失敗すれば返信も残さない", () => {
+      const thread = createOnNote();
+      deleteThread(thread.id, T1);
+      expect(() => replyAndResolve(thread.id, "agent", "直しました", T2)).toThrow();
+      const count = getDb()
+        .prepare("SELECT COUNT(*) AS n FROM comments WHERE parent_id = ?")
+        .get(thread.id);
+      expect(count).toEqual({ n: 0 });
     });
 
     it("同じ時刻の返信も追加した順に並ぶ", () => {

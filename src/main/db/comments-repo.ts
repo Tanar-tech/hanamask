@@ -155,21 +155,40 @@ const assertEntityActive = (type: CommentEntityType, id: string): void => {
   }
 };
 
+/*
+ * 上限が無いと、巨大なコメントで一覧が重くなり、引用の探し直し（前後の文字との比較）が
+ * 描画のたびに画面を固める。画面と MCP の両方がここを通るので、ここで1度だけ決める。
+ */
+export const MAX_COMMENT_BODY_LENGTH = 10_000;
+export const MAX_QUOTE_LENGTH = 2_000;
+export const MAX_ANCHOR_CONTEXT_LENGTH = 256;
+
 const toBody = (body: string): string => {
   const trimmed = body.trim();
   if (trimmed.length === 0) {
     throw new Error("Comment body must not be empty");
   }
+  if (trimmed.length > MAX_COMMENT_BODY_LENGTH) {
+    throw new Error(`Comment body is too long (max ${String(MAX_COMMENT_BODY_LENGTH)} characters)`);
+  }
   return trimmed;
 };
 
 // 引用は本文から探し直すときの手がかりなので、空白も含めて受け取ったまま保存する。
+// 前後の文字は引用に近い側だけが手がかりになるので、長すぎれば遠い側を落とす。
 const toStoredAnchor = (anchor: CommentAnchor | null): CommentAnchor | null => {
   if (anchor === null) return null;
   if (anchor.quote.trim().length === 0) {
     throw new Error("Comment anchor quote must not be empty");
   }
-  return anchor;
+  if (anchor.quote.length > MAX_QUOTE_LENGTH) {
+    throw new Error(`Selected text is too long (max ${String(MAX_QUOTE_LENGTH)} characters)`);
+  }
+  return {
+    quote: anchor.quote,
+    prefix: anchor.prefix.slice(-MAX_ANCHOR_CONTEXT_LENGTH),
+    suffix: anchor.suffix.slice(0, MAX_ANCHOR_CONTEXT_LENGTH),
+  };
 };
 
 export const getThread = (threadId: string): CommentThread | null => {
@@ -216,10 +235,25 @@ export const replyToThread = (
       )
       .run(randomUUID(), root.entity_type, root.entity_id, root.id, toCommentAuthor(author), text,
         timestamp, timestamp);
-    getDb().prepare("UPDATE comments SET updated_at = ? WHERE id = ?").run(timestamp, root.id);
+    // 解決済みのまま返信すると既定の一覧（未解決）から見えず、返信が見落とされるので開き直す。
+    getDb()
+      .prepare("UPDATE comments SET updated_at = ?, status = 'open', resolved_at = NULL WHERE id = ?")
+      .run(timestamp, root.id);
   })();
   return requireThread(root.id);
 };
+
+// 返信して解決するとき、途中で失敗すると返信だけが残り、やり直しで返信が二重になる。まとめて書く。
+export const replyAndResolve = (
+  threadId: string,
+  author: CommentAuthor,
+  body: string,
+  now: Date,
+): CommentThread =>
+  getDb().transaction(() => {
+    replyToThread(threadId, author, body, now);
+    return setThreadStatus(threadId, "resolved", now);
+  })();
 
 export const setThreadStatus = (
   threadId: string,

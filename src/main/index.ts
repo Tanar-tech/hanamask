@@ -22,6 +22,7 @@ import {
   listNoteVersions,
   restoreNote,
   restoreNoteVersion,
+  getNoteVersion,
   searchNotes,
   setNotePinned,
   softDeleteNote,
@@ -120,7 +121,7 @@ import {
   onViewsChanged,
   type CommentChange,
 } from "./mcp/change-emitter.js";
-import { ensureViewBaseline, markViewed } from "./db/views-repo.js";
+import { ensureViewBaseline, hasUnseenUpdate, markViewed } from "./db/views-repo.js";
 import {
   COMMENTS_CHANGED_CHANNEL,
   registerReviewIpc,
@@ -350,10 +351,21 @@ const broadcastCommentsChanged = (): void => {
   });
 };
 
-// 画面から自分で保存した記録は、保存で動いた更新日時より後を既読にして、自分の編集で未読にしない。
-const markSavedAsViewed = (entityType: "note" | "notebook" | "task", id: string): void => {
-  markViewed(entityType, id, new Date());
-  emitViewsChanged();
+type SavableEntityType = "note" | "notebook" | "task";
+
+/*
+ * 画面から自分で保存した記録は、保存で動いた更新日時より後を既読にして、自分の編集で未読にしない。
+ * ただし保存の前にまだ見ていない更新（エージェントの変更）があったなら既読にしない。
+ * 既読にすると、その変更の未読の印と「前回から変わったところ」が見ないまま消えてしまう。
+ */
+const saveAsUser = <T>(entityType: SavableEntityType, id: string, save: () => T | null): T | null => {
+  const sawLatest = !hasUnseenUpdate(entityType, id);
+  const saved = save();
+  if (saved !== null && sawLatest) {
+    markViewed(entityType, id, new Date());
+    emitViewsChanged();
+  }
+  return saved;
 };
 
 const listNotes = (): Note[] => searchNotes("");
@@ -378,11 +390,8 @@ const editNote = (
   id: string,
   input: NoteUpdateInput,
 ): Note | null => {
-  const updated = updateNote(id, input);
-  if (updated !== null) {
-    emitNotesChanged();
-    markSavedAsViewed("note", id);
-  }
+  const updated = saveAsUser("note", id, () => updateNote(id, input));
+  if (updated !== null) emitNotesChanged();
   return updated;
 };
 
@@ -396,7 +405,9 @@ const restoreVersion = (
   _event: IpcMainInvokeEvent,
   versionId: string,
 ): Note | null => {
-  const restored = restoreNoteVersion(versionId);
+  const version = getNoteVersion(versionId);
+  if (version === null) return null;
+  const restored = saveAsUser("note", version.noteId, () => restoreNoteVersion(versionId));
   if (restored !== null) emitNotesChanged();
   return restored;
 };
@@ -469,10 +480,11 @@ const readNotebookDetail = (_event: IpcMainInvokeEvent, id: string) => {
 
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitNotebooksChangedを呼ぶ。
 const changeNotebook = (_event: IpcMainInvokeEvent, id: string, input: unknown) => {
-  const updated = updateNotebook(id, readNotebookUpdateInput(input));
+  const updated = saveAsUser("notebook", id, () =>
+    updateNotebook(id, readNotebookUpdateInput(input)),
+  );
   if (updated !== null) {
     emitNotebooksChanged({ entity: "notebook", action: "updated", id, title: updated.title });
-    markSavedAsViewed("notebook", id);
   }
   return updated;
 };
@@ -489,9 +501,7 @@ const updateTaskStatus = (
   id: string,
   status: TaskStatus,
 ): void => {
-  if (updateTask(id, { status }) === null) return;
-  emitTasksChanged();
-  markSavedAsViewed("task", id);
+  if (saveAsUser("task", id, () => updateTask(id, { status })) !== null) emitTasksChanged();
 };
 
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
@@ -500,11 +510,8 @@ const editTask = (
   id: string,
   input: TaskUpdateInput,
 ): Task | null => {
-  const updated = updateTask(id, input);
-  if (updated !== null) {
-    emitTasksChanged();
-    markSavedAsViewed("task", id);
-  }
+  const updated = saveAsUser("task", id, () => updateTask(id, input));
+  if (updated !== null) emitTasksChanged();
   return updated;
 };
 

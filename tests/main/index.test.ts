@@ -34,6 +34,8 @@ const getNote = vi.fn();
 const updateNote = vi.fn();
 const listNoteVersions = vi.fn();
 const restoreNoteVersion = vi.fn();
+// 復元の前に、どのページの版かを引いて既読の扱いを決めるため。
+const getNoteVersion = vi.fn(() => ({ noteId: "note-1" }));
 const listDeletedNotes = vi.fn();
 const restoreNote = vi.fn();
 const setNotePinned = vi.fn();
@@ -108,6 +110,7 @@ vi.mock("electron", () => ({
 
 vi.mock("../../src/main/db/views-repo", () => ({
   ensureViewBaseline: vi.fn(),
+  hasUnseenUpdate: vi.fn(() => false),
   markViewed: vi.fn(),
 }));
 vi.mock("../../src/main/review-ipc", () => ({
@@ -128,6 +131,7 @@ vi.mock("../../src/main/db/notes-repo", () => ({
   updateNote,
   listNoteVersions,
   restoreNoteVersion,
+  getNoteVersion,
   listDeletedNotes,
   restoreNote,
   setNotePinned,

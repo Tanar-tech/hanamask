@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState, type JSX } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type JSX } from "react";
 import type {
   CommentAnchor,
   CommentAuthor,
@@ -73,8 +73,19 @@ const toTimeLabel = (iso: string): string => {
   return `${toDateLabel(iso)} ${pad(parsed.getHours())}:${pad(parsed.getMinutes())}`;
 };
 
-const isGone = (thread: CommentThread, bodyText: string): boolean =>
-  thread.anchor !== null && locateAnchor(bodyText, thread.anchor) === null;
+// 本文をまだ読めていない間（null）は、引用を探しようがないので「変わった」とは言わない。
+const isGone = (thread: CommentThread, bodyText: string | null): boolean =>
+  bodyText !== null && thread.anchor !== null && locateAnchor(bodyText, thread.anchor) === null;
+
+// 引用の探し直しは本文の長さに比例して重いので、スレッドか本文が変わったときだけやり直す。
+const useGoneThreadIds = (
+  threads: CommentThread[],
+  bodyText: string | null,
+): ReadonlySet<string> =>
+  useMemo(
+    () => new Set(threads.filter((thread) => isGone(thread, bodyText)).map((thread) => thread.id)),
+    [threads, bodyText],
+  );
 
 const QuoteText = ({ anchor }: { anchor: CommentAnchor }): JSX.Element => (
   <p className={QUOTE_LIVE}>{anchor.quote}</p>
@@ -278,7 +289,7 @@ const ThreadCard = ({ thread, gone, active, handlers }: ThreadCardProps): JSX.El
 
 interface ThreadListProps {
   threads: CommentThread[];
-  bodyText: string;
+  bodyText: string | null;
   activeThreadId: string | null;
   handlers: ThreadHandlers;
 }
@@ -288,19 +299,22 @@ const ThreadList = ({
   bodyText,
   activeThreadId,
   handlers,
-}: ThreadListProps): JSX.Element => (
-  <ul aria-label={THREAD_LIST_LABEL} className="m-0 flex list-none flex-col gap-2 p-0">
-    {threads.map((thread) => (
-      <ThreadCard
-        key={thread.id}
-        thread={thread}
-        gone={isGone(thread, bodyText)}
-        active={thread.id === activeThreadId}
-        handlers={handlers}
-      />
-    ))}
-  </ul>
-);
+}: ThreadListProps): JSX.Element => {
+  const goneIds = useGoneThreadIds(threads, bodyText);
+  return (
+    <ul aria-label={THREAD_LIST_LABEL} className="m-0 flex list-none flex-col gap-2 p-0">
+      {threads.map((thread) => (
+        <ThreadCard
+          key={thread.id}
+          thread={thread}
+          gone={goneIds.has(thread.id)}
+          active={thread.id === activeThreadId}
+          handlers={handlers}
+        />
+      ))}
+    </ul>
+  );
+};
 
 const ResolvedSection = (props: ThreadListProps): JSX.Element | null => {
   const [shown, setShown] = useState(false);
@@ -414,8 +428,8 @@ const useThreadHandlers = (
 interface CommentPanelProps {
   entityType: CommentEntityType;
   entityId: string;
-  /** 「元の箇所が変わりました」の判定に使う本文の文字。引用を作ったときと同じ形（描画した本文の textContent）で渡す。 */
-  bodyText: string;
+  /** 「元の箇所が変わりました」の判定に使う本文の文字。描画した本文の textContent で渡す。読めていなければ null。 */
+  bodyText: string | null;
   pendingAnchor: CommentAnchor | null;
   onClearPending: () => void;
   activeThreadId: string | null;

@@ -1,5 +1,6 @@
 import {
   listThreads,
+  replyAndResolve,
   replyToThread,
   setThreadStatus,
   toCommentEntityType,
@@ -113,12 +114,10 @@ const replyCommentTool: McpTool = {
   }),
 };
 
-const resolveThread = (threadId: string, body: string | undefined): CommentThread => {
-  if (body !== undefined) {
-    replyToThread(threadId, AGENT, body, new Date());
-  }
-  return setThreadStatus(threadId, "resolved", new Date());
-};
+const resolveThread = (threadId: string, body: string | undefined): CommentThread =>
+  body === undefined
+    ? setThreadStatus(threadId, "resolved", new Date())
+    : replyAndResolve(threadId, AGENT, body, new Date());
 
 const resolveCommentTool: McpTool = {
   definition: {

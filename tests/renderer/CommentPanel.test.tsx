@@ -79,7 +79,7 @@ interface PanelProps {
   onClearPending?: () => void;
   activeThreadId?: string | null;
   onSelectThread?: (thread: CommentThread) => void;
-  bodyText?: string;
+  bodyText?: string | null;
 }
 
 const renderPanel = (props: PanelProps = {}) =>
@@ -87,7 +87,7 @@ const renderPanel = (props: PanelProps = {}) =>
     <CommentPanel
       entityType="note"
       entityId="note-1"
-      bodyText={props.bodyText ?? BODY_TEXT}
+      bodyText={props.bodyText === undefined ? BODY_TEXT : props.bodyText}
       pendingAnchor={props.pendingAnchor ?? null}
       onClearPending={props.onClearPending ?? vi.fn()}
       activeThreadId={props.activeThreadId ?? null}
@@ -175,6 +175,14 @@ describe("CommentPanel", () => {
   it("引用が本文にあれば「元の箇所が変わりました」は出さない", async () => {
     mockComments([makeThread()]);
     renderPanel();
+    await screen.findByText("ここを直して");
+    expect(screen.queryByText("元の箇所が変わりました")).toBeNull();
+  });
+
+  // 本文の文字を読む前の描画で、すべての引用が「変わった」と一瞬出てしまわないようにする。
+  it("本文をまだ読めていない間は「元の箇所が変わりました」を出さない", async () => {
+    mockComments([makeThread()]);
+    renderPanel({ bodyText: null });
     await screen.findByText("ここを直して");
     expect(screen.queryByText("元の箇所が変わりました")).toBeNull();
   });

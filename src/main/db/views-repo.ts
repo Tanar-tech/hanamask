@@ -103,6 +103,27 @@ const UNREAD_SQL = `
   WHERE b.deleted_at IS NULL AND (${unreadCondition("b", "notebook")}
     OR EXISTS (SELECT 1 FROM notes p WHERE p.notebook_id = b.id AND ${unreadCondition("p", "note")}))`;
 
+// その記録自身に、利用者がまだ見ていない更新があるか（ノートの中のページは数えない）。
+// 画面からの保存の前に確かめ、見ていない更新を保存のついでに既読にしないために使う。
+export const hasUnseenUpdate = (entityType: EntityType, id: string): boolean => {
+  const type = toEntityType(entityType);
+  const row: unknown = getDb()
+    .prepare(`SELECT 1 AS hit FROM ${TABLE_OF[type]} r WHERE r.id = @id AND ${unreadCondition("r", type)}`)
+    .get({ id, baseline: currentBaseline() });
+  return row !== undefined;
+};
+
+// 消えた記録の既読の行を片付ける。記録の表への外部キーは無いので、パージのついでに揃える。
+export const deleteViewsForMissingEntities = (): number =>
+  getDb()
+    .prepare(
+      `DELETE FROM views WHERE
+         (entity_type = 'note' AND entity_id NOT IN (SELECT id FROM notes))
+      OR (entity_type = 'task' AND entity_id NOT IN (SELECT id FROM tasks))
+      OR (entity_type = 'notebook' AND entity_id NOT IN (SELECT id FROM notebooks))`,
+    )
+    .run().changes;
+
 export const listUnread = (): UnreadEntry[] => {
   const rows: unknown[] = getDb().prepare(UNREAD_SQL).all({ baseline: currentBaseline() });
   return rows.map((row) => {

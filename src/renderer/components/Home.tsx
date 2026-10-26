@@ -106,14 +106,15 @@ const SearchBar = ({ onSearch }: { onSearch: (query: string) => void }): JSX.Ele
 const MARK_ALL_READ_LABEL = "すべて既読にする";
 
 const MarkAllReadButton = (): JSX.Element => {
-  const { markAllViewed } = useUnreadState();
+  const { hasUnread, markAllViewed } = useUnreadState();
   return (
     <button
       type="button"
+      disabled={!hasUnread}
       onClick={() => {
         void markAllViewed();
       }}
-      className={`${RESET_TEXT} cursor-pointer rounded-md border border-solid border-line bg-transparent px-3 py-1 font-body text-xs text-text-soft hover:border-ink-aqua focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-yellow`}
+      className={`${RESET_TEXT} ${FOCUS_RING} cursor-pointer rounded-md border border-solid border-line bg-transparent px-3 py-1 font-body text-xs text-text-soft hover:border-ink-aqua disabled:cursor-not-allowed disabled:text-text-faint disabled:hover:border-line`}
     >
       {MARK_ALL_READ_LABEL}
     </button>

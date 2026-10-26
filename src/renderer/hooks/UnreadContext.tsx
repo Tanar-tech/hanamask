@@ -5,6 +5,7 @@ import { useUnread, type UnreadState } from "./useUnread";
 
 // Provider の外（部品単体のテストなど）では、印を出さないだけで動くようにしておく。
 const NO_UNREAD: UnreadState = {
+  hasUnread: false,
   isUnread: () => false,
   markAllViewed: async () => {},
 };

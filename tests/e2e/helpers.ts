@@ -97,6 +97,9 @@ export const createNoteViaMcp = async (
 // to keep them unambiguous under Playwright's strict mode.
 export const noteListOf = (window: Page) => window.getByRole("list", { name: "ページ一覧" });
 
+// 開いたまま更新されると「前回から変わったところ」にも同じ文が出るので、本文はこの領域で絞る。
+export const bodyRegion = (window: Page) => window.getByRole("region", { name: "本文の表示" });
+
 export const taskListOf = (window: Page) => window.getByRole("list", { name: "タスク一覧" });
 
 // The app now opens on the home screen, so reach the list views through the left rail.
