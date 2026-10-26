@@ -101,7 +101,8 @@ describe("note trash and realtime reflection (UI delete/restore, MCP update whil
     await window.getByRole("heading", { name: "反映後タイトル" }).waitFor();
     await bodyRegion(window).getByText("反映後の本文").waitFor();
     await window.getByText("after", { exact: true }).waitFor();
-    await expect.poll(() => window.getByText("反映前の本文").count()).toBe(0);
+    // 古い本文は「前回から変わったところ」に消した行として出るので、本文の表示だけを見る。
+    await expect.poll(() => bodyRegion(window).getByText("反映前の本文").count()).toBe(0);
     await expect.poll(() => window.getByText("before", { exact: true }).count()).toBe(0);
     await window.screenshot({ path: join(SCREENSHOT_DIR, "trash-05-detail-updated.png") });
   });
