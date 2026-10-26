@@ -88,7 +88,7 @@ flowchart TD
 <ul>
 <li>差分の意図を理解しているか（レビューの丸投げをしない）</li>
 <li>過剰な実装・不要な抽象化がないか</li>
-<li>セキュリティ上の懸念（OWASP Top 10等）がないか</li>
+<li>セキュリティ上の懸念（OWASP Top 10等）がないか。IPC・MCP ツール・本文の描画・ファイルの読み書き・自動更新・ワークフローに触れる変更は、skill「security-review」をかけて確かめる（<code>../CLAUDE.md</code> の「セキュリティレビュー」）</li>
 <li>既存のコーディング規約・アーキテクチャとの整合性</li>
 </ul>
 </li>
@@ -160,7 +160,7 @@ flowchart TD
 <p>herdr（7.1）が複数の独立したタスクをworktree単位で並列化する仕組みであるのに対し、こちらは<strong>1つの機能の実装</strong>を、単一のClaude Codeセッション内でフェーズ単位・サブエージェント単位に並列化する仕組みである。Docker・追加worktreeを必要とせず、開発管理者のセッション内で完結する。両者は併用可能（例: herdrで複数機能を並行させつつ、各worktree内で本フローを使う）。</p>
 <p>骨格・フェーズ定義・呼び出すスキル・停止ポイントの詳細は <code>../CLAUDE.md</code> の「Parallel Subagent Framework」節を正とする（本規約とCLAUDE.mdの記載が食い違った場合はCLAUDE.mdを都度更新し一致させる）。要点のみ以下に記す。</p>
 <ol>
-<li>Phase 1（調査・並列・読取専用）→ Phase 2（仕様書生成、skill「feature-spec」）→ <strong>停止①: 仕様書Part 1を管理者がレビュー・承認</strong> → Phase 3（実装・並列・TDD、<code>.claude/agents/implementer.md</code>）→ Phase 4（統合ゲート・逐次）→ Phase 5（検証・並列、<code>.claude/agents/reviewer.md</code>）→ <strong>停止②: <code>/structured-review</code>（skill「structured-review」）で管理者が起動する構造化レビュー</strong>。</li>
+<li>Phase 1（調査・並列・読取専用）→ Phase 2（仕様書生成、skill「feature-spec」）→ <strong>停止①: 仕様書Part 1を管理者がレビュー・承認</strong> → Phase 3（実装・並列・TDD、<code>.claude/agents/implementer.md</code>）→ Phase 4（統合ゲート・逐次）→ Phase 5（検証・並列、<code>.claude/agents/reviewer.md</code> と skill「security-review」）→ <strong>停止②: <code>/structured-review</code>（skill「structured-review」）で管理者が起動する構造化レビュー</strong>。</li>
 <li>停止①・停止②以外では確認を挟まず自律的に進める。ただし <a href="#6">6. 管理者の承認が必要な操作</a>に該当する事態が判明した場合はその場で止まり管理者に確認する（本節の「自律的に進める」より優先する）。</li>
 <li>Phase 3の並列実装は、Phase 2で宣言した「並列グループ」（ファイルが重複しないセット）単位でのみ行う。共有ファイルの編集はPhase 4に限定する。</li>
 <li>テストの削除・無効化やアサーションを緩めることで「グリーンにする」ことは、開発管理者・開発要員のいずれであっても禁止する（<a href="#5">5. レビュー運用</a>の趣旨を機械的なごまかしから守るための明文化）。</li>
@@ -190,6 +190,7 @@ flowchart LR
 <li>APIキー・パスワード等の秘密情報はリポジトリにコミットしない。<code>.gitignore</code> に環境変数ファイル等を追加する。</li>
 <li>誤って機密情報を含むファイルをステージした場合、コミット前に必ず内容を確認する。</li>
 <li>脆弱性（インジェクション、XSS等）につながる実装に気づいた場合は直ちに修正する。</li>
+<li>skill「security-review」を、Phase 5・セキュリティに関わる単発の変更・リリースの前の3か所でかける（2026-10-27、管理者指示）。かける場所と扱いは <code>../CLAUDE.md</code> の「セキュリティレビュー」を正とする。</li>
 </ul>
 
 <h2 id="10">10. ドキュメント管理</h2>

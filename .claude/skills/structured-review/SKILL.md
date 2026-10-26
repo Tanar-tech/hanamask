@@ -6,19 +6,19 @@ disable-model-invocation: true
 
 # structured-review
 
-CLAUDE.md の「Parallel Subagent Framework」における停止②。Phase 5 で並列起動した `.claude/agents/reviewer.md`（正しさ／仕様カバレッジ／重複・抜け漏れ／型・null安全性の各観点）の指摘を集約し、管理者が採否を判断できる形式で提示する。
+CLAUDE.md の「Parallel Subagent Framework」における停止②。Phase 5 で並列起動した `.claude/agents/reviewer.md`（正しさ／仕様カバレッジ／重複・抜け漏れ／型・null安全性の各観点）と skill「security-review」の指摘を集約し、管理者が採否を判断できる形式で提示する。
 
 ## 前提
 
-- Phase 5 のレビュアー出力がまだ無い場合は、先に Phase 5（各観点の reviewer 並列起動）を実行してから本スキルの出力を作る。
+- Phase 5 のレビュアー出力がまだ無い場合は、先に Phase 5（各観点の reviewer と security-review の並列起動）を実行してから本スキルの出力を作る。security-review だけ抜けている場合も、先にかけてから出力を作る。
 - 自分でコードを修正しない。指摘の集約・提示のみを行う。
 
 ## 出力形式
 
 1. **サマリ**: `SPEC.md` の受け入れ条件に対する充足状況（満たした／未確認／未達）を1行ずつ。
-2. **指摘一覧**: 観点（正しさ／仕様カバレッジ／重複・抜け漏れ／型・null安全性）ごとに、重大度順（Critical / Major / Minor）で列挙する。各指摘には該当ファイル・行、具体的な問題、再現条件を含める。
+2. **指摘一覧**: 観点（正しさ／仕様カバレッジ／重複・抜け漏れ／型・null安全性／セキュリティ）ごとに、重大度順（Critical / Major / Minor）で列挙する。各指摘には該当ファイル・行、具体的な問題、再現条件を含める。セキュリティは security-review の重大度（High / Medium）と確度をそのまま添え、High は Critical として扱う。指摘が無ければ「security-review: 確度8以上の指摘なし」と書く。
 3. **テスト・Lint結果**: Phase 4 統合ゲートで確認したテスト/Lintの結果（コマンド・成否）。
-4. **管理者への判断依頼事項**: そのままマージしてよいか、Critical/Majorの指摘に対して Phase 3 へ差し戻すか、を選択肢として提示する。
+4. **管理者への判断依頼事項**: そのままマージしてよいか、Critical/Majorの指摘に対して Phase 3 へ差し戻すか、を選択肢として提示する。セキュリティの High が残っているときは「そのままマージ」を選択肢に入れない。
 
 指摘が0件の場合もその旨を明記し、テスト・Lint結果とあわせて「レビュー完了・指摘なし」として報告する。
 

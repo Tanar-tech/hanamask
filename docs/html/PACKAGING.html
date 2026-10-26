@@ -255,6 +255,7 @@ git push origin v0.2.0</code></pre></li>
 <h2 id="7">7. リリース時の注意</h2>
 
 <p><a href="GOVERNANCE.html#6">GOVERNANCE.md</a> §6 により、<strong>リリース・タグ付け・公開リポジトリへの push は管理者の承認が必要</strong>である。ビルド設定の整備やローカルでのインストーラー生成・動作確認はここまでの手順で進めてよいが、生成物を配布物として公開する行為は開発管理者の裁量では行わず、必ず事前に管理者の承認を得ること。</p>
+<p><strong>リリースの PR を出す前に、skill「security-review」をかける</strong>（2026-10-27追加）。パッチリリース（x.y.Z）は前の版のタグから今回までの差分に、ミドルバージョン以上（x.Y.0）はソース全体にかける。確度8以上の指摘と対応をリリースの PR 本文に書き、High が残っていればリリースしない。</p>
 
 </main>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
