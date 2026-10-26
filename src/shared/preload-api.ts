@@ -212,6 +212,57 @@ export interface Link {
   toId: string;
 }
 
+export interface UnreadEntry {
+  entityType: EntityType;
+  id: string;
+}
+
+// 最後に見た時点の内容。差分は画面側で今の内容と比べて作る。その時点から変わっていなければ null。
+export interface ChangesSinceView {
+  viewedAt: string;
+  previousTitle: string;
+  previousBody: string;
+}
+
+export type DiffableEntityType = "note" | "notebook";
+
+export type CommentEntityType = "note" | "task";
+export type CommentAuthor = "user" | "agent";
+export type CommentStatus = "open" | "resolved";
+
+// 選んだ文字列と前後の文字。本文が書き換わっても探し直せるよう、位置ではなく文字で持つ。
+export interface CommentAnchor {
+  quote: string;
+  prefix: string;
+  suffix: string;
+}
+
+export interface CommentMessage {
+  id: string;
+  author: CommentAuthor;
+  body: string;
+  createdAt: string;
+}
+
+export interface CommentThread {
+  id: string;
+  entityType: CommentEntityType;
+  entityId: string;
+  anchor: CommentAnchor | null;
+  status: CommentStatus;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+  messages: CommentMessage[];
+}
+
+export interface NewCommentInput {
+  entityType: CommentEntityType;
+  entityId: string;
+  body: string;
+  anchor: CommentAnchor | null;
+}
+
 export interface Image {
   id: string;
   noteId: string;
@@ -325,4 +376,15 @@ export interface HanamaskPreloadApi {
   checkForUpdates(): Promise<UpdateStatus>;
   installUpdate(): Promise<void>;
   onUpdateStatusChanged(callback: (status: UpdateStatus) => void): () => void;
+  markViewed(entityType: EntityType, id: string): Promise<void>;
+  markAllViewed(): Promise<void>;
+  listUnread(): Promise<UnreadEntry[]>;
+  readChangesSinceView(entityType: DiffableEntityType, id: string): Promise<ChangesSinceView | null>;
+  onViewsChanged(callback: () => void): () => void;
+  listComments(entityType: CommentEntityType, entityId: string): Promise<CommentThread[]>;
+  createComment(input: NewCommentInput): Promise<CommentThread>;
+  replyComment(threadId: string, body: string): Promise<CommentThread>;
+  setCommentStatus(threadId: string, status: CommentStatus): Promise<CommentThread>;
+  deleteComment(threadId: string): Promise<boolean>;
+  onCommentsChanged(callback: () => void): () => void;
 }

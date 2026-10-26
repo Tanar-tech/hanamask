@@ -6,6 +6,9 @@ import { PinToggleButton, isPinned } from "./PinToggleButton";
 import { TagList } from "./TagList";
 import { NoteVersionHistory } from "./NoteVersionHistory";
 import { RelatedNotes } from "./RelatedNotes";
+import { ChangesSinceView } from "./ChangesSinceView";
+import { OverwriteConfirm } from "./OverwriteConfirm";
+import { ReviewableBody } from "./ReviewableBody";
 
 interface NoteDetailProps {
   noteId: string;
@@ -183,6 +186,7 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
   const [saveError, setSaveError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(false);
   const [externalNote, setExternalNote] = useState<Note | null>(null);
+  const [overwritePending, setOverwritePending] = useState(false);
   const [reloadError, setReloadError] = useState<string | null>(null);
   const [pinError, setPinError] = useState<string | null>(null);
 
@@ -241,6 +245,7 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
     setExternalNote(null);
     setDraft(null);
     setSaveError(null);
+    setOverwritePending(false);
   };
 
   useEffect(() => {
@@ -317,8 +322,14 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
     setDraft((current) => (current === null ? null : { ...current, ...patch }));
   };
 
-  const saveDraft = async (): Promise<void> => {
+  // エージェントの更新が届いたあとの保存は、黙って上書きせずに確かめる（§4.13）。
+  const saveDraft = async (overwrite = false): Promise<void> => {
     if (draft === null) return;
+    if (externalNote !== null && !overwrite) {
+      setOverwritePending(true);
+      return;
+    }
+    setOverwritePending(false);
     try {
       setSaveError(null);
       liveStateRef.current.mutationCount += 1;
@@ -385,6 +396,20 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
       {note !== null && error === null && draft !== null && (
         <>
           {externalNote !== null && <ExternalUpdateNotice onDiscard={discardDraft} />}
+          {overwritePending && (
+            <OverwriteConfirm
+              onKeepEditing={() => {
+                setOverwritePending(false);
+              }}
+              onLoadLatest={() => {
+                setOverwritePending(false);
+                discardDraft();
+              }}
+              onOverwrite={() => {
+                void saveDraft(true);
+              }}
+            />
+          )}
           <NoteEditForm
             draft={draft}
             error={saveError}
@@ -422,12 +447,22 @@ export const NoteDetail = ({ noteId, onBack, onSelectNote }: NoteDetailProps): J
               />
             </div>
           </header>
+          {/* 開いている間の更新でも付け直して、その差分を見せてから既読にする */}
+          <ChangesSinceView
+            key={note.updatedAt}
+            entityType="note"
+            id={noteId}
+            currentTitle={note.title}
+            currentBody={note.body}
+          />
           <TagList tags={note.tags} />
-          {note.body.trim() === "" ? (
-            <p className={EMPTY_BODY}>{EMPTY_BODY_MESSAGE}</p>
-          ) : (
-            <MarkdownDocument content={note.body} />
-          )}
+          <ReviewableBody entityType="note" entityId={noteId}>
+            {note.body.trim() === "" ? (
+              <p className={EMPTY_BODY}>{EMPTY_BODY_MESSAGE}</p>
+            ) : (
+              <MarkdownDocument content={note.body} />
+            )}
+          </ReviewableBody>
           <section className="flex flex-col gap-2">
             <label htmlFor={IMAGE_FIELD_ID} className={SECTION_LABEL}>
               {ATTACH_LABEL}

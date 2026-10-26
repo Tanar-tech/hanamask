@@ -272,7 +272,7 @@ export const listNoteVersions = (noteId: string): NoteVersion[] => {
   });
 };
 
-const getNoteVersion = (versionId: string): NoteVersion | null => {
+export const getNoteVersion = (versionId: string): NoteVersion | null => {
   const row: unknown = getDb()
     .prepare("SELECT * FROM note_versions WHERE id = ? AND entity_type = ?")
     .get(versionId, NOTE_ENTITY_TYPE);

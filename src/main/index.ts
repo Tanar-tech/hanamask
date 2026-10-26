@@ -22,6 +22,7 @@ import {
   listNoteVersions,
   restoreNote,
   restoreNoteVersion,
+  getNoteVersion,
   searchNotes,
   setNotePinned,
   softDeleteNote,
@@ -114,7 +115,18 @@ import {
   type EntityChange,
   emitNotebooksChanged,
   onNotebooksChanged,
+  emitCommentsChanged,
+  emitViewsChanged,
+  onCommentsChanged,
+  onViewsChanged,
+  type CommentChange,
 } from "./mcp/change-emitter.js";
+import { ensureViewBaseline, hasUnseenUpdate, markViewed } from "./db/views-repo.js";
+import {
+  COMMENTS_CHANGED_CHANNEL,
+  registerReviewIpc,
+  VIEWS_CHANGED_CHANNEL,
+} from "./review-ipc.js";
 import {
   createChangeNotifier,
   type ChangeNotification,
@@ -327,6 +339,35 @@ export const broadcastLinksChanged = (): void => {
   });
 };
 
+const broadcastViewsChanged = (): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(VIEWS_CHANGED_CHANNEL);
+  });
+};
+
+const broadcastCommentsChanged = (): void => {
+  BrowserWindow.getAllWindows().forEach((window) => {
+    window.webContents.send(COMMENTS_CHANGED_CHANNEL);
+  });
+};
+
+type SavableEntityType = "note" | "notebook" | "task";
+
+/*
+ * 画面から自分で保存した記録は、保存で動いた更新日時より後を既読にして、自分の編集で未読にしない。
+ * ただし保存の前にまだ見ていない更新（エージェントの変更）があったなら既読にしない。
+ * 既読にすると、その変更の未読の印と「前回から変わったところ」が見ないまま消えてしまう。
+ */
+const saveAsUser = <T>(entityType: SavableEntityType, id: string, save: () => T | null): T | null => {
+  const sawLatest = !hasUnseenUpdate(entityType, id);
+  const saved = save();
+  if (saved !== null && sawLatest) {
+    markViewed(entityType, id, new Date());
+    emitViewsChanged();
+  }
+  return saved;
+};
+
 const listNotes = (): Note[] => searchNotes("");
 
 const findNotes = (_event: IpcMainInvokeEvent, query: string): Note[] =>
@@ -349,7 +390,7 @@ const editNote = (
   id: string,
   input: NoteUpdateInput,
 ): Note | null => {
-  const updated = updateNote(id, input);
+  const updated = saveAsUser("note", id, () => updateNote(id, input));
   if (updated !== null) emitNotesChanged();
   return updated;
 };
@@ -364,7 +405,9 @@ const restoreVersion = (
   _event: IpcMainInvokeEvent,
   versionId: string,
 ): Note | null => {
-  const restored = restoreNoteVersion(versionId);
+  const version = getNoteVersion(versionId);
+  if (version === null) return null;
+  const restored = saveAsUser("note", version.noteId, () => restoreNoteVersion(versionId));
   if (restored !== null) emitNotesChanged();
   return restored;
 };
@@ -437,7 +480,9 @@ const readNotebookDetail = (_event: IpcMainInvokeEvent, id: string) => {
 
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitNotebooksChangedを呼ぶ。
 const changeNotebook = (_event: IpcMainInvokeEvent, id: string, input: unknown) => {
-  const updated = updateNotebook(id, readNotebookUpdateInput(input));
+  const updated = saveAsUser("notebook", id, () =>
+    updateNotebook(id, readNotebookUpdateInput(input)),
+  );
   if (updated !== null) {
     emitNotebooksChanged({ entity: "notebook", action: "updated", id, title: updated.title });
   }
@@ -456,7 +501,7 @@ const updateTaskStatus = (
   id: string,
   status: TaskStatus,
 ): void => {
-  if (updateTask(id, { status }) !== null) emitTasksChanged();
+  if (saveAsUser("task", id, () => updateTask(id, { status })) !== null) emitTasksChanged();
 };
 
 // MCPツール経由の更新と同じ通知経路を通すため、broadcastではなくemitTasksChangedを呼ぶ。
@@ -465,7 +510,7 @@ const editTask = (
   id: string,
   input: TaskUpdateInput,
 ): Task | null => {
-  const updated = updateTask(id, input);
+  const updated = saveAsUser("task", id, () => updateTask(id, input));
   if (updated !== null) emitTasksChanged();
   return updated;
 };
@@ -594,6 +639,21 @@ const handleTasksChanged = (change?: EntityChange): void => {
   if (change !== undefined) changeNotifier.recordChange(change);
 };
 
+const entityTitle = (change: CommentChange): string =>
+  (change.entityType === "note" ? getNote(change.entityId) : getTask(change.entityId))?.title ?? "";
+
+// エージェントの返信・解決は、記録の更新と同じOS通知に載せる（§4.12）。コメント本文は通知に出さない。
+const handleCommentsChanged = (change?: CommentChange): void => {
+  broadcastCommentsChanged();
+  if (change?.by !== "agent") return;
+  changeNotifier.recordChange({
+    entity: change.entityType,
+    action: "updated",
+    id: change.entityId,
+    title: entityTitle(change),
+  });
+};
+
 // Trayは参照を保持しないとGCされてアイコンが消える。
 let tray: Tray | null = null;
 let mcpPort: number | null = null;
@@ -661,6 +721,9 @@ const importBackupFromFile = async (): Promise<BackupImportResult> => {
   emitNotesChanged();
   emitTasksChanged();
   broadcastLinksChanged();
+  ensureViewBaseline(new Date());
+  emitCommentsChanged();
+  emitViewsChanged();
   return { status: "imported", counts, safetyCopyPath };
 };
 
@@ -811,6 +874,7 @@ const findRelated = (
 
 const start = async (): Promise<void> => {
   openDb(resolveDbFilePath());
+  ensureViewBaseline(new Date());
   removeImportLeftovers(resolveImagesDirPath());
   setImagesDirPath(resolveImagesDirPath());
   setChatSettingsPath(join(resolveDataDirPath(), CHAT_SETTINGS_FILE_NAME));
@@ -840,6 +904,8 @@ const start = async (): Promise<void> => {
   onNotebooksChanged(handleNotebooksChanged);
   onTasksChanged(handleTasksChanged);
   onLinksChanged(broadcastLinksChanged);
+  onCommentsChanged(handleCommentsChanged);
+  onViewsChanged(broadcastViewsChanged);
   setUpEmbeddings();
   const mcpServer = await startMcpServer();
   mcpPort = mcpServer.port;
@@ -852,6 +918,7 @@ ipcMain.handle(TASKS_LIST_CHANNEL, () => listTasks());
 ipcMain.handle(NOTES_GET_CHANNEL, findNote);
 ipcMain.handle(TASKS_GET_CHANNEL, findTask);
 ipcMain.handle(NOTES_UPDATE_CHANNEL, editNote);
+registerReviewIpc(ipcMain);
 ipcMain.handle(NOTES_LIST_VERSIONS_CHANNEL, findNoteVersions);
 ipcMain.handle(NOTES_RESTORE_VERSION_CHANNEL, restoreVersion);
 ipcMain.handle(NOTES_DELETE_CHANNEL, deleteNote);

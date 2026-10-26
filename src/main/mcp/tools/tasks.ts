@@ -9,6 +9,7 @@ import {
 } from "../../db/tasks-repo.js";
 import { listTagsInUse } from "../../db/tags-repo.js";
 import { emitTasksChanged } from "../change-emitter.js";
+import { conflictFor, EXPECTED_UPDATED_AT_SCHEMA } from "./expected-updated-at.js";
 import type { TaskStatus } from "../../../shared/preload-api.js";
 import {
   errorResult,
@@ -86,12 +87,15 @@ const updateTaskTool: McpTool = {
         tags: TAGS_SCHEMA,
         status: TASK_STATUS_SCHEMA,
         due_date: { type: ["string", "null"], description: "New due date, or null to clear it" },
+        expected_updated_at: EXPECTED_UPDATED_AT_SCHEMA,
       },
       required: ["id"],
     },
   },
   handler: toToolHandler((args) => {
     const id = readString(args, "id");
+    const conflict = conflictFor(args, getTask(id)?.updatedAt);
+    if (conflict !== null) return conflict;
     const task = updateTask(id, {
       title: readOptionalString(args, "title"),
       body: readOptionalString(args, "body"),

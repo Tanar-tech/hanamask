@@ -11,9 +11,11 @@ import {
   ListToolsRequestSchema,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
+import { commentTools } from "./tools/comments.js";
 import { linkTools } from "./tools/links.js";
 import { notebookTools } from "./tools/notebooks.js";
 import { noteTools } from "./tools/notes.js";
+import { pageEditTools } from "./tools/page-edits.js";
 import type { McpTool } from "./tools/shared.js";
 import { taskTools } from "./tools/tasks.js";
 import { uiTools } from "./tools/ui.js";
@@ -43,9 +45,11 @@ const resolvePort = (): number => {
 
 const allTools: readonly McpTool[] = [
   ...noteTools,
+  ...pageEditTools,
   ...notebookTools,
   ...taskTools,
   ...linkTools,
+  ...commentTools,
   ...uiTools,
 ];
 

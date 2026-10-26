@@ -3,6 +3,9 @@ import type { Task, TaskStatus } from "../../shared/preload-api";
 import { EntityLinks } from "./EntityLinks";
 import { MarkdownDocument } from "./MarkdownDocument";
 import { TagList } from "./TagList";
+import { OverwriteConfirm } from "./OverwriteConfirm";
+import { ReviewableBody } from "./ReviewableBody";
+import { useMarkViewed } from "../hooks/useMarkViewed";
 
 interface TaskDetailProps {
   taskId: string;
@@ -142,6 +145,8 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
   const [draft, setDraft] = useState<TaskDraft | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [externalTask, setExternalTask] = useState<Task | null>(null);
+  const [overwritePending, setOverwritePending] = useState(false);
+  useMarkViewed("task", taskId, task?.updatedAt);
 
   const editing = draft !== null;
   // 変更通知のコールバックは購読時のstateを閉じ込めてしまうため、判断材料は都度refから読む。
@@ -233,10 +238,17 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
     setExternalTask(null);
     setDraft(null);
     setSaveError(null);
+    setOverwritePending(false);
   };
 
-  const saveDraft = async (): Promise<void> => {
+  // エージェントの更新が届いたあとの保存は、黙って上書きせずに確かめる（§4.13）。
+  const saveDraft = async (overwrite = false): Promise<void> => {
     if (draft === null) return;
+    if (externalTask !== null && !overwrite) {
+      setOverwritePending(true);
+      return;
+    }
+    setOverwritePending(false);
     try {
       setSaveError(null);
       liveStateRef.current.mutationCount += 1;
@@ -276,6 +288,17 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
       {task !== null && draft !== null && (
         <>
           {externalTask !== null && <ExternalUpdateNotice onDiscard={discardDraft} />}
+          {overwritePending && (
+            <OverwriteConfirm
+              onKeepEditing={() => {
+                setOverwritePending(false);
+              }}
+              onLoadLatest={discardDraft}
+              onOverwrite={() => {
+                void saveDraft(true);
+              }}
+            />
+          )}
           <TaskEditForm
             draft={draft}
             error={saveError}
@@ -342,11 +365,13 @@ export const TaskDetail = ({ taskId, onBack }: TaskDetailProps): JSX.Element => 
 
           <TagList tags={task.tags} />
 
-          {task.body.trim() === "" ? (
-            <p className={EMPTY_BODY}>{EMPTY_BODY_MESSAGE}</p>
-          ) : (
-            <MarkdownDocument content={task.body} />
-          )}
+          <ReviewableBody entityType="task" entityId={taskId}>
+            {task.body.trim() === "" ? (
+              <p className={EMPTY_BODY}>{EMPTY_BODY_MESSAGE}</p>
+            ) : (
+              <MarkdownDocument content={task.body} />
+            )}
+          </ReviewableBody>
 
           <EntityLinks entityType="task" entityId={taskId} />
         </>

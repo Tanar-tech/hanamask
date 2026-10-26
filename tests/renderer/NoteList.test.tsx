@@ -4,7 +4,7 @@ import { act, cleanup, screen, within } from "@testing-library/react";
 import { renderWithMotion as render } from "./motion-render";
 import { NoteList } from "../../src/renderer/components/NoteList";
 import type { AppSettings, Image, Note } from "../../src/shared/preload-api";
-import { UNSUPPORTED_UPDATE } from "./hanamask-stub";
+import { UNSUPPORTED_UPDATE, V230_DEFAULTS } from "./hanamask-stub";
 
 const stubImage: Image = {
   id: "image-1",
@@ -80,6 +80,7 @@ const mockHanamask = (notesByCall: Note[][]) => {
     checkForUpdates: vi.fn(async () => UNSUPPORTED_UPDATE),
     installUpdate: vi.fn(async () => {}),
     onUpdateStatusChanged: vi.fn(() => () => {}),
+    ...V230_DEFAULTS,
     onNotebooksChanged: vi.fn(() => () => undefined),
     listDeletedNotebooks: vi.fn(async () => []),
     listNotebooks: vi.fn(async () => []),

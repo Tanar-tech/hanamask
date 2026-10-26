@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { App } from "../../src/renderer/App";
 import type { AppSettings, DeletedNote, Image, NavigateTarget, Note, Notebook, NoteVersion, Task } from "../../src/shared/preload-api";
-import { UNSUPPORTED_UPDATE } from "./hanamask-stub";
+import { UNSUPPORTED_UPDATE, V230_DEFAULTS } from "./hanamask-stub";
 
 const stubImage: Image = {
   id: "image-1",
@@ -126,6 +126,7 @@ const mockHanamask = () => {
     checkForUpdates: vi.fn(async () => UNSUPPORTED_UPDATE),
     installUpdate: vi.fn(async () => {}),
     onUpdateStatusChanged: vi.fn(() => () => {}),
+    ...V230_DEFAULTS,
   };
 };
 

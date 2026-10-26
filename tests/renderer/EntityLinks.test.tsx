@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { EntityLinks } from "../../src/renderer/components/EntityLinks";
 import type { AppSettings, EntityType, Link } from "../../src/shared/preload-api";
-import { UNSUPPORTED_UPDATE } from "./hanamask-stub";
+import { UNSUPPORTED_UPDATE, V230_DEFAULTS } from "./hanamask-stub";
 
 const makeLink = (overrides: Partial<Link> = {}): Link => ({
   id: "link-1",
@@ -97,6 +97,7 @@ const mockHanamask = (overrides: LinkApiOverrides = {}) => {
     checkForUpdates: vi.fn(async () => UNSUPPORTED_UPDATE),
     installUpdate: vi.fn(async () => {}),
     onUpdateStatusChanged: vi.fn(() => () => {}),
+    ...V230_DEFAULTS,
   };
   return {
     listLinks,

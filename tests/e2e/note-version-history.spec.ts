@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  bodyRegion,
   SCREENSHOT_DIR,
   callMcpTool,
   createNoteViaMcp,
@@ -64,14 +65,14 @@ describe("note version history (restore an older version from the detail screen)
 
     await openNoteList(window);
     await openNoteDetail(window, "版のあるノート");
-    await window.getByText("書き換えた本文").waitFor();
+    await bodyRegion(window).getByText("書き換えた本文").waitFor();
 
     const history = window.getByRole("list").filter({ hasText: RESTORE_LABEL });
     /*
      * 復元すると同じ文字列が本文と履歴プレビューの両方に出る。本文はMarkdownの
      * 段落として <p> に、履歴プレビューは <span> に描画されるので、そこで区別する。
      */
-    const noteBody = (text: string) => window.locator("p").filter({ hasText: text });
+    const noteBody = (text: string) => bodyRegion(window).locator("p").filter({ hasText: text });
     // 更新は1回なので、履歴は「最初の本文」1件だけ。
     await expect.poll(() => history.getByRole("button", { name: RESTORE_LABEL }).count()).toBe(1);
 

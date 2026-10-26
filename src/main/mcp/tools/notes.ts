@@ -19,6 +19,7 @@ import {
 } from "../../llm/semantic-search-service.js";
 import { attachImage } from "../../images/attach-image.js";
 import { emitNotesChanged } from "../change-emitter.js";
+import { conflictFor, EXPECTED_UPDATED_AT_SCHEMA } from "./expected-updated-at.js";
 import {
   type McpTool,
   errorResult,
@@ -207,12 +208,15 @@ const updateNoteTool: NoteTool = {
         title: { type: "string", description: "New title" },
         body: { type: "string", description: "New body in Markdown" },
         tags: TAGS_SCHEMA,
+        expected_updated_at: EXPECTED_UPDATED_AT_SCHEMA,
       },
       required: ["id"],
     },
   },
   handler: toToolHandler((args) => {
     const id = readString(args, "id");
+    const conflict = conflictFor(args, getNote(id)?.updatedAt);
+    if (conflict !== null) return conflict;
     const note = updateNote(id, {
       title: readOptionalString(args, "title"),
       body: readOptionalString(args, "body"),
@@ -239,6 +243,7 @@ const updatePageTool: NoteTool = {
         title: { type: "string", description: "New title" },
         body: { type: "string", description: "New body in Markdown" },
         tags: TAGS_SCHEMA,
+        expected_updated_at: EXPECTED_UPDATED_AT_SCHEMA,
       },
       required: ["id"],
     },

@@ -10,7 +10,7 @@ import type {
   Note,
   Task,
 } from "../../src/shared/preload-api";
-import { UNSUPPORTED_UPDATE } from "./hanamask-stub";
+import { UNSUPPORTED_UPDATE, V230_DEFAULTS } from "./hanamask-stub";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const isoDaysAgo = (days: number): string =>
@@ -150,6 +150,7 @@ const mockHanamask = (overrides: TrashApiOverrides = {}) => {
     checkForUpdates: vi.fn(async () => UNSUPPORTED_UPDATE),
     installUpdate: vi.fn(async () => {}),
     onUpdateStatusChanged: vi.fn(() => () => {}),
+    ...V230_DEFAULTS,
     listDeletedNotebooks,
     restoreNotebook,
     setNotePinned: vi.fn(async () => null),

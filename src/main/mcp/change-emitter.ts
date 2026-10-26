@@ -8,6 +8,9 @@ const TASKS_CHANGED_EVENT = "tasks:changed";
 const NOTEBOOKS_CHANGED_EVENT = "notebooks:changed";
 // リンクはノートとタスクをまたぐため、どちらのチャンネルに載せても意味論がずれる。独立させる。
 const LINKS_CHANGED_EVENT = "links:changed";
+const COMMENTS_CHANGED_EVENT = "comments:changed";
+// 既読は利用者の状態で、記録そのものは変わらない。notes:changed に載せると索引や通知まで動くので分ける。
+const VIEWS_CHANGED_EVENT = "views:changed";
 
 const emitter = new EventEmitter();
 
@@ -63,5 +66,38 @@ export const onLinksChanged = (listener: () => void): (() => void) => {
   emitter.on(LINKS_CHANGED_EVENT, listener);
   return () => {
     emitter.off(LINKS_CHANGED_EVENT, listener);
+  };
+};
+
+// エージェントの返信・解決をOS通知に出すために載せる。コメント本文は通知に出さないのでここにも入れない。
+export interface CommentChange {
+  entityType: "note" | "task";
+  entityId: string;
+  threadId: string;
+  action: "created" | "replied" | "resolved" | "reopened" | "deleted";
+  by: "user" | "agent";
+}
+
+export const emitCommentsChanged = (change?: CommentChange): void => {
+  emitter.emit(COMMENTS_CHANGED_EVENT, change);
+};
+
+export const onCommentsChanged = (
+  listener: (change?: CommentChange) => void,
+): (() => void) => {
+  emitter.on(COMMENTS_CHANGED_EVENT, listener);
+  return () => {
+    emitter.off(COMMENTS_CHANGED_EVENT, listener);
+  };
+};
+
+export const emitViewsChanged = (): void => {
+  emitter.emit(VIEWS_CHANGED_EVENT);
+};
+
+export const onViewsChanged = (listener: () => void): (() => void) => {
+  emitter.on(VIEWS_CHANGED_EVENT, listener);
+  return () => {
+    emitter.off(VIEWS_CHANGED_EVENT, listener);
   };
 };

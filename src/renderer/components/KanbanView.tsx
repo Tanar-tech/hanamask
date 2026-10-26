@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type DragEvent, type JSX } from "react";
 import type { Task, TaskStatus } from "../../shared/preload-api";
+import { UnreadMarkFor } from "../hooks/UnreadContext";
 
 interface Column {
   status: TaskStatus;
@@ -136,7 +137,10 @@ export const KanbanView = (): JSX.Element => {
                     }}
                     className={`flex cursor-grab flex-col gap-1 rounded-md border border-line bg-paper-raised px-3 py-2 transition-colors duration-[var(--duration-fast)] ease-standard select-none hover:border-ink-aqua active:cursor-grabbing ${task.id === draggingTaskId ? "border-ink-aqua opacity-60" : ""}`}
                   >
-                    <span className="font-body text-sm font-semibold">{task.title}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="min-w-0 font-body text-sm font-semibold">{task.title}</span>
+                      <UnreadMarkFor entityType="task" id={task.id} />
+                    </span>
                     {task.dueDate !== null && (
                       <span className="font-body text-xs text-text-faint">
                         <span className="mr-1">期限</span>

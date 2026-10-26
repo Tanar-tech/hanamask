@@ -4,6 +4,9 @@ import type {
   EmbeddingStatus,
   HanamaskPreloadApi,
   UpdateStatus,
+  UnreadEntry,
+  ChangesSinceView,
+  CommentThread,
 } from "../../src/shared/preload-api";
 
 const CHAT_SETTINGS = { apiKeyMask: null, model: "claude-sonnet-4-5" };
@@ -21,6 +24,21 @@ export const UNSUPPORTED_UPDATE: UpdateStatus = {
   currentVersion: "0.0.0",
   state: { kind: "unsupported" },
 };
+
+// v2.3.0 で増えた口の既定。手で組み立てたAPIを使う各テストもこれを広げて使う。
+export const V230_DEFAULTS = {
+  markViewed: vi.fn(async () => {}),
+  markAllViewed: vi.fn(async () => {}),
+  listUnread: vi.fn(async (): Promise<UnreadEntry[]> => []),
+  readChangesSinceView: vi.fn(async (): Promise<ChangesSinceView | null> => null),
+  onViewsChanged: vi.fn(() => () => {}),
+  listComments: vi.fn(async (): Promise<CommentThread[]> => []),
+  createComment: vi.fn(notStubbed("createComment")),
+  replyComment: vi.fn(notStubbed("replyComment")),
+  setCommentStatus: vi.fn(notStubbed("setCommentStatus")),
+  deleteComment: vi.fn(async () => true),
+  onCommentsChanged: vi.fn(() => () => {}),
+} satisfies Partial<HanamaskPreloadApi>;
 
 /** 何もしない既定のpreload API。関心のある口だけを差し替えて使う。 */
 export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
@@ -89,6 +107,7 @@ export const stubHanamask = (overrides: Partial<HanamaskPreloadApi>): void => {
     checkForUpdates: vi.fn(async () => UNSUPPORTED_UPDATE),
     installUpdate: vi.fn(async () => {}),
     onUpdateStatusChanged: vi.fn(() => () => {}),
+    ...V230_DEFAULTS,
   };
   const api: HanamaskPreloadApi = { ...base, ...overrides };
   window.hanamask = api;

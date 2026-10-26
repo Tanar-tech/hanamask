@@ -8,6 +8,7 @@ import { DeleteButton } from "./DeleteButton";
 import { TagList } from "./TagList";
 import { TagGroups, useTagFilter } from "./TagFilter";
 import { usePaging } from "./Paging";
+import { UnreadMarkFor } from "../hooks/UnreadContext";
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: "未着手",
@@ -114,6 +115,7 @@ export const TaskList = ({ onSelectTask }: TaskListProps): JSX.Element => {
               >
                 {STATUS_LABELS[task.status]}
               </p>
+              <UnreadMarkFor entityType="task" id={task.id} />
               {task.dueDate !== null && (
                 <p className="m-0 font-body text-xs text-text-faint">{task.dueDate}</p>
               )}

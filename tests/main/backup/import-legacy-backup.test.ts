@@ -154,6 +154,10 @@ describe("v2.0.x の書庫の取り込み", () => {
     expect(columnNames("notebooks")).toContain("summary");
     expect(columnNames("notes")).toContain("notebook_id");
     expect(columnNames("note_versions")).toContain("entity_type");
+    // v2.3.0 の表（既読・コメント・アプリ全体の値）も、古い書庫を開き直せば作られる。
+    ["views", "comments", "app_meta"].forEach((table) => {
+      expect(columnNames(table).length).toBeGreaterThan(0);
+    });
     expect(getNote(LEGACY_NOTE_ID)?.title).toBe(LEGACY_NOTE_TITLE);
     expect(listNotebooks()).toEqual([]);
   });

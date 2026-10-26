@@ -107,3 +107,12 @@
     --color-crit: #ff6b78;
   }
 }
+
+/*
+ * コメントの該当箇所。本文の DOM を書き換えずに光らせるため CSS Custom Highlight API を使っており、
+ * ::highlight() はユーティリティで書けないので、ここに置く。
+ */
+::highlight(hanamask-comment) {
+  background-color: color-mix(in srgb, var(--color-ink-aqua) 30%, transparent);
+  color: inherit;
+}

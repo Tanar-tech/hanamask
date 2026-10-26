@@ -48,6 +48,16 @@ vi.mock("electron-updater", () => ({
     autoUpdater: { on: vi.fn(), checkForUpdates: vi.fn(async () => null), quitAndInstall: vi.fn() },
   },
 }));
+vi.mock("../../src/main/db/views-repo", () => ({
+  ensureViewBaseline: vi.fn(),
+  hasUnseenUpdate: vi.fn(() => false),
+  markViewed: vi.fn(),
+}));
+vi.mock("../../src/main/review-ipc", () => ({
+  registerReviewIpc: vi.fn(),
+  VIEWS_CHANGED_CHANNEL: "views:changed",
+  COMMENTS_CHANGED_CHANNEL: "comments:changed",
+}));
 vi.mock("../../src/main/db/db", () => ({ openDb: vi.fn(), closeDb: vi.fn() }));
 vi.mock("../../src/main/db/purge", () => ({ purgeSoftDeletedRecords: vi.fn() }));
 vi.mock("../../src/main/mcp/server", () => ({

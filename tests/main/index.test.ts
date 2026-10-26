@@ -34,6 +34,8 @@ const getNote = vi.fn();
 const updateNote = vi.fn();
 const listNoteVersions = vi.fn();
 const restoreNoteVersion = vi.fn();
+// 復元の前に、どのページの版かを引いて既読の扱いを決めるため。
+const getNoteVersion = vi.fn(() => ({ noteId: "note-1" }));
 const listDeletedNotes = vi.fn();
 const restoreNote = vi.fn();
 const setNotePinned = vi.fn();
@@ -106,6 +108,16 @@ vi.mock("electron", () => ({
   dialog: { showSaveDialog: vi.fn(), showOpenDialog: vi.fn() },
 }));
 
+vi.mock("../../src/main/db/views-repo", () => ({
+  ensureViewBaseline: vi.fn(),
+  hasUnseenUpdate: vi.fn(() => false),
+  markViewed: vi.fn(),
+}));
+vi.mock("../../src/main/review-ipc", () => ({
+  registerReviewIpc: vi.fn(),
+  VIEWS_CHANGED_CHANNEL: "views:changed",
+  COMMENTS_CHANGED_CHANNEL: "comments:changed",
+}));
 vi.mock("../../src/main/db/db", () => ({ openDb, closeDb: vi.fn() }));
 vi.mock("../../src/main/db/notebooks-repo", () => ({
   listDeletedNotebooks: vi.fn(() => []),
@@ -119,6 +131,7 @@ vi.mock("../../src/main/db/notes-repo", () => ({
   updateNote,
   listNoteVersions,
   restoreNoteVersion,
+  getNoteVersion,
   listDeletedNotes,
   restoreNote,
   setNotePinned,
@@ -135,6 +148,10 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 vi.mock("../../src/main/mcp/server", () => ({ startMcpServer }));
 vi.mock("../../src/main/mcp/change-emitter", () => ({
+  emitCommentsChanged: vi.fn(),
+  emitViewsChanged: vi.fn(),
+  onCommentsChanged: vi.fn(() => () => {}),
+  onViewsChanged: vi.fn(() => () => {}),
   emitNotebooksChanged,
   onNotebooksChanged: vi.fn(() => () => {}),
   emitNotesChanged,

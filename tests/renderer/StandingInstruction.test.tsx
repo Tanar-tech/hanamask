@@ -47,6 +47,17 @@ describe("STANDING_INSTRUCTION", () => {
     expect(STANDING_INSTRUCTION).toMatch(/二度|蒸し返/);
   });
 
+  it("作業前に未解決のコメントを確かめ、直したら返信・解決するよう促す", () => {
+    expect(STANDING_INSTRUCTION).toContain("list_comments");
+    expect(STANDING_INSTRUCTION).toContain("reply_comment");
+    expect(STANDING_INSTRUCTION).toContain("resolve_comment");
+  });
+
+  it("追記や節の書き換えは部分編集のツールを使うよう促す", () => {
+    expect(STANDING_INSTRUCTION).toContain("append_to_page");
+    expect(STANDING_INSTRUCTION).toContain("replace_page_section");
+  });
+
   it("ツールが見えないときは書かないと明記する", () => {
     expect(STANDING_INSTRUCTION).toMatch(/ツールが見えないときは書かない/);
     expect(STANDING_INSTRUCTION).toMatch(/MCP/);

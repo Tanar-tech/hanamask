@@ -8,6 +8,7 @@ import {
   type NavPage,
 } from "../text/navFilter";
 import { PIN_ROW, PinRowToggle, isPinned } from "./PinToggleButton";
+import { UnreadMarkFor } from "../hooks/UnreadContext";
 
 export interface NotebookPages {
   notebook: Notebook | null;
@@ -87,6 +88,7 @@ const NotebookRow = ({
       <span className="min-w-0 flex-1 truncate">{notebook.title}</span>
       <span className={BADGE}>{notebook.pageCount}</span>
     </button>
+    <UnreadMarkFor entityType="notebook" id={notebook.id} />
     <PinRowToggle title={notebook.title} pinned={isPinned(notebook)} onToggle={onTogglePin} />
   </li>
 );
@@ -119,6 +121,7 @@ const PageRow = ({
         {page.title}
       </span>
     </button>
+    <UnreadMarkFor entityType="note" id={page.id} />
     <PinRowToggle title={page.title} pinned={isPinned(page)} onToggle={onTogglePin} />
   </li>
 );
